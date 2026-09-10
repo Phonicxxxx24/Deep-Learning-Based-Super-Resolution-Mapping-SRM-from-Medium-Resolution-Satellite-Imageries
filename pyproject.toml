@@ -30,3 +30,6 @@ include = ["srm*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "integration: mark test as requiring external network or live data access",
+]

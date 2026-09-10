@@ -1,0 +1,10 @@
+{
+  "venvPath": "/home/dhruv",
+  "venv": "cuda_env",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Linux",
+  "extraPaths": [
+    "/home/dhruv/cuda_env/lib/python3.12/site-packages",
+    "."
+  ]
+}
