@@ -1,0 +1,92 @@
+# SRM Pipeline Configuration
+
+# Global execution settings
+device: "cuda" # "cuda" or "cpu"
+seed: 42
+log_level: "INFO"
+
+# Model paths and checkpoints
+models:
+  sen2sr:
+    model_dir: "model/SEN2SRLite"
+    hf_mlm_url: "https://huggingface.co/tacofoundation/sen2sr/resolve/main/SEN2SRLite/main/mlm.json"
+  opensr_model:
+    ckpt_path: "opensr-ldsrs2_v1_0_0.ckpt"
+    config_name: "config_10m.yaml"
+    sampling_steps: 50 # DDIM sampling steps
+    uncertainty_variations: 15 # Monte Carlo variations for uncertainty map
+
+# Band definitions
+bands:
+  all_10:
+    - "B02" # Blue (10m)
+    - "B03" # Green (10m)
+    - "B04" # Red (10m)
+    - "B05" # RedEdge 1 (20m)
+    - "B06" # RedEdge 2 (20m)
+    - "B07" # RedEdge 3 (20m)
+    - "B08" # NIR 1 (10m)
+    - "B8A" # NIR 2 (20m)
+    - "B11" # SWIR 1 (20m)
+    - "B12" # SWIR 2 (20m)
+  scl: "SCL" # Scene Classification Layer
+  rgbn_diffusion_order:
+    - "B04" # Red -> channel 0
+    - "B03" # Green -> channel 1
+    - "B02" # Blue -> channel 2
+    - "B08" # NIR -> channel 3
+
+# Preprocessing settings
+preprocessing:
+  reflectance_scale: 10000.0
+  clip_min: 0.0
+  clip_max: 1.0
+  patch_multiple: 128
+  cloud_shadow_classes:
+    - 3 # Cloud shadows
+    - 8 # Cloud medium probability
+    - 9 # Cloud high probability
+    - 10 # Thin cirrus
+
+# Filter settings for HardConstraint
+hard_constraint:
+  enabled: true
+  filter_type: "ideal" # "ideal" or "gaussian"
+  cutoff: 64 # Frequency cutoff radius
+
+# Real named Areas of Interest (AOIs)
+aois:
+  urban_berlin:
+    name: "Berlin, Germany (Urban AOI)"
+    description: "High-density urban infrastructure, roads, and built-up areas"
+    lat: 52.5200
+    lon: 13.4050
+    start_date: "2023-06-01"
+    end_date: "2023-08-30"
+    edge_size: 128
+    collection: "sentinel-2-l2a"
+  agri_valencia:
+    name: "Valencia, Spain (Agricultural AOI)"
+    description: "Heterogeneous crop fields, irrigation networks, and orchard parcels"
+    lat: 39.4915
+    lon: -0.4309
+    start_date: "2023-05-01"
+    end_date: "2023-07-30"
+    edge_size: 128
+    collection: "sentinel-2-l2a"
+  disaster_derna:
+    name: "Derna, Libya (Disaster / Flood AOI)"
+    description: "Post-Storm Daniel flood inundation, mud deposition, and coastline damage"
+    lat: 32.7667
+    lon: 22.6367
+    start_date: "2023-09-12"
+    end_date: "2023-10-15"
+    edge_size: 128
+    collection: "sentinel-2-l2a"
+
+# Output paths
+output:
+  dir: "outputs"
+  save_geotiff: true
+  save_visualizations: true
+  cog: true

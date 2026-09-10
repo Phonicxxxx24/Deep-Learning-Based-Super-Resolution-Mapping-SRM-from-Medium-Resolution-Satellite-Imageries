@@ -1,0 +1,81 @@
+================================================================================
+SRM IMPLEMENTATION SPECIFICATION — ENVIRONMENT VALIDATION LOG
+Python Executable: /home/dhruv/cuda_env/bin/python
+Python Version: 3.12.13 (main, May  6 2026, 18:46:41) [GCC 15.2.0]
+PyTorch Version: 2.13.0+cu126
+CUDA Available: True
+CUDA Device: NVIDIA GeForce RTX 4050 Laptop GPU
+================================================================================
+
+--- [1/9] PACKAGE: cubo ---
+Version: 2026.2.0
+Executing minimal example: cubo.create(lat=39.4915, lon=-0.4309, 64px, 10 bands)...
+Result Shape: (8, 10, 64, 64), Dtype: float64, Coordinates: ['time', 'id', 'band', 'x', 'y', 's2:nodata_pixel_percentage', 's2:high_proba_clouds_percentage', 's2:mean_solar_zenith', 's2:reflectance_conversion_factor', 'sat:orbit_state', 's2:vegetation_percentage', 's2:product_uri', 's2:mean_solar_azimuth', 's2:dark_features_percentage', 's2:product_type', 's2:water_percentage', 'platform', 's2:saturated_defective_pixel_percentage', 'eo:cloud_cover', 's2:not_vegetated_percentage', 's2:unclassified_percentage', 's2:datastrip_id', 's2:medium_proba_clouds_percentage', 's2:generation_time', 's2:thin_cirrus_percentage', 'instruments', 'constellation', 's2:datatake_id', 's2:cloud_shadow_percentage', 's2:degraded_msi_data_percentage', 's2:processing_baseline', 's2:mgrs_tile', 's2:datatake_type', 's2:snow_ice_percentage', 'proj:code', 'sat:relative_orbit', 's2:granule_id', 'title', 'gsd', 'common_name', 'center_wavelength', 'full_width_half_max', 'epsg', 'cubo:distance_from_center']
+Status: VERIFIED
+
+--- [2/9] PACKAGE: mlstac ---
+Version: 0.4.9
+Executing minimal example: mlstac.load('model/SEN2SRLite')...
+Model Summary: {'id': 'SEN2SRLite_manin', 'source': PosixPath('model/SEN2SRLite/mlm.json'), 'scheme': 'local', 'framework': 'pytorch', 'architecture': 'SPAN', 'tasks': ['super-resolution'], 'dependencies': ['torch', 'safetensors.torch', 'supers2'], 'size_bytes': 1889984}
+Status: VERIFIED
+
+--- [3/9] PACKAGE: sen2sr ---
+Version: 0.8.5
+Inference Result Shape: torch.Size([1, 10, 512, 512]) on cuda
+HardConstraint Result Shape: torch.Size([1, 10, 512, 512])
+Status: VERIFIED
+
+--- [4/9] PACKAGE: opensr-model ---
+Version: 1.1.1
+SRLatentDiffusion Output Shape: torch.Size([1, 4, 512, 512]) on cuda
+Status: VERIFIED
+
+--- [5/9] PACKAGE: opensr-utils ---
+Version: 2.0.0
+Pipeline Members: ['Affine', 'LightningModule', 'PredictionDataModule', 'datetime', 'json', 'large_file_processing', 'os', 'preprocess_model', 'rasterio', 'shutil', 'torch']
+Status: VERIFIED
+
+--- [6/9] PACKAGE: opensr-test ---
+Version: 1.3.3
+Loading benchmark dataset: spot...
+Dataset Keys: ['HR', 'HRharm', 'L1C', 'L2A', 'metadata', 'hr', 'hr_harm']
+  Key 'HR': shape (9, 4, 512, 512), dtype: uint16
+  Key 'HRharm': shape (9, 4, 512, 512), dtype: uint16
+  Key 'L1C': shape (9, 13, 128, 128), dtype: uint16
+  Key 'L2A': shape (9, 12, 128, 128), dtype: uint16
+  Key 'metadata': shape (9, 9), dtype: lr_file         object
+hr_file         object
+roi             object
+lr_gee_id       object
+reflectance    float64
+spectral       float64
+spatial        float64
+crs             object
+affine          object
+dtype: object
+  Key 'hr': shape (9, 4, 512, 512), dtype: float64
+  Key 'hr_harm': shape (9, 4, 512, 512), dtype: float64
+Status: VERIFIED
+
+--- [7/9] PACKAGE: rasterio & rioxarray ---
+Rasterio Version: 1.5.1
+Rioxarray Version: 0.23.0
+Sample Affine Transform: | 2.50, 0.00, 13.40|
+| 0.00,-2.50, 52.50|
+| 0.00, 0.00, 1.00|
+Status: VERIFIED
+
+--- [8/9] PACKAGE: scikit-image ---
+Version: 0.26.0
+Computed test PSNR: 33.98 dB, SSIM: 0.9998
+Status: VERIFIED
+
+--- [9/9] PACKAGE: lpips ---
+Version: 0.1.4
+Initializing LPIPS AlexNet metric...
+Computed test LPIPS distance: 0.1051
+Status: VERIFIED
+
+================================================================================
+ALL PACKAGES VALIDATED SUCCESSFULLY IN ACTIVE ENVIRONMENT
+================================================================================

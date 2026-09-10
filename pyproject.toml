@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "srm"
+version = "1.0.0"
+description = "Deep-Learning-Based Super-Resolution Mapping (SRM) from Medium-Resolution Satellite Imageries"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "opensr-model",
+    "sen2sr",
+    "cubo",
+    "mlstac",
+    "opensr-utils",
+    "opensr-test",
+    "rasterio",
+    "rioxarray",
+    "scikit-image",
+    "lpips",
+    "pyyaml",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["srm*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

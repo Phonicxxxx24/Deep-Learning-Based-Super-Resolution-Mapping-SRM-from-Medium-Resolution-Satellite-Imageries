@@ -1,0 +1,66 @@
+# Byte-compiled / optimized / Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Test & coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+cuda_env/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Deep Learning model weights & checkpoints (>100MB / binary weights)
+*.ckpt
+*.pth
+*.pt
+*.bin
+*.safetensors
+opensr-ldsrs2_v1_0_0.ckpt
+model/
+models/
+
+# Large geospatial raster outputs & data caches
+*.tif
+*.tiff
+*.cog
+*.vrt
+outputs/*.tif
+outputs/*.tiff
+outputs/*.cog
+data/
+datacubes/
+
+# IDEs & developer tools
+.vscode/
+.idea/
+*.swp
+*~
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Logs & temporary files (preserve required verification deliverable)
+*.log
+!verification/environment_check.log

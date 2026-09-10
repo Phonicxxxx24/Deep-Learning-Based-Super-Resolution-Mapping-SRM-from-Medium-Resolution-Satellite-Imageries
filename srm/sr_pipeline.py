@@ -1,0 +1,262 @@
+"""Dual-path Super-Resolution pipeline for Sentinel-2 multispectral imagery.
+
+Combines Latent Diffusion (opensr-model) for visible & NIR bands with
+SEN2SRLite CNN (sen2sr) for full 10-band spectral coverage, applying
+Fourier HardConstraints to prevent spectral hallucination.
+"""
+
+import logging
+import os
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+import mlstac
+from omegaconf import OmegaConf
+import opensr_model
+from sen2sr.models.tricks import HardConstraint, gaussian_filter, ideal_filter
+import torch
+
+logger = logging.getLogger(__name__)
+
+
+class ModelLoadingError(Exception):
+    """Raised when pretrained weights or model architecture fails to load."""
+
+
+class InferenceError(Exception):
+    """Raised when model inference fails or produces corrupt (NaN/Inf) values."""
+
+
+class DualPathSRPipeline:
+    """Manages dual-model execution, multimodal fusion, and frequency filtering."""
+
+    def __init__(
+        self,
+        opensr_ckpt: str = "opensr-ldsrs2_v1_0_0.ckpt",
+        opensr_config_name: str = "config_10m.yaml",
+        sen2sr_model_dir: str = "model/SEN2SRLite",
+        device: str = "cuda",
+        sampling_steps: int = 50,
+        enable_hard_constraint: bool = True,
+        filter_type: str = "ideal",
+        filter_cutoff: int = 64,
+    ) -> None:
+        """Initialize models and configurations on target device.
+
+        Args:
+            opensr_ckpt: Path to local LDSR-S2 checkpoint file.
+            opensr_config_name: Name of config file inside opensr_model/configs.
+            sen2sr_model_dir: Directory containing SEN2SRLite mlm.json.
+            device: Compute device ('cuda' or 'cpu').
+            sampling_steps: DDIM sampling steps for diffusion path.
+            enable_hard_constraint: Whether to apply Fourier HardConstraint.
+            filter_type: Frequency filter profile ('ideal' or 'gaussian').
+            filter_cutoff: Radius in pixels for the low-pass cutoff.
+
+        Raises:
+            ModelLoadingError: If any model fails to instantiate or load weights.
+        """
+        self.device = torch.device(
+            device if (device == "cuda" and torch.cuda.is_available()) else "cpu"
+        )
+        self.sampling_steps = sampling_steps
+        self.enable_hard_constraint = enable_hard_constraint
+        self.filter_type = filter_type
+        self.filter_cutoff = filter_cutoff
+
+        logger.info("Initializing DualPathSRPipeline on device: %s", self.device)
+
+        # 1. Load opensr-model (Path A)
+        try:
+            cfg_dir = Path(opensr_model.__file__).parent / "configs"
+            cfg_path = cfg_dir / opensr_config_name
+            if not cfg_path.is_file():
+                raise FileNotFoundError(f"Config not found at {cfg_path}")
+            self.diffusion_config = OmegaConf.load(str(cfg_path))
+            self.model_diffusion = opensr_model.SRLatentDiffusion(
+                self.diffusion_config, device=self.device
+            )
+            self.model_diffusion.load_pretrained(opensr_ckpt)
+            self.model_diffusion.eval()
+            logger.info("Loaded opensr-model SRLatentDiffusion successfully.")
+        except Exception as exc:
+            raise ModelLoadingError(
+                f"Failed to load opensr-model from ckpt '{opensr_ckpt}': {exc}"
+            ) from exc
+
+        # 2. Load SEN2SRLite (Path B)
+        try:
+            loader = mlstac.load(sen2sr_model_dir)
+            self.model_sen2sr = loader.compiled_model(device=self.device)
+            self.model_sen2sr.eval()
+            logger.info("Loaded SEN2SRLite via mlstac from '%s'.", sen2sr_model_dir)
+        except Exception as exc:
+            raise ModelLoadingError(
+                f"Failed to load SEN2SRLite from '{sen2sr_model_dir}': {exc}"
+            ) from exc
+
+    def _extract_rgbn(self, tensor_10b: torch.Tensor) -> torch.Tensor:
+        """Extract and reorder 10-band tensor to [B04, B03, B02, B08] for opensr-model.
+
+        Input 10-band ordering:
+            0: B02 (Blue)
+            1: B03 (Green)
+            2: B04 (Red)
+            3: B05
+            4: B06
+            5: B07
+            6: B08 (NIR)
+            7: B8A
+            8: B11 (SWIR1)
+            9: B12 (SWIR2)
+
+        Target ordering for opensr-model linear_transform_4b:
+            0: B04 (Red)
+            1: B03 (Green)
+            2: B02 (Blue)
+            3: B08 (NIR)
+        """
+        b04 = tensor_10b[:, 2:3]
+        b03 = tensor_10b[:, 1:2]
+        b02 = tensor_10b[:, 0:1]
+        b08 = tensor_10b[:, 6:7]
+        return torch.cat([b04, b03, b02, b08], dim=1)
+
+    def run_inference(
+        self,
+        lr_10b: torch.Tensor,
+        aoi_name: str = "custom_aoi",
+    ) -> Dict[str, torch.Tensor]:
+        """Execute dual-path SR, multimodal fusion, and frequency filtering.
+
+        Args:
+            lr_10b: Normalized low-resolution input tensor of shape (1, 10, H, W).
+            aoi_name: Identifier for structured logging.
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary containing:
+                - 'sr_diffusion': Raw 4-band diffusion output (1, 4, 4H, 4W)
+                - 'sr_sen2sr': Raw 10-band SEN2SRLite output (1, 10, 4H, 4W)
+                - 'sr_fused': 10-band fused output prior to hard constraint (1, 10, 4H, 4W)
+                - 'sr_final': Final 10-band output with HardConstraint applied (1, 10, 4H, 4W)
+
+        Raises:
+            InferenceError: If input shape is invalid or model produces NaNs/Infs.
+        """
+        if lr_10b.ndim != 4 or lr_10b.shape[1] != 10:
+            raise ValueError(
+                f"[{aoi_name}] Input must be a 4D tensor with 10 channels, got shape {lr_10b.shape}"
+            )
+
+        lr_gpu = lr_10b.to(self.device)
+        logger.info(
+            "[%s] Starting SR inference on input shape: %s",
+            aoi_name,
+            tuple(lr_gpu.shape),
+        )
+
+        # -------------------------------------------------------------
+        # Path A: opensr-model Diffusion (RGB+NIR 4x)
+        # -------------------------------------------------------------
+        lr_rgbn = self._extract_rgbn(lr_gpu)
+        logger.info(
+            "[%s] Path A (LDSR-S2): Running %d sampling steps...",
+            aoi_name,
+            self.sampling_steps,
+        )
+        try:
+            with torch.no_grad():
+                sr_diffusion = self.model_diffusion.forward(
+                    lr_rgbn, sampling_steps=self.sampling_steps
+                )
+        except Exception as exc:
+            raise InferenceError(
+                f"[{aoi_name}] Path A (LDSR-S2) execution failed: {exc}"
+            ) from exc
+
+        if torch.isnan(sr_diffusion).any() or torch.isinf(sr_diffusion).any():
+            raise InferenceError(f"[{aoi_name}] Path A produced NaN or Inf values.")
+
+        logger.info(
+            "[%s] Path A complete: shape=%s, min=%.4f, max=%.4f",
+            aoi_name,
+            tuple(sr_diffusion.shape),
+            float(sr_diffusion.min()),
+            float(sr_diffusion.max()),
+        )
+
+        # -------------------------------------------------------------
+        # Path B: SEN2SRLite 10-Band SR (4x)
+        # -------------------------------------------------------------
+        logger.info("[%s] Path B (SEN2SRLite): Running 10-band CNN inference...", aoi_name)
+        try:
+            with torch.no_grad():
+                sr_sen2sr = self.model_sen2sr(lr_gpu)
+        except Exception as exc:
+            raise InferenceError(
+                f"[{aoi_name}] Path B (SEN2SRLite) execution failed: {exc}"
+            ) from exc
+
+        if torch.isnan(sr_sen2sr).any() or torch.isinf(sr_sen2sr).any():
+            raise InferenceError(f"[{aoi_name}] Path B produced NaN or Inf values.")
+
+        logger.info(
+            "[%s] Path B complete: shape=%s, min=%.4f, max=%.4f",
+            aoi_name,
+            tuple(sr_sen2sr.shape),
+            float(sr_sen2sr.min()),
+            float(sr_sen2sr.max()),
+        )
+
+        # -------------------------------------------------------------
+        # Multimodal Band Fusion
+        # -------------------------------------------------------------
+        # Map Path A channels: 0:B04, 1:B03, 2:B02, 3:B08
+        # Into 10-band tensor: [B02, B03, B04, B05, B06, B07, B08, B8A, B11, B12]
+        sr_fused = sr_sen2sr.clone()
+        sr_fused[:, 0:1] = sr_diffusion[:, 2:3]  # B02 (Blue)
+        sr_fused[:, 1:2] = sr_diffusion[:, 1:2]  # B03 (Green)
+        sr_fused[:, 2:3] = sr_diffusion[:, 0:1]  # B04 (Red)
+        sr_fused[:, 6:7] = sr_diffusion[:, 3:4]  # B08 (NIR)
+
+        # Ensure reflectance remains non-negative and physically valid
+        sr_fused = torch.clamp(sr_fused, min=0.0, max=1.0)
+
+        # -------------------------------------------------------------
+        # HardConstraint Frequency Filtering
+        # -------------------------------------------------------------
+        if self.enable_hard_constraint:
+            logger.info(
+                "[%s] Applying HardConstraint (%s filter, cutoff=%d)...",
+                aoi_name,
+                self.filter_type,
+                self.filter_cutoff,
+            )
+            sr_h, sr_w = sr_fused.shape[-2], sr_fused.shape[-1]
+            if self.filter_type == "gaussian":
+                filter_mask = gaussian_filter((sr_h, sr_w), cutoff=self.filter_cutoff)
+            else:
+                filter_mask = ideal_filter((sr_h, sr_w), cutoff=self.filter_cutoff)
+
+            filter_mask = filter_mask.to(self.device)
+            hc = HardConstraint(
+                low_pass_mask=filter_mask, bands="all", device=str(self.device)
+            )
+            sr_final = hc(lr=lr_gpu, sr=sr_fused)
+            sr_final = torch.clamp(sr_final, min=0.0, max=1.0)
+        else:
+            sr_final = sr_fused
+
+        logger.info(
+            "[%s] SRM inference complete: final shape=%s, min=%.4f, max=%.4f",
+            aoi_name,
+            tuple(sr_final.shape),
+            float(sr_final.min()),
+            float(sr_final.max()),
+        )
+
+        return {
+            "sr_diffusion": sr_diffusion,
+            "sr_sen2sr": sr_sen2sr,
+            "sr_fused": sr_fused,
+            "sr_final": sr_final,
+        }
