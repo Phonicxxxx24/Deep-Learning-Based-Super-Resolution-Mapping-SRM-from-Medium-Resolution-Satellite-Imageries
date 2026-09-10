@@ -147,35 +147,55 @@ def evaluate_benchmark(
 
     logger.info("Evaluating %d real scenes from '%s'...", n_samples, dataset_name)
 
-    # Load SEN2SRLite model for benchmarking
+    # Load SEN2SRLite model and HardConstraint for benchmarking
     import mlstac
+    from sen2sr.models.tricks import HardConstraint, ideal_filter
+
     loader = mlstac.load("model/SEN2SRLite")
     dev = torch.device(device if (device == "cuda" and torch.cuda.is_available()) else "cpu")
     model = loader.compiled_model(device=dev)
     model.eval()
 
+    filter_mask = ideal_filter((512, 512), cutoff=64).to(dev)
+    hc = HardConstraint(low_pass_mask=filter_mask, bands="all", device=str(dev))
+
     records: List[Dict[str, float | str]] = []
 
+    # In SPOT dataset:
+    # L2A has 12 bands: [B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B11, B12]
+    # S2 10-band subset: [B02, B03, B04, B05, B06, B07, B08, B8A, B11, B12] -> indices [1, 2, 3, 4, 5, 6, 7, 8, 10, 11]
+    # HR / HRharm has 4 bands: [B04 (Red), B03 (Green), B02 (Blue), B08 (NIR)]
+    # Corresponding L2A bands: [3, 2, 1, 7]
+    # Corresponding 10-band model output bands: [2, 1, 0, 6]
+    s2_10b_indices = [1, 2, 3, 4, 5, 6, 7, 8, 10, 11]
+    l2a_rgbn_indices = [3, 2, 1, 7]
+    model_rgbn_indices = [2, 1, 0, 6]
+
     for i in range(n_samples):
-        # SPOT L2A 12 bands: select 10 bands corresponding to SEN2SRLite input
-        # Convert uint16 DN to [0, 1] reflectance
-        l2a_sample = (l2a[i, :10].astype(np.float32) / 10000.0)
-        # Reference HR is 4 bands (RGBNIR)
+        l2a_full = (l2a[i].astype(np.float32) / 10000.0)
+        l2a_10b = l2a_full[s2_10b_indices]
         hr_sample = (hr[i, :4].astype(np.float32) / 10000.0)
 
-        # Baseline Bicubic Upsampling on RGBNIR channels [0, 1, 2, 6] (B02, B03, B04, B08)
-        lr_rgbn = l2a_sample[[0, 1, 2, 6]]  # B02, B03, B04, B08
+        # Baseline Bicubic Upsampling on [B04, B03, B02, B08]
+        lr_rgbn = l2a_full[l2a_rgbn_indices]
         lr_tensor = torch.from_numpy(lr_rgbn).unsqueeze(0)
         bicubic_sr = torch.nn.functional.interpolate(
             lr_tensor, size=(512, 512), mode="bicubic", align_corners=False
         ).squeeze(0).numpy()
         bicubic_sr = np.clip(bicubic_sr, 0.0, 1.0)
 
-        # SEN2SRLite Super-Resolution
-        lr_10b_tensor = torch.from_numpy(l2a_sample).unsqueeze(0).to(dev)
+        # SEN2SRLite Super-Resolution + HardConstraint
+        lr_10b_tensor = torch.from_numpy(l2a_10b).unsqueeze(0).to(dev)
         with torch.no_grad():
-            sr_10b = model(lr_10b_tensor).squeeze(0).cpu().numpy()
-        sr_rgbn = np.clip(sr_10b[[0, 1, 2, 6]], 0.0, 1.0)
+            sr_10b_raw = model(lr_10b_tensor)
+            sr_10b = hc(lr=lr_10b_tensor, sr=sr_10b_raw).squeeze(0).cpu().numpy()
+        sr_rgbn = np.clip(sr_10b[model_rgbn_indices], 0.0, 1.0)
+
+        # Diagnostic equality and distance check for Issue 1
+        if i == 0:
+            print("same object:", bicubic_sr is sr_rgbn)
+            print("pixel-identical:", np.array_equal(bicubic_sr, sr_rgbn))
+            print("max abs diff:", float(np.abs(bicubic_sr - sr_rgbn).max()))
 
         # Compute real metrics against ground truth HR
         psnr_bicubic = compute_psnr(hr_sample, bicubic_sr)
