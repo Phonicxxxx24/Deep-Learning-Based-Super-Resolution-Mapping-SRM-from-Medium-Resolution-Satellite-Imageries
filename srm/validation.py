@@ -7,7 +7,7 @@ and Spectral Angle Mapper (SAM) without synthetic mocks or placeholders.
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 import numpy as np
 import opensr_test
 import pandas as pd
@@ -133,13 +133,13 @@ def evaluate_benchmark(
     Returns:
         pd.DataFrame: Tabulated metrics for every evaluated sample.
     """
-    logger.info("Loading opensr-test dataset: '%s'...", dataset_name)
-    ds = opensr_test.load(dataset_name)
+    raw_ds: Any = opensr_test.load(dataset_name)
+    ds: Dict[str, Any] = cast(Dict[str, Any], raw_ds)
 
     # Extract real arrays
     # SPOT dataset: L2A is shape (N, 12, 128, 128), HRharm is (N, 4, 512, 512)
-    l2a = ds["L2A"]
-    hr = ds["HRharm"] if "HRharm" in ds else ds["HR"]
+    l2a = np.asarray(ds["L2A"])
+    hr = np.asarray(ds["HRharm"] if "HRharm" in ds else ds["HR"])
 
     n_samples = l2a.shape[0]
     if max_samples is not None:

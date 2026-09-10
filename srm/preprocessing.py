@@ -62,7 +62,7 @@ def normalize_reflectance(
     Returns:
         torch.Tensor: Normalized float32 tensor strictly bounded in [clip_min, clip_max].
     """
-    scaled = tensor.float() / float(scale)
+    scaled = tensor.float() / scale
     return torch.clamp(scaled, min=clip_min, max=clip_max)
 
 
@@ -199,7 +199,7 @@ def revert_spatial_padding(
     if not info.has_padding:
         return tensor
 
-    scale = int(scale_factor)
+    scale = scale_factor
     top = info.pad_top * scale
     left = info.pad_left * scale
     target_h = info.orig_height * scale

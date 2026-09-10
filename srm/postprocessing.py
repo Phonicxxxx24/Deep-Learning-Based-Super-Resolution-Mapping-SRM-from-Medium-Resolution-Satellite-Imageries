@@ -76,7 +76,7 @@ def compute_scaled_transform(
     Returns:
         Affine: New affine matrix where pixel dimensions are divided by scale_factor.
     """
-    scale = float(scale_factor)
+    scale = scale_factor
     return Affine(
         transform.a / scale,
         transform.b,
