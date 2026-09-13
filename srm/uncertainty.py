@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Tuple
 import numpy as np
 import opensr_model
-from scipy.ndimage import sobel
+from scipy.ndimage import sobel  # type: ignore[import-untyped]
 import torch
 
 logger = logging.getLogger(__name__)

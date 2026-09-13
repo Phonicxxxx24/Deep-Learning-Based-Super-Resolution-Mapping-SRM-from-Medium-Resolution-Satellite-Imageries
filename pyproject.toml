@@ -19,6 +19,8 @@ dependencies = [
     "rasterio",
     "rioxarray",
     "scikit-image",
+    "scipy",
+    "scipy-stubs",
     "lpips",
     "pyyaml",
 ]

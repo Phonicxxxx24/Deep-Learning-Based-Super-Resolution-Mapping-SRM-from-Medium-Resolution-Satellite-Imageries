@@ -60,14 +60,13 @@ def compute_ssim(
         ref_f = np.transpose(ref_f, (1, 2, 0))
         tgt_f = np.transpose(tgt_f, (1, 2, 0))
 
-    return float(
-        skm.structural_similarity(
-            ref_f,
-            tgt_f,
-            data_range=data_range,
-            channel_axis=2 if ref_f.ndim == 3 else None,
-        )
+    ssim_val = skm.structural_similarity(
+        ref_f,
+        tgt_f,
+        data_range=data_range,
+        channel_axis=2 if ref_f.ndim == 3 else None,
     )
+    return float(np.asarray(ssim_val).item())
 
 
 def compute_sam(

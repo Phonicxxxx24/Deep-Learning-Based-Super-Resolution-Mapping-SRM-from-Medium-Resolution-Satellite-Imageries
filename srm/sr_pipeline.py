@@ -8,7 +8,7 @@ Fourier HardConstraints to prevent spectral hallucination.
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 import mlstac
 from omegaconf import OmegaConf
 import opensr_model
@@ -165,8 +165,11 @@ class DualPathSRPipeline:
         )
         try:
             with torch.no_grad():
-                sr_diffusion = self.model_diffusion.forward(
-                    lr_rgbn, sampling_steps=self.sampling_steps
+                sr_diffusion = cast(
+                    torch.Tensor,
+                    self.model_diffusion.forward(
+                        lr_rgbn, sampling_steps=self.sampling_steps
+                    ),
                 )
         except Exception as exc:
             raise InferenceError(
@@ -190,7 +193,7 @@ class DualPathSRPipeline:
         logger.info("[%s] Path B (SEN2SRLite): Running 10-band CNN inference...", aoi_name)
         try:
             with torch.no_grad():
-                sr_sen2sr = self.model_sen2sr(lr_gpu)
+                sr_sen2sr = cast(torch.Tensor, self.model_sen2sr(lr_gpu))
         except Exception as exc:
             raise InferenceError(
                 f"[{aoi_name}] Path B (SEN2SRLite) execution failed: {exc}"
