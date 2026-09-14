@@ -64,3 +64,5 @@ Thumbs.db
 # Logs & temporary files (preserve required verification deliverable)
 *.log
 !verification/environment_check.log
+
+vendor/

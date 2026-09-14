@@ -1,7 +1,13 @@
 # SRM Pipeline Configuration
+# Hardware: RTX 3050 6GB VRAM — DO NOT exceed these values on this machine
 
 # Global execution settings
-device: "cuda" # "cuda" or "cpu"
+device: "cuda"          # pipeline falls back to cpu on OOM
+n_uncertainty: 5        # NOT 25 — 25 passes OOM on 6GB VRAM
+sampling_steps: 50      # NOT 100 — 50 steps fit in 6GB
+eta: 0.95
+patch_size: 128         # hard limit — do not increase
+overlap: 32
 seed: 42
 log_level: "INFO"
 
@@ -13,8 +19,8 @@ models:
   opensr_model:
     ckpt_path: "opensr-ldsrs2_v1_0_0.ckpt"
     config_name: "config_10m.yaml"
-    sampling_steps: 50 # DDIM sampling steps
-    uncertainty_variations: 15 # Monte Carlo variations for uncertainty map
+    sampling_steps: 50      # DDIM sampling steps — 50 max for 6GB GPU
+    uncertainty_variations: 5  # n_uncertainty — NOT 25, OOMs on 6GB VRAM
 
 # Band definitions
 bands:

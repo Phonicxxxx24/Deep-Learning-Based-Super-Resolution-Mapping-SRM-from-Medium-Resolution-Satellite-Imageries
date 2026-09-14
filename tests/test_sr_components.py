@@ -109,3 +109,40 @@ def test_scaled_transform():
     assert scaled.e == pytest.approx(-2.5)
     assert scaled.c == orig.c  # Origin X preserved
     assert scaled.f == orig.f  # Origin Y preserved
+
+
+def test_ergas_identical_arrays():
+    """ERGAS of identical arrays must be 0."""
+    import numpy as np
+    arr = np.random.rand(4, 32, 32).astype(np.float32) * 0.5 + 0.1
+    from srm.validation import compute_ergas
+    assert compute_ergas(arr, arr) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_ergas_known_value():
+    """Manual ERGAS calculation: RMSE=0.05, mean=0.5 -> ERGAS=2.5 at scale=4."""
+    import numpy as np
+    ref = np.ones((1, 16, 16), dtype=np.float32) * 0.5
+    tgt = np.ones((1, 16, 16), dtype=np.float32) * 0.55
+    from srm.validation import compute_ergas
+    assert compute_ergas(ref, tgt, scale=4) == pytest.approx(2.5, rel=1e-4)
+
+
+def test_calibration_wide_intervals():
+    """Huge uncertainty intervals must give calibration of 1.0."""
+    import numpy as np
+    hr = np.random.rand(4, 32, 32).astype(np.float32)
+    sr_mean = hr.copy()
+    sr_std = np.ones((1, 32, 32), dtype=np.float32) * 999.0
+    from srm.validation import check_uncertainty_calibration
+    assert check_uncertainty_calibration(hr, sr_mean, sr_std) == pytest.approx(1.0)
+
+
+def test_calibration_zero_intervals():
+    """Zero-width intervals with wrong mean must give calibration of 0.0."""
+    import numpy as np
+    hr = np.ones((4, 32, 32), dtype=np.float32)
+    sr_mean = np.zeros((4, 32, 32), dtype=np.float32)
+    sr_std = np.zeros((1, 32, 32), dtype=np.float32)
+    from srm.validation import check_uncertainty_calibration
+    assert check_uncertainty_calibration(hr, sr_mean, sr_std) == pytest.approx(0.0)

@@ -1,34 +1,68 @@
 ================================================================================
 SRM IMPLEMENTATION SPECIFICATION — ENVIRONMENT VALIDATION LOG
-Python Executable: /home/dhruv/cuda_env/bin/python
-Python Version: 3.12.13 (main, May  6 2026, 18:46:41) [GCC 15.2.0]
-PyTorch Version: 2.13.0+cu126
-CUDA Available: True
-CUDA Device: NVIDIA GeForce RTX 4050 Laptop GPU
+Python Executable: C:\DL SRM\.venv\Scripts\python.exe
+Python Version: 3.11.15 (main, Apr 14 2026, 14:31:26) [MSC v.1944 64 bit (AMD64)]
+PyTorch Version: 2.14.0+cpu
+CUDA Available: False
 ================================================================================
 
 --- [1/9] PACKAGE: cubo ---
 Version: 2026.2.0
 Executing minimal example: cubo.create(lat=39.4915, lon=-0.4309, 64px, 10 bands)...
-Result Shape: (8, 10, 64, 64), Dtype: float64, Coordinates: ['time', 'id', 'band', 'x', 'y', 's2:nodata_pixel_percentage', 's2:high_proba_clouds_percentage', 's2:mean_solar_zenith', 's2:reflectance_conversion_factor', 'sat:orbit_state', 's2:vegetation_percentage', 's2:product_uri', 's2:mean_solar_azimuth', 's2:dark_features_percentage', 's2:product_type', 's2:water_percentage', 'platform', 's2:saturated_defective_pixel_percentage', 'eo:cloud_cover', 's2:not_vegetated_percentage', 's2:unclassified_percentage', 's2:datastrip_id', 's2:medium_proba_clouds_percentage', 's2:generation_time', 's2:thin_cirrus_percentage', 'instruments', 'constellation', 's2:datatake_id', 's2:cloud_shadow_percentage', 's2:degraded_msi_data_percentage', 's2:processing_baseline', 's2:mgrs_tile', 's2:datatake_type', 's2:snow_ice_percentage', 'proj:code', 'sat:relative_orbit', 's2:granule_id', 'title', 'gsd', 'common_name', 'center_wavelength', 'full_width_half_max', 'epsg', 'cubo:distance_from_center']
+Result Shape: (8, 10, 64, 64), Dtype: float64, Coordinates: ['time', 'id', 'band', 'x', 'y', 'instruments', 's2:thin_cirrus_percentage', 'sat:orbit_state', 's2:mean_solar_azimuth', 's2:not_vegetated_percentage', 's2:degraded_msi_data_percentage', 's2:cloud_shadow_percentage', 's2:reflectance_conversion_factor', 's2:product_uri', 's2:medium_proba_clouds_percentage', 'constellation', 'sat:relative_orbit', 's2:dark_features_percentage', 's2:generation_time', 's2:product_type', 's2:datatake_type', 's2:mgrs_tile', 's2:unclassified_percentage', 's2:vegetation_percentage', 'eo:cloud_cover', 's2:snow_ice_percentage', 's2:granule_id', 's2:nodata_pixel_percentage', 's2:datastrip_id', 'proj:code', 's2:mean_solar_zenith', 'platform', 's2:high_proba_clouds_percentage', 's2:processing_baseline', 's2:datatake_id', 's2:saturated_defective_pixel_percentage', 's2:water_percentage', 'gsd', 'title', 'common_name', 'center_wavelength', 'full_width_half_max', 'epsg', 'cubo:distance_from_center']
 Status: VERIFIED
 
 --- [2/9] PACKAGE: mlstac ---
 Version: 0.4.9
 Executing minimal example: mlstac.load('model/SEN2SRLite')...
-Model Summary: {'id': 'SEN2SRLite_manin', 'source': PosixPath('model/SEN2SRLite/mlm.json'), 'scheme': 'local', 'framework': 'pytorch', 'architecture': 'SPAN', 'tasks': ['super-resolution'], 'dependencies': ['torch', 'safetensors.torch', 'supers2'], 'size_bytes': 1889984}
-Status: VERIFIED
+Error: Failed to load STAC item from model/SEN2SRLite: Could not resolve 'model/SEN2SRLite'. It is not a URL (http/https/ftp/s3/gs) nor an existing local path. Bare model snippets are not supported; pass a full URL or local path to the model metadata.
+Traceback (most recent call last):
+  File "C:\DL SRM\.venv\Lib\site-packages\mlstac\fetch.py", line 223, in load_stac_item
+    content = fetch_source(source, snippet_suffix="")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\DL SRM\.venv\Lib\site-packages\mlstac\fetch.py", line 149, in fetch_source
+    raise ValueError(
+ValueError: Could not resolve 'model/SEN2SRLite'. It is not a URL (http/https/ftp/s3/gs) nor an existing local path. Bare model snippets are not supported; pass a full URL or local path to the model metadata.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\DL SRM\scripts\run_env_check.py", line 63, in main
+    loader = mlstac.load("model/SEN2SRLite")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\DL SRM\.venv\Lib\site-packages\mlstac\main.py", line 115, in __init__
+    self.item = load_stac_item(file)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\DL SRM\.venv\Lib\site-packages\mlstac\fetch.py", line 229, in load_stac_item
+    raise RuntimeError(f"Failed to load STAC item from {source}: {e!s}") from e
+RuntimeError: Failed to load STAC item from model/SEN2SRLite: Could not resolve 'model/SEN2SRLite'. It is not a URL (http/https/ftp/s3/gs) nor an existing local path. Bare model snippets are not supported; pass a full URL or local path to the model metadata.
+
+Status: FAILED
 
 --- [3/9] PACKAGE: sen2sr ---
 Version: 0.8.5
-Inference Result Shape: torch.Size([1, 10, 512, 512]) on cuda
-HardConstraint Result Shape: torch.Size([1, 10, 512, 512])
-Status: VERIFIED
+Error: cannot access local variable 'loader' where it is not associated with a value
+Traceback (most recent call last):
+  File "C:\DL SRM\scripts\run_env_check.py", line 78, in main
+    model = loader.compiled_model(device=device)
+            ^^^^^^
+UnboundLocalError: cannot access local variable 'loader' where it is not associated with a value
+
+Status: FAILED
 
 --- [4/9] PACKAGE: opensr-model ---
-Version: 1.1.1
-SRLatentDiffusion Output Shape: torch.Size([1, 4, 512, 512]) on cuda
-Status: VERIFIED
+Version: 1.0.8
+Error: [Errno 2] No such file or directory: 'C:\\DL SRM\\.venv\\Lib\\site-packages\\opensr_model\\configs\\config_10m.yaml'
+Traceback (most recent call last):
+  File "C:\DL SRM\scripts\run_env_check.py", line 101, in main
+    cfg = OmegaConf.load(cfg_path)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\DL SRM\.venv\Lib\site-packages\omegaconf\omegaconf.py", line 189, in load
+    with io.open(os.path.abspath(file_), "r", encoding="utf-8") as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\DL SRM\\.venv\\Lib\\site-packages\\opensr_model\\configs\\config_10m.yaml'
+
+Status: FAILED
 
 --- [5/9] PACKAGE: opensr-utils ---
 Version: 2.0.0
@@ -58,8 +92,8 @@ dtype: object
 Status: VERIFIED
 
 --- [7/9] PACKAGE: rasterio & rioxarray ---
-Rasterio Version: 1.5.1
-Rioxarray Version: 0.23.0
+Rasterio Version: 1.4.4
+Rioxarray Version: 0.19.0
 Sample Affine Transform: | 2.50, 0.00, 13.40|
 | 0.00,-2.50, 52.50|
 | 0.00, 0.00, 1.00|
@@ -73,7 +107,7 @@ Status: VERIFIED
 --- [9/9] PACKAGE: lpips ---
 Version: 0.1.4
 Initializing LPIPS AlexNet metric...
-Computed test LPIPS distance: 0.1051
+Computed test LPIPS distance: 0.1257
 Status: VERIFIED
 
 ================================================================================

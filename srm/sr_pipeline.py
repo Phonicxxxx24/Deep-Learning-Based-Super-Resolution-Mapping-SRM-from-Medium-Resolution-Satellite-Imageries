@@ -39,6 +39,7 @@ class DualPathSRPipeline:
         enable_hard_constraint: bool = True,
         filter_type: str = "ideal",
         filter_cutoff: int = 64,
+        use_referencex4: bool = True,
     ) -> None:
         """Initialize models and configurations on target device.
 
@@ -51,6 +52,9 @@ class DualPathSRPipeline:
             enable_hard_constraint: Whether to apply Fourier HardConstraint.
             filter_type: Frequency filter profile ('ideal' or 'gaussian').
             filter_cutoff: Radius in pixels for the low-pass cutoff.
+            use_referencex4: Whether to attempt loading the referencex4 SWIR
+                fusion pipeline (x2 + x4 RSWIR models). Falls back to direct
+                SEN2SRLite if the x4 weights are unavailable.
 
         Raises:
             ModelLoadingError: If any model fails to instantiate or load weights.
@@ -93,6 +97,44 @@ class DualPathSRPipeline:
             raise ModelLoadingError(
                 f"Failed to load SEN2SRLite from '{sen2sr_model_dir}': {exc}"
             ) from exc
+
+        # 3. Load referencex4 SWIR fusion pipeline (optional — graceful fallback)
+        # Hardware note: all four models are loaded to the same device as the main model.
+        # The x4 RSWIR model is not published on HuggingFace; the except block catches
+        # that and falls back to direct SEN2SRLite for Path B.
+        self.referencex4_pipeline = None
+        if use_referencex4:
+            try:
+                from sen2sr import referencex4
+
+                # f2 model: 20m SWIR bands → 10m (x2 RSWIR)
+                f2_dir = os.path.join(
+                    os.path.dirname(sen2sr_model_dir), "SEN2SRLite_Reference_RSWIR_x2"
+                )
+                f2_compiled = mlstac.load(f2_dir).compiled_model(device=str(self.device))
+
+                # f4 fusion model: SWIR 10m → 2.5m (x4 RSWIR)
+                f4_dir = os.path.join(
+                    os.path.dirname(sen2sr_model_dir), "SEN2SRLite_Reference_RSWIR_x4"
+                )
+                f4_compiled = mlstac.load(f4_dir).compiled_model(device=str(self.device))
+
+                # compiled_model() returns SRModelWithConstraint with:
+                #   .sr_model        — raw nn.Module
+                #   .hard_constraint — HardConstraint nn.Module
+                self.referencex4_pipeline = referencex4.srmodel(
+                    sr_model=self.model_sen2sr.sr_model,
+                    f2_model=f2_compiled.sr_model,
+                    reference_model_x4=f4_compiled.sr_model,
+                    reference_model_hard_constraint_x4=f4_compiled.hard_constraint,
+                    device=str(self.device),
+                )
+                logger.info("referencex4 pipeline loaded successfully.")
+            except Exception as exc:
+                logger.warning(
+                    "referencex4 load failed — falling back to direct SEN2SRLite: %s", exc
+                )
+                self.referencex4_pipeline = None
 
     def _extract_rgbn(self, tensor_10b: torch.Tensor) -> torch.Tensor:
         """Extract and reorder 10-band tensor to [B04, B03, B02, B08] for opensr-model.
@@ -163,38 +205,88 @@ class DualPathSRPipeline:
             aoi_name,
             self.sampling_steps,
         )
+        sr_diffusion = None  # may remain None on OOM — handled in band fusion below
         try:
             with torch.no_grad():
                 sr_diffusion = self.model_diffusion.forward(
                     lr_rgbn, sampling_steps=self.sampling_steps
                 )
+        except RuntimeError as exc:
+            if "out of memory" in str(exc).lower():
+                logger.warning(
+                    "[%s] CUDA OOM in LDSR-S2 — skipping diffusion, "
+                    "using SEN2SRLite output for RGB+NIR",
+                    aoi_name,
+                )
+                torch.cuda.empty_cache()
+                sr_diffusion = None   # handled below in band fusion
+            else:
+                raise InferenceError(
+                    f"[{aoi_name}] Path A (LDSR-S2) execution failed: {exc}"
+                ) from exc
         except Exception as exc:
             raise InferenceError(
                 f"[{aoi_name}] Path A (LDSR-S2) execution failed: {exc}"
             ) from exc
 
-        if torch.isnan(sr_diffusion).any() or torch.isinf(sr_diffusion).any():
+        # Always clear cache after diffusion inference on 6GB GPU
+        if self.device.type != "cpu":
+            torch.cuda.empty_cache()
+
+        if sr_diffusion is not None and (
+            torch.isnan(sr_diffusion).any() or torch.isinf(sr_diffusion).any()
+        ):
             raise InferenceError(f"[{aoi_name}] Path A produced NaN or Inf values.")
 
-        logger.info(
-            "[%s] Path A complete: shape=%s, min=%.4f, max=%.4f",
-            aoi_name,
-            tuple(sr_diffusion.shape),
-            float(sr_diffusion.min()),
-            float(sr_diffusion.max()),
-        )
+        if sr_diffusion is not None:
+            logger.info(
+                "[%s] Path A complete: shape=%s, min=%.4f, max=%.4f",
+                aoi_name,
+                tuple(sr_diffusion.shape),
+                float(sr_diffusion.min()),
+                float(sr_diffusion.max()),
+            )
+        else:
+            logger.info("[%s] Path A skipped (OOM) — will use SEN2SRLite bands for RGB+NIR.", aoi_name)
 
         # -------------------------------------------------------------
         # Path B: SEN2SRLite 10-Band SR (4x)
+        # Routes through referencex4 SWIR fusion pipeline when available,
+        # with OOM guard falling back to direct SEN2SRLite on CPU.
         # -------------------------------------------------------------
-        logger.info("[%s] Path B (SEN2SRLite): Running 10-band CNN inference...", aoi_name)
+        logger.info(
+            "[%s] Path B (SEN2SRLite%s): Running 10-band CNN inference...",
+            aoi_name,
+            "+referencex4" if self.referencex4_pipeline is not None else "",
+        )
         try:
             with torch.no_grad():
-                sr_sen2sr = self.model_sen2sr(lr_gpu)
+                if self.referencex4_pipeline is not None:
+                    sr_sen2sr = self.referencex4_pipeline(lr_gpu)
+                else:
+                    sr_sen2sr = self.model_sen2sr(lr_gpu)
+        except RuntimeError as exc:
+            if "out of memory" in str(exc).lower():
+                logger.warning(
+                    "[%s] CUDA OOM in SEN2SRLite path — clearing cache and retrying on CPU",
+                    aoi_name,
+                )
+                torch.cuda.empty_cache()
+                with torch.no_grad():
+                    sr_sen2sr = self.model_sen2sr.cpu()(lr_gpu.cpu())
+                sr_sen2sr = sr_sen2sr.to(self.device)
+            else:
+                raise InferenceError(
+                    f"[{aoi_name}] Path B (SEN2SRLite) execution failed: {exc}"
+                ) from exc
         except Exception as exc:
             raise InferenceError(
                 f"[{aoi_name}] Path B (SEN2SRLite) execution failed: {exc}"
             ) from exc
+
+        # Always clear cache after inference on 6GB GPU
+        if self.device.type != "cpu":
+            torch.cuda.empty_cache()
 
         if torch.isnan(sr_sen2sr).any() or torch.isinf(sr_sen2sr).any():
             raise InferenceError(f"[{aoi_name}] Path B produced NaN or Inf values.")
@@ -212,11 +304,13 @@ class DualPathSRPipeline:
         # -------------------------------------------------------------
         # Map Path A channels: 0:B04, 1:B03, 2:B02, 3:B08
         # Into 10-band tensor: [B02, B03, B04, B05, B06, B07, B08, B8A, B11, B12]
+        # If Path A was skipped (CUDA OOM), keep SEN2SRLite bands for RGB+NIR.
         sr_fused = sr_sen2sr.clone()
-        sr_fused[:, 0:1] = sr_diffusion[:, 2:3]  # B02 (Blue)
-        sr_fused[:, 1:2] = sr_diffusion[:, 1:2]  # B03 (Green)
-        sr_fused[:, 2:3] = sr_diffusion[:, 0:1]  # B04 (Red)
-        sr_fused[:, 6:7] = sr_diffusion[:, 3:4]  # B08 (NIR)
+        if sr_diffusion is not None:
+            sr_fused[:, 0:1] = sr_diffusion[:, 2:3]  # B02 (Blue)
+            sr_fused[:, 1:2] = sr_diffusion[:, 1:2]  # B03 (Green)
+            sr_fused[:, 2:3] = sr_diffusion[:, 0:1]  # B04 (Red)
+            sr_fused[:, 6:7] = sr_diffusion[:, 3:4]  # B08 (NIR)
 
         # Ensure reflectance remains non-negative and physically valid
         sr_fused = torch.clamp(sr_fused, min=0.0, max=1.0)

@@ -37,6 +37,7 @@ def process_single_aoi(
     aoi_key: str,
     cfg: SRMConfig,
     pipeline: DualPathSRPipeline,
+    args: argparse.Namespace,
 ) -> None:
     """Execute end-to-end SRM workflow on a single real named AOI.
 
@@ -44,6 +45,7 @@ def process_single_aoi(
         aoi_key: Key identifier in configuration dictionary (e.g. 'urban_berlin').
         cfg: Master SRMConfig object.
         pipeline: Initialized DualPathSRPipeline instance.
+        args: Parsed CLI arguments (used for --lam flag).
     """
     aoi_cfg = cfg.aois[aoi_key]
     aoi_name = aoi_cfg.name
@@ -104,6 +106,50 @@ def process_single_aoi(
     t_sr_start = time.time()
     sr_dict = pipeline.run_inference(padded_lr, aoi_name=aoi_key)
     sr_time = time.time() - t_sr_start
+
+    # 4b. Optional LAM explainability (--lam flag)
+    # Hardware note: LAM ALWAYS runs on CPU. Model is temporarily moved off the GPU
+    # then restored. This is non-fatal — pipeline never fails if LAM crashes.
+    if args.lam:
+        from srm.explainability import compute_lam
+        import matplotlib.pyplot as plt
+        original_device = next(pipeline.model_sen2sr.parameters()).device
+        try:
+            lr_rgbn_cpu = pipeline._extract_rgbn(padded_lr).squeeze(0).cpu()
+            model_cpu = pipeline.model_sen2sr.cpu()
+
+            # Target midpoint of SR output space
+            h_target = padded_lr.shape[-2] * 2
+            w_target = padded_lr.shape[-1] * 2
+
+            kde_map, complexity, _, _ = compute_lam(
+                lr_rgbn=lr_rgbn_cpu,
+                model=model_cpu,
+                h=h_target,
+                w=w_target,
+                aoi_name=aoi_key,
+            )
+
+            # Restore model to original device for subsequent AOIs
+            pipeline.model_sen2sr.to(original_device)
+
+            if kde_map is not None:
+                lam_path = Path(cfg.output.dir) / f"{aoi_key}_lam.png"
+                fig, ax = plt.subplots(figsize=(6, 6))
+                ax.imshow(kde_map, cmap="hot")
+                ax.set_title(f"LAM — {aoi_key} (Gini={complexity:.3f})")
+                ax.axis("off")
+                plt.savefig(lam_path, bbox_inches="tight", dpi=150)
+                plt.close(fig)
+                logging.info("[%s] LAM saved: %s", aoi_key, lam_path)
+
+        except Exception as lam_exc:
+            logging.warning("[%s] LAM failed (non-fatal): %s", aoi_key, lam_exc)
+            # Ensure model is back on GPU even if LAM crashed midway
+            try:
+                pipeline.model_sen2sr.to(original_device)
+            except Exception:
+                pass
 
     # 5. Stochastic Uncertainty Mapping on LDSR-S2
     lr_rgbn = pipeline._extract_rgbn(padded_lr.to(pipeline.device))
@@ -207,6 +253,11 @@ def main() -> None:
         action="store_true",
         help="Run verification test mode (evaluates 1 AOI and benchmark)",
     )
+    parser.add_argument(
+        "--lam",
+        action="store_true",
+        help="Run LAM explainability after SR inference. Runs on CPU, takes 2-5 min per AOI.",
+    )
 
     args = parser.parse_args()
     cfg = SRMConfig.from_yaml(args.config)
@@ -255,17 +306,17 @@ def main() -> None:
     if args.aoi:
         if args.aoi not in cfg.aois:
             raise KeyError(f"AOI '{args.aoi}' not found in configuration. Available: {list(cfg.aois.keys())}")
-        process_single_aoi(args.aoi, cfg, pipeline)
+        process_single_aoi(args.aoi, cfg, pipeline, args)
     elif args.all_aois:
         for aoi_key in ["urban_berlin", "agri_valencia", "disaster_derna"]:
-            process_single_aoi(aoi_key, cfg, pipeline)
+            process_single_aoi(aoi_key, cfg, pipeline, args)
     elif args.test_mode:
         # In test mode, process 1 real AOI to verify full pipeline execution
-        process_single_aoi("agri_valencia", cfg, pipeline)
+        process_single_aoi("agri_valencia", cfg, pipeline, args)
     else:
         # Default: process all 3 AOIs
         for aoi_key in ["urban_berlin", "agri_valencia", "disaster_derna"]:
-            process_single_aoi(aoi_key, cfg, pipeline)
+            process_single_aoi(aoi_key, cfg, pipeline, args)
 
     logging.info("=" * 80)
     logging.info("ALL SRM OPERATIONS COMPLETED SUCCESSFULLY.")

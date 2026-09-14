@@ -112,6 +112,98 @@ def compute_sam(
     return float(np.mean(angle_deg))
 
 
+def compute_lpips(
+    reference: np.ndarray,
+    target: np.ndarray,
+) -> float:
+    """LPIPS perceptual distance using VGG. Lower is better. Target: < 0.15.
+
+    Always runs on CPU — avoids loading VGG into already-tight 6GB VRAM.
+    Returns nan if lpips package is not installed.
+
+    Args:
+        reference: (C, H, W) float32 in [0, 1]. C >= 3 required.
+        target: (C, H, W) float32 in [0, 1].
+
+    Returns:
+        float: LPIPS distance (lower = more perceptually similar).
+    """
+    try:
+        import lpips as lpips_lib
+        import torch
+        # Run on CPU — avoids loading VGG into already-tight 6GB VRAM
+        loss_fn = lpips_lib.LPIPS(net="vgg", verbose=False)
+        ref_t = torch.from_numpy(reference[:3]).unsqueeze(0).float() * 2 - 1
+        tgt_t = torch.from_numpy(target[:3]).unsqueeze(0).float() * 2 - 1
+        with torch.no_grad():
+            return float(loss_fn(ref_t, tgt_t).item())
+    except ImportError:
+        return float("nan")
+
+
+def compute_ergas(
+    reference: np.ndarray,
+    target: np.ndarray,
+    scale: int = 4,
+) -> float:
+    """ERGAS: Relative Global Synthesis Error across all bands.
+
+    Pure numpy — no GPU needed. Lower is better. Target: < 3.
+
+    Formula: 100/scale * sqrt(1/C * sum_c[(RMSE_c / mean_c)^2])
+
+    Args:
+        reference: (C, H, W) float32 in [0, 1].
+        target: (C, H, W) float32 in [0, 1].
+        scale: SR scale factor. 4 for 10m -> 2.5m.
+
+    Returns:
+        float: ERGAS value (lower = better spectral synthesis).
+    """
+    ref = np.asarray(reference, dtype=np.float64)
+    tgt = np.asarray(target, dtype=np.float64)
+    band_scores = []
+    for i in range(ref.shape[0]):
+        rmse = np.sqrt(np.mean((ref[i] - tgt[i]) ** 2))
+        mean_ref = np.mean(np.abs(ref[i]))
+        if mean_ref > 1e-8:
+            band_scores.append((rmse / mean_ref) ** 2)
+    if not band_scores:
+        return float("nan")
+    return float((100.0 / scale) * np.sqrt(np.mean(band_scores)))
+
+
+def check_uncertainty_calibration(
+    hr: np.ndarray,
+    sr_mean: np.ndarray,
+    sr_std: np.ndarray,
+) -> float:
+    """Fraction of HR pixels within sr_mean +/- 1.96*sr_std (95% CI).
+
+    Pure numpy. Target: >= 0.90. Logs WARNING if below threshold.
+
+    Args:
+        hr: (C, H, W) reference HR array.
+        sr_mean: (C, H, W) mean SR prediction.
+        sr_std: (1, H, W) or (C, H, W) uncertainty std-dev from diffusion sampling.
+
+    Returns:
+        float: Coverage fraction in [0, 1].
+    """
+    if sr_std.shape[0] == 1:
+        sr_std = np.repeat(sr_std, hr.shape[0], axis=0)
+    lower = sr_mean - 1.96 * sr_std
+    upper = sr_mean + 1.96 * sr_std
+    coverage = float(np.logical_and(hr >= lower, hr <= upper).mean())
+    if coverage < 0.90:
+        logger.warning(
+            "Uncertainty calibration %.3f below target 0.90 — "
+            "consider increasing n_uncertainty in config",
+            coverage,
+        )
+    return coverage
+
+
 def evaluate_benchmark(
     dataset_name: str = "spot",
     max_samples: Optional[int] = None,
@@ -193,6 +285,8 @@ def evaluate_benchmark(
             "psnr_db": psnr_bicubic,
             "ssim": ssim_bicubic,
             "sam_deg": sam_bicubic,
+            "lpips": compute_lpips(hr_sample, bicubic_sr),
+            "ergas": compute_ergas(hr_sample, bicubic_sr),
         }
         record_sr = {
             "dataset": dataset_name,
@@ -201,6 +295,8 @@ def evaluate_benchmark(
             "psnr_db": psnr_sr,
             "ssim": ssim_sr,
             "sam_deg": sam_sr,
+            "lpips": compute_lpips(hr_sample, sr_rgbn),
+            "ergas": compute_ergas(hr_sample, sr_rgbn),
         }
         records.extend([record_bicubic, record_sr])
 
