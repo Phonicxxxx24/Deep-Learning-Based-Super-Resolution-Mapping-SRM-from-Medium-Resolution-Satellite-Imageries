@@ -400,8 +400,9 @@ Root cause analysis revealed four bottlenecks:
 2. **Test-Time Augmentation (TTA):** Added 4-fold Dihedral Ensembling ($D_4$: identity, horizontal flip, vertical flip, 180° rotation) in `srm/sr_pipeline.py`. Sequential execution uses zero extra VRAM while eliminating stochastic grain and sharpening persistent linear edges.
 3. **2D Hann Overlapping Sliding Window:** Updated `run_pipeline.py` with 25% overlap (`stride = 96px`, `overlap = 32px`) weighted by a 2D Hann cosine window ($W(y, x) = \sin^2\frac{\pi y}{H}\sin^2\frac{\pi x}{W}$) and normalized by accumulated weights. Eradicates tile borders and boundary softening.
 4. **Fourier HardConstraint Cutoff Refinement:** Calibrated cutoff frequency radius from 64 to 32, preserving fine diffusion textures and edge gradients while retaining physical reflectance calibration.
-5. **Dashboard Full-Fidelity Display & 1:1 Pixel Inspector:**
+5. **Dashboard Full-Fidelity Display, Contrast & 1:1 Pixel Inspector:**
    - Removed `[::2, ::2]` downsampling in `dashboard/app.py` to render the full 2048×2048 resolution.
+   - Added interactive **Contrast & Dynamic Range Controls** with Adaptive CLAHE toggle and a $\times 0.5$ to $\times 2.5$ contrast intensity slider for heterogeneous satellite terrains (deserts, dense forests, flood zones).
    - Added high-boost unsharp masking with user-adjustable intensity slider ($\times 0.5$ to $\times 2.5$).
    - Built the **1:1 Native Pixel Inspection Tool** with region selector (Centre, Corners) and real-time Laplacian variance sharpness metrics.
 6. **Multi-AOI CLI Expansion:** Updated `--aoi` argument in `run_pipeline.py` to accept multiple AOIs (`nargs="+"`), and added `--max-quality` and `--tta` CLI flags.
