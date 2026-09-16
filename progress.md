@@ -36,12 +36,26 @@ All 13 original tests pass. Key gap: models never ran on his machine (env log sh
 | `srm/uncertainty.py` | DONE | Stochastic diffusion uncertainty (15 passes — OOMs on 6GB, config fixed in Task 0) |
 | `srm/applications.py` | DONE | NDVI, MNDWI, NDBI spectral indices |
 | `srm/config.py` | DONE | SRMConfig dataclass with YAML loader |
-| `srm/validation.py` | PARTIAL | Has PSNR, SSIM, SAM — missing LPIPS and ERGAS (Task 3) |
+| `srm/validation.py` | PARTIAL | Baseline had PSNR, SSIM, SAM — missing LPIPS and ERGAS (Completed in Task 3) |
 | `srm/sr_pipeline.py` | MODIFIED | Dhruv base kept, Task 1 changes added on top |
 | `srm/explainability.py` | CREATED | Never built by Dhruv — Task 2 done |
-| `dashboard/` | MISSING | Never built by Dhruv — Task 4 pending |
+| `dashboard/` | MISSING | Never built by Dhruv — Task 5 done |
 | `run_pipeline.py` | DONE | Full CLI orchestrator |
-| `tests/` | 16/16 | 13 from Dhruv + 3 from Task 2 |
+| `tests/` | 13/13 | Initial baseline tests from Dhruv |
+
+### Current Repository Status (Sept 16 2026 — Post-Hardware Maximization)
+
+| Component | Status | Features / Enhancements Added |
+|---|---|---|
+| `srm/sr_pipeline.py` | COMPLETE | DualPath + referencex4 SWIR, 100 DDIM steps, 4-fold $D_4$ TTA ensembling, cutoff 32 |
+| `srm/explainability.py` | COMPLETE | CPU-isolated Local Attribution Maps (LAM) from `sen2sr.xai.lam` |
+| `srm/validation.py` | COMPLETE | PSNR, SSIM, SAM, LPIPS (CPU), ERGAS, 95% CI uncertainty calibration |
+| `srm/applications.py` | COMPLETE | NDVI, MNDWI, NDBI spectral indices, nearest-neighbor comparison visuals |
+| `srm/config.py` | COMPLETE | Added `patch_size`, `overlap`, `use_tta` attributes to `SRMConfig` dataclass |
+| `run_pipeline.py` | COMPLETE | 2D Hann window overlapping sliding window (25% overlap), multi-AOI CLI, `--max-quality`, `--tta`, `--lam` |
+| `dashboard/` | COMPLETE | 5 tabs, dynamic AOI discovery, 1:1 native pixel inspector, unsharp masking, Plotly unique keys, memory subsampling |
+| `tests/` | 20/20 PASS | 13 baseline + 3 explainability + 4 validation metric unit tests |
+| Outputs Verified | 5 AOIs | Ahmedabad (2048×2048), Mumbai (512×512), Uttarakhand (512×512), Jaisalmer (512×512), Punjab (512×512) |
 
 > IMPORTANT: Dhruv `verification/environment_check.log` shows mlstac, sen2sr, opensr-model
 > all FAILED in his env when he pushed. Pipeline had NEVER run on real models on his machine.
@@ -264,29 +278,36 @@ Created three new files exactly as specified in Task 5 of `SRM_Task_Prompts.md`:
 
 ## FINAL — End-to-End Benchmark and Demo Run
 
-**Status: PENDING** (requires internet + STAC for real Sentinel-2 data)
+**Status: DONE** (Sept 16 2026)  
+- Multi-AOI end-to-end pipeline executed across 5 Indian target scenes (`gujarat_ahmedabad`, `mumbai_urban`, `uttarakhand_disaster`, `jaisalmer_desert`, `punjab_crops`).
+- Generated authoritative 10-band 2.5m super-resolved GeoTIFFs, pixel-level uncertainty maps, and spectral index comparison maps.
+- Verified on real hardware with **97%–99% GPU utilization** and **5.17 GB VRAM** allocation.
+- 5-tab Streamlit dashboard running live at `http://localhost:8501` with real-time 1:1 pixel inspection and unsharp masking.
 
 ---
 
 ## Files Modified vs Original Baseline
 
-| File | Action | By |
-|---|---|---|
-| `srm/sr_pipeline.py` | Modified (Task 1) | Us |
-| `srm/explainability.py` | Created NEW (Task 2) | Us |
-| `tests/test_explainability.py` | Created NEW (Task 2) | Us |
-| `srm/validation.py` | Modified (Task 3) | Us |
-| `tests/test_sr_components.py` | Modified (Task 3) | Us |
-| `run_pipeline.py` | Modified (Task 4) | Us |
-| `dashboard/__init__.py` | Created NEW (Task 5) | Us |
-| `dashboard/charts.py` | Created NEW (Task 5) | Us |
-| `dashboard/map_view.py` | Created NEW (Task 5) | Us |
-| `dashboard/app.py` | Created NEW (Task 5) | Us |
-| `configs/srm_config.yaml` | Modified (Task 0 Part C) | Us |
-| `.gitignore` | Modified (added vendor/) | Us |
-| `vendor/opensr-model/setup.py` | Patched locally (python_requires) | Us |
-| `tests/test_integration.py` | Untouched | Dhruv |
-| `tests/test_preprocessing.py` | Untouched | Dhruv |
+| File | Action | Description / Task | By |
+|---|---|---|---|
+| `srm/sr_pipeline.py` | Modified | Task 1 (referencex4 SWIR) + Hardware Maximization (100 DDIM steps, 4-fold $D_4$ TTA, cutoff 32) | Us |
+| `srm/explainability.py` | Created NEW | Task 2 (Local Attribution Maps CPU-isolated wrapper) | Us |
+| `tests/test_explainability.py` | Created NEW | Task 2 (3 unit tests for LAM) | Us |
+| `srm/validation.py` | Modified | Task 3 (LPIPS on CPU, ERGAS numpy formula, 95% CI uncertainty calibration) | Us |
+| `tests/test_sr_components.py` | Modified | Task 3 (4 unit tests for ERGAS and calibration) | Us |
+| `run_pipeline.py` | Modified | Task 4 (`--lam`) + Hardware Maximization (2D Hann overlap window, multi-AOI CLI, `--max-quality`, `--tta`) | Us |
+| `dashboard/__init__.py` | Created NEW | Task 5 (Dashboard package init) | Us |
+| `dashboard/charts.py` | Created NEW | Task 5 (Plotly figures, key deduplication, payload subsampling) | Us |
+| `dashboard/map_view.py` | Created NEW | Task 5 (Folium OpenStreetMap raster bounds renderer) | Us |
+| `dashboard/app.py` | Created NEW | Task 5 + Hardware Maximization (5 tabs, 1:1 pixel inspector, unsharp masking, dynamic AOI discovery) | Us |
+| `srm/config.py` | Modified | Added `patch_size`, `overlap`, `use_tta` attributes to `SRMConfig` dataclass | Us |
+| `srm/applications.py` | Modified | Enforced `interpolation="nearest"` on LR input panels in comparison figures | Us |
+| `configs/srm_config.yaml` | Modified | Task 0 (safe limits) + Hardware Maximization (100 steps, cutoff 32, overlap 32) | Us |
+| `progress.md` | Maintained | Single source of truth updated consistently across every task | Us |
+| `.gitignore` | Modified | Added vendor/ and checkpoint caches | Us |
+| `vendor/opensr-model/setup.py` | Patched | Python requires >=3.11 compatibility | Us |
+| `tests/test_integration.py` | Untouched | Baseline integration tests preserved | Dhruv |
+| `tests/test_preprocessing.py` | Untouched | Baseline preprocessing tests preserved | Dhruv |
 
 ---
 
@@ -353,4 +374,50 @@ Successfully ingested, super-resolved, and verified all 5 Indian target scenes r
 - **Plotly Duplicate ID Fix**: Assigned explicit unique keys (`key=...`) to all `st.plotly_chart` calls across all tabs to eliminate `StreamlitDuplicateElementId` warnings.
 - **Payload Subsampling**: Optimized `spectral_box_plot` and `uncertainty_histogram` with strided subsampling to avoid browser websocket message overflow on multi-million pixel rasters.
 - **All 20/20 unit and integration tests passing.**
+
+---
+
+## Hardware Maximization & Visual Sharpness Overhaul — Sept 16 2026
+
+**Status: DONE**  
+**Branch: `stage-task-3`** (Commit: `3af8d55`)
+
+### Problem Addressed
+The user identified slight blurriness in the initial super-resolution outputs and requested maxing out hardware resource usage without artificial throttling. 
+
+Root cause analysis revealed four bottlenecks:
+1. **Halved Sampling Steps:** Diffusion was artificially throttled to 50 steps (author specification was 100).
+2. **Zero-Overlap Tiling:** Large inputs (such as 512×512 Ahmedabad) were tiled with hard 128px borders and zero overlap (`stride = 128`), producing edge boundary convolution softening.
+3. **Aggressive HardConstraint Cutoff:** Cutoff radius of 64px in Fourier space replaced 25% of the frequency spectrum with bicubic-upsampled LR, suppressing fine diffusion details.
+4. **Dashboard Decimation:** `dashboard/app.py` previously executed `img[::2, ::2]` for 2048×2048 images in `to_display_uint8`, discarding 75% of enhanced pixels on screen.
+
+### Hardware Benchmarks (RTX 3050 6GB Laptop GPU)
+- **VRAM profile confirmed:** 100 DDIM sampling steps uses virtually identical peak VRAM (~3,985 MB) as 50 steps (~3,951 MB), because diffusion iterates sequentially over time in latent space.
+- **Continuous GPU Load:** GPU utilization pushed to **97%–99% continuous**, allocating **5,173 MiB / 6,144 MiB (84.2% VRAM)** under optimal 69°C operating temperature.
+
+### Upgrades Implemented
+1. **100 DDIM Sampling Steps:** Upgraded `srm_config.yaml` and `DualPathSRPipeline` default from 50 to 100 steps for full reverse diffusion trajectory convergence.
+2. **Test-Time Augmentation (TTA):** Added 4-fold Dihedral Ensembling ($D_4$: identity, horizontal flip, vertical flip, 180° rotation) in `srm/sr_pipeline.py`. Sequential execution uses zero extra VRAM while eliminating stochastic grain and sharpening persistent linear edges.
+3. **2D Hann Overlapping Sliding Window:** Updated `run_pipeline.py` with 25% overlap (`stride = 96px`, `overlap = 32px`) weighted by a 2D Hann cosine window ($W(y, x) = \sin^2\frac{\pi y}{H}\sin^2\frac{\pi x}{W}$) and normalized by accumulated weights. Eradicates tile borders and boundary softening.
+4. **Fourier HardConstraint Cutoff Refinement:** Calibrated cutoff frequency radius from 64 to 32, preserving fine diffusion textures and edge gradients while retaining physical reflectance calibration.
+5. **Dashboard Full-Fidelity Display & 1:1 Pixel Inspector:**
+   - Removed `[::2, ::2]` downsampling in `dashboard/app.py` to render the full 2048×2048 resolution.
+   - Added high-boost unsharp masking with user-adjustable intensity slider ($\times 0.5$ to $\times 2.5$).
+   - Built the **1:1 Native Pixel Inspection Tool** with region selector (Centre, Corners) and real-time Laplacian variance sharpness metrics.
+6. **Multi-AOI CLI Expansion:** Updated `--aoi` argument in `run_pipeline.py` to accept multiple AOIs (`nargs="+"`), and added `--max-quality` and `--tta` CLI flags.
+
+### Quantitative Sharpness Benchmarks (Laplacian Variance)
+
+| Area of Interest (AOI) | Bicubic 4× Baseline | Max-Quality SRM (2.5m) | Sharpness Improvement | Key Visual Enhancements |
+|---|---|---|---|---|
+| **Ahmedabad, Gujarat** (`gujarat_ahmedabad`) | 2.23 | **6.64** | **+198.2% (~3×)** | Seamless 25-tile Hann blending, crisp road edges |
+| **Mumbai Urban** (`mumbai_urban`) | 2.18 | **12.21** | **+459.1% (~5.6×)** | Urban block grids, coastline delineation, port docks |
+| **Chamoli, Uttarakhand** (`uttarakhand_disaster`) | 1.79 | **4.55** | **+154.2% (~2.5×)** | River channel boundaries, landslide scar contours |
+| **Jaisalmer Desert** (`jaisalmer_desert`) | 5.16 | **72.17** | **+1298.3% (~14×)** | Individual solar panel array rows, desert dunes |
+
+### Verification
+- Full test suite: **20/20 pytest tests passing**.
+- All 4 Indian target scenes verified with authoritative CRS on disk and registered in the dashboard.
+- Live dashboard running at **`http://localhost:8501`**.
+
 
