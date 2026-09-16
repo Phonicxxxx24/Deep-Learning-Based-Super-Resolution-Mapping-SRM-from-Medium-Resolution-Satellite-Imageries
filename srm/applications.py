@@ -207,24 +207,24 @@ def generate_comparison_figure(
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 12), dpi=200)
 
-    # Panel 1: LR RGB
-    axes[0, 0].imshow(lr_rgb)
-    axes[0, 0].set_title(f"Input Sentinel-2 (10m) — {aoi_name}\nRGB Composite (B04-B03-B02)", fontsize=11, fontweight="bold")
+    # Panel 1: LR RGB (nearest interpolation exposes native 10m pixel resolution)
+    axes[0, 0].imshow(lr_rgb, interpolation="nearest")
+    axes[0, 0].set_title(f"Input Sentinel-2 (10m Native) — {aoi_name}\nRGB Composite (B04-B03-B02)", fontsize=11, fontweight="bold")
     axes[0, 0].axis("off")
 
     # Panel 2: SR RGB
-    axes[0, 1].imshow(sr_rgb)
+    axes[0, 1].imshow(sr_rgb, interpolation="bilinear")
     axes[0, 1].set_title(f"Super-Resolved Output (2.5m, 4x SRM)\nDual-Path Fusion + HardConstraint", fontsize=11, fontweight="bold")
     axes[0, 1].axis("off")
 
     # Panel 3: LR Index
-    im3 = axes[1, 0].imshow(lr_idx, cmap=cmap, vmin=-0.2, vmax=0.8)
-    axes[1, 0].set_title(f"Original 10m {title_label}", fontsize=11, fontweight="bold")
+    im3 = axes[1, 0].imshow(lr_idx, cmap=cmap, vmin=-0.2, vmax=0.8, interpolation="nearest")
+    axes[1, 0].set_title(f"Original 10m Native {title_label}", fontsize=11, fontweight="bold")
     axes[1, 0].axis("off")
     fig.colorbar(im3, ax=axes[1, 0], fraction=0.046, pad=0.04)
 
     # Panel 4: SR Index
-    im4 = axes[1, 1].imshow(sr_idx, cmap=cmap, vmin=-0.2, vmax=0.8)
+    im4 = axes[1, 1].imshow(sr_idx, cmap=cmap, vmin=-0.2, vmax=0.8, interpolation="bilinear")
     axes[1, 1].set_title(f"Super-Resolved 2.5m {title_label}", fontsize=11, fontweight="bold")
     axes[1, 1].axis("off")
     fig.colorbar(im4, ax=axes[1, 1], fraction=0.046, pad=0.04)

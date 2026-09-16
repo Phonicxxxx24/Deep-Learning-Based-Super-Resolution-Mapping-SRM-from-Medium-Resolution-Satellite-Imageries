@@ -3,11 +3,12 @@
 
 # Global execution settings
 device: "cuda"          # pipeline falls back to cpu on OOM
-n_uncertainty: 5        # NOT 25 — 25 passes OOM on 6GB VRAM
-sampling_steps: 50      # NOT 100 — 50 steps fit in 6GB
+n_uncertainty: 5        # uncertainty passes for std estimation
+sampling_steps: 100     # 100 DDIM steps for razor-sharp textures & high-frequency detail
+use_tta: false          # set true for 4-fold dihedral ensembling (can also be passed via --tta)
 eta: 0.95
-patch_size: 128         # hard limit — do not increase
-overlap: 32
+patch_size: 128         # native 128px patch size
+overlap: 32             # 25% overlap (stride 96) with 2D Hann window blending
 seed: 42
 log_level: "INFO"
 
@@ -19,8 +20,8 @@ models:
   opensr_model:
     ckpt_path: "opensr-ldsrs2_v1_0_0.ckpt"
     config_name: "config_10m.yaml"
-    sampling_steps: 50      # DDIM sampling steps — 50 max for 6GB GPU
-    uncertainty_variations: 5  # n_uncertainty — NOT 25, OOMs on 6GB VRAM
+    sampling_steps: 100      # DDIM sampling steps — 100 steps for full author quality
+    uncertainty_variations: 5
 
 # Band definitions
 bands:
@@ -58,7 +59,7 @@ preprocessing:
 hard_constraint:
   enabled: true
   filter_type: "ideal" # "ideal" or "gaussian"
-  cutoff: 64 # Frequency cutoff radius
+  cutoff: 32 # Frequency cutoff radius (32 preserves sharp mid-to-high textures)
 
 # Real named Areas of Interest (AOIs)
 aois:

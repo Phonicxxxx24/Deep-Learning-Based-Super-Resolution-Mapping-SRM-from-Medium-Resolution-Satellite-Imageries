@@ -160,6 +160,9 @@ class SRMConfig:
     device: str = "cuda"
     seed: int = 42
     log_level: str = "INFO"
+    patch_size: int = 128
+    overlap: int = 32
+    use_tta: bool = False
     models: ModelsConfig = field(default_factory=ModelsConfig)
     bands: BandsConfig = field(default_factory=BandsConfig)
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
@@ -201,10 +204,10 @@ class SRMConfig:
                 "config_name", "config_10m.yaml"
             ),
             sampling_steps=models_data.get("opensr_model", {}).get(
-                "sampling_steps", 50
+                "sampling_steps", 100
             ),
             uncertainty_variations=models_data.get("opensr_model", {}).get(
-                "uncertainty_variations", 15
+                "uncertainty_variations", 5
             ),
         )
 
@@ -232,7 +235,7 @@ class SRMConfig:
         hc_cfg = HardConstraintConfig(
             enabled=bool(hc_data.get("enabled", True)),
             filter_type=str(hc_data.get("filter_type", "ideal")),
-            cutoff=int(hc_data.get("cutoff", 64)),
+            cutoff=int(hc_data.get("cutoff", 32)),
         )
 
         out_data = raw_data.get("output", {})
@@ -260,6 +263,9 @@ class SRMConfig:
             device=str(raw_data.get("device", "cuda")),
             seed=int(raw_data.get("seed", 42)),
             log_level=str(raw_data.get("log_level", "INFO")),
+            patch_size=int(raw_data.get("patch_size", 128)),
+            overlap=int(raw_data.get("overlap", 32)),
+            use_tta=bool(raw_data.get("use_tta", False)),
             models=models_cfg,
             bands=bands_cfg,
             preprocessing=prep_cfg,

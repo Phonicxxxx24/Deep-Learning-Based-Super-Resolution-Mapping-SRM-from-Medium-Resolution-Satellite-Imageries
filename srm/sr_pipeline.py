@@ -35,11 +35,12 @@ class DualPathSRPipeline:
         opensr_config_name: str = "config_10m.yaml",
         sen2sr_model_dir: str = "model/SEN2SRLite",
         device: str = "cuda",
-        sampling_steps: int = 50,
+        sampling_steps: int = 100,
         enable_hard_constraint: bool = True,
         filter_type: str = "ideal",
-        filter_cutoff: int = 64,
+        filter_cutoff: int = 32,
         use_referencex4: bool = True,
+        use_tta: bool = False,
     ) -> None:
         """Initialize models and configurations on target device.
 
@@ -48,13 +49,15 @@ class DualPathSRPipeline:
             opensr_config_name: Name of config file inside opensr_model/configs.
             sen2sr_model_dir: Directory containing SEN2SRLite mlm.json.
             device: Compute device ('cuda' or 'cpu').
-            sampling_steps: DDIM sampling steps for diffusion path.
+            sampling_steps: DDIM sampling steps for diffusion path (100 for full quality).
             enable_hard_constraint: Whether to apply Fourier HardConstraint.
             filter_type: Frequency filter profile ('ideal' or 'gaussian').
             filter_cutoff: Radius in pixels for the low-pass cutoff.
             use_referencex4: Whether to attempt loading the referencex4 SWIR
                 fusion pipeline (x2 + x4 RSWIR models). Falls back to direct
                 SEN2SRLite if the x4 weights are unavailable.
+            use_tta: Whether to run Test-Time Augmentation (4-fold dihedral ensembling)
+                for the diffusion path to max out sharpness and cancel noise.
 
         Raises:
             ModelLoadingError: If any model fails to instantiate or load weights.
@@ -66,8 +69,14 @@ class DualPathSRPipeline:
         self.enable_hard_constraint = enable_hard_constraint
         self.filter_type = filter_type
         self.filter_cutoff = filter_cutoff
+        self.use_tta = use_tta
 
-        logger.info("Initializing DualPathSRPipeline on device: %s", self.device)
+        logger.info(
+            "Initializing DualPathSRPipeline on device: %s (sampling_steps=%d, TTA=%s)",
+            self.device,
+            self.sampling_steps,
+            self.use_tta,
+        )
 
         # 1. Load opensr-model (Path A)
         try:
@@ -167,12 +176,14 @@ class DualPathSRPipeline:
         self,
         lr_10b: torch.Tensor,
         aoi_name: str = "custom_aoi",
+        use_tta: Optional[bool] = None,
     ) -> Dict[str, torch.Tensor]:
         """Execute dual-path SR, multimodal fusion, and frequency filtering.
 
         Args:
             lr_10b: Normalized low-resolution input tensor of shape (1, 10, H, W).
             aoi_name: Identifier for structured logging.
+            use_tta: Optional override for Test-Time Augmentation ensembling.
 
         Returns:
             Dict[str, torch.Tensor]: Dictionary containing:
@@ -200,17 +211,48 @@ class DualPathSRPipeline:
         # Path A: opensr-model Diffusion (RGB+NIR 4x)
         # -------------------------------------------------------------
         lr_rgbn = self._extract_rgbn(lr_gpu)
+        run_tta = self.use_tta if use_tta is None else use_tta
         logger.info(
-            "[%s] Path A (LDSR-S2): Running %d sampling steps...",
+            "[%s] Path A (LDSR-S2): Running %d sampling steps (TTA=%s)...",
             aoi_name,
             self.sampling_steps,
+            run_tta,
         )
         sr_diffusion = None  # may remain None on OOM — handled in band fusion below
         try:
             with torch.no_grad():
-                sr_diffusion = self.model_diffusion.forward(
-                    lr_rgbn, sampling_steps=self.sampling_steps
-                )
+                if run_tta:
+                    # 4-fold dihedral ensembling: identity, hflip, vflip, hvflip
+                    preds = []
+                    # 0: identity
+                    p0 = self.model_diffusion.forward(
+                        lr_rgbn, sampling_steps=self.sampling_steps
+                    )
+                    preds.append(p0)
+
+                    # 1: horizontal flip
+                    p_h = self.model_diffusion.forward(
+                        torch.flip(lr_rgbn, dims=[-1]), sampling_steps=self.sampling_steps
+                    )
+                    preds.append(torch.flip(p_h, dims=[-1]))
+
+                    # 2: vertical flip
+                    p_v = self.model_diffusion.forward(
+                        torch.flip(lr_rgbn, dims=[-2]), sampling_steps=self.sampling_steps
+                    )
+                    preds.append(torch.flip(p_v, dims=[-2]))
+
+                    # 3: both flips (180-deg rotation)
+                    p_hv = self.model_diffusion.forward(
+                        torch.flip(lr_rgbn, dims=[-2, -1]), sampling_steps=self.sampling_steps
+                    )
+                    preds.append(torch.flip(p_hv, dims=[-2, -1]))
+
+                    sr_diffusion = torch.stack(preds, dim=0).mean(dim=0)
+                else:
+                    sr_diffusion = self.model_diffusion.forward(
+                        lr_rgbn, sampling_steps=self.sampling_steps
+                    )
         except RuntimeError as exc:
             if "out of memory" in str(exc).lower():
                 logger.warning(

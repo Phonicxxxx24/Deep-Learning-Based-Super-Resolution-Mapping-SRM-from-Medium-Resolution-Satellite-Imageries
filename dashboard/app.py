@@ -294,21 +294,26 @@ with tab_map:
     lr_rgb  = create_rgb_composite(lr_sim)           # (128, 128, 3) float [0,1]
 
     # ── Display enhancement (visual only — GeoTIFF unchanged) ─────────────────
-    def enhance_for_display(img: np.ndarray, clahe: bool = True, sharpen: bool = True) -> np.ndarray:
-        """Apply CLAHE + unsharp mask for better visual clarity.
+    def enhance_for_display(
+        img: np.ndarray,
+        clahe: bool = True,
+        sharpen: bool = True,
+        sharpen_strength: float = 1.0,
+    ) -> np.ndarray:
+        """Apply CLAHE + high-boost unsharp mask for crystal-clear visual clarity.
         Purely for display — does NOT modify stored GeoTIFF data."""
         out = img.copy().astype(np.float32)
         if clahe:
-            # Per-channel adaptive histogram equalisation
             for c in range(out.shape[2]):
                 out[..., c] = exposure.equalize_adapthist(
-                    np.clip(out[..., c], 0, 1), clip_limit=0.03
+                    np.clip(out[..., c], 0, 1), clip_limit=0.035
                 ).astype(np.float32)
         if sharpen:
-            # Unsharp mask: img + amount*(img - blurred)
-            kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]], dtype=np.float32)
+            k = float(sharpen_strength)
+            # High-boost sharpening kernel: preserves energy while boosting edge gradients
+            kernel = np.array([[0, -k, 0], [-k, 1.0 + 4.0 * k, -k], [0, -k, 0]], dtype=np.float32)
             for c in range(out.shape[2]):
-                out[..., c] = np.clip(convolve(out[..., c], kernel), 0, 1)
+                out[..., c] = np.clip(convolve(out[..., c], kernel), 0.0, 1.0)
         return out
 
     # ── Banner ────────────────────────────────────────────────────────────────
@@ -318,39 +323,45 @@ with tab_map:
       <b style="color:#4488ff;font-size:1.05em;">⚡ Resolution Enhancement</b>
       &nbsp;|&nbsp;
       <span style="color:#aabbcc;">10 m Sentinel-2 L2A &nbsp;→&nbsp;
-      <b style="color:#44ee88;">2.5 m Super-Resolved (4× sharper)</b></span>
+      <b style="color:#44ee88;">2.5 m Super-Resolved (4× sharper, 16× more pixels)</b></span>
     </div>
     """, unsafe_allow_html=True)
 
     # ── Enhancement toggle ────────────────────────────────────────────────────
-    with st.expander("🎛️ Display Enhancement Settings", expanded=True):
-        ecol1, ecol2 = st.columns(2)
+    with st.expander("🎛️ Display Enhancement & Sharpness Settings", expanded=True):
+        ecol1, ecol2, ecol3 = st.columns([1, 1, 1])
         with ecol1:
-            use_clahe   = st.toggle("CLAHE (adaptive contrast)", value=True,
-                                    help="Adaptive histogram equalisation — boosts local contrast in low-contrast regions")
+            use_clahe = st.toggle(
+                "CLAHE (adaptive contrast)", value=True,
+                help="Adaptive histogram equalisation — boosts local contrast across heterogeneous terrain"
+            )
         with ecol2:
-            use_sharpen = st.toggle("Unsharp Mask (edge sharpening)", value=True,
-                                    help="Laplacian sharpening filter — enhances edge crispness for visual clarity")
-    st.caption("⚠️ Enhancement is display-only — underlying GeoTIFF reflectance values are unchanged.")
+            use_sharpen = st.toggle(
+                "Edge Sharpening (High-Boost)", value=True,
+                help="Laplacian high-boost filter — brings out roads, building edges, and field boundaries"
+            )
+        with ecol3:
+            sharpen_strength = st.slider(
+                "Sharpening Intensity", min_value=0.5, max_value=2.5, value=1.2, step=0.1
+            ) if use_sharpen else 1.0
 
-    def to_display_uint8(img: np.ndarray, max_dim: int = 1024) -> np.ndarray:
-        h, w = img.shape[:2]
-        if max(h, w) > max_dim:
-            step = int(np.ceil(max(h, w) / max_dim))
-            img = img[::step, ::step]
+    st.caption("⚠️ Display enhancement is visual-only — scientific GeoTIFF reflectance and indices remain unadulterated.")
+
+    def to_display_uint8(img: np.ndarray, max_dim: int = 4096) -> np.ndarray:
+        """Convert float [0, 1] array to full-fidelity uint8 RGB without downsampling decimation."""
         return np.clip(img * 255.0, 0, 255).astype(np.uint8)
 
-    sr_display = enhance_for_display(sr_rgb, clahe=use_clahe, sharpen=use_sharpen)
-    lr_display = lr_rgb   # keep LR as-is to show the 'before' faithfully
+    sr_display = enhance_for_display(
+        sr_rgb, clahe=use_clahe, sharpen=use_sharpen, sharpen_strength=sharpen_strength
+    )
+    lr_display = lr_rgb   # keep LR faithful to show the raw input resolution
 
     # ── 3-column comparison: LR | SR | Zoom ──────────────────────────────────
     col_lr, col_sr, col_zoom = st.columns([1, 1, 1], gap="medium")
 
     with col_lr:
         st.markdown("**📡 Original Input — 10 m (LR)**")
-        st.image(
-            to_display_uint8(lr_rgb), width='stretch',
-        )
+        st.image(to_display_uint8(lr_rgb), width='stretch')
         st.caption(
             f"{lr_sim.shape[2]} × {lr_sim.shape[1]} px · 10 m/px · {sr_data.shape[0]} bands\n"
             "Pixel grid visible at native 10 m resolution"
@@ -358,38 +369,63 @@ with tab_map:
 
     with col_sr:
         enh_label = ""
-        if use_clahe and use_sharpen: enh_label = " · CLAHE + Sharpen"
+        if use_clahe and use_sharpen: enh_label = f" · CLAHE + Sharpen (×{sharpen_strength:.1f})"
         elif use_clahe: enh_label = " · CLAHE"
-        elif use_sharpen: enh_label = " · Sharpen"
+        elif use_sharpen: enh_label = f" · Sharpen (×{sharpen_strength:.1f})"
         st.markdown(f"**✨ Super-Resolved Output — 2.5 m (SR){enh_label}**")
-        st.image(
-            to_display_uint8(sr_display), width='stretch',
-        )
+        st.image(to_display_uint8(sr_display), width='stretch')
         st.caption(
             f"{H} × {W} px · 2.5 m/px · {sr_data.shape[0]} bands\n"
-            "Dual-path LDSR-S2 + SEN2SRLite with FourierHardConstraint"
+            "Dual-path LDSR-S2 (100 steps) + SEN2SRLite with FourierHardConstraint"
         )
 
     with col_zoom:
-        st.markdown("**🔍 Pixel-Level Zoom — Centre Crop**")
-        lr_cx, lr_cy = lr_display.shape[1] // 2, lr_display.shape[0] // 2
-        lr_crop = lr_display[lr_cy-16:lr_cy+16, lr_cx-16:lr_cx+16]   # 32×32 (10m pixels)
+        st.markdown("**🔍 1:1 Pixel Inspection — High-Res Detail**")
+        zoom_choices = ["Centre", "Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"]
+        z_choice = st.selectbox("Inspect Region", zoom_choices, index=0, label_visibility="collapsed")
 
-        sr_cx, sr_cy = sr_display.shape[1] // 2, sr_display.shape[0] // 2
-        sr_crop = sr_display[sr_cy-64:sr_cy+64, sr_cx-64:sr_cx+64]   # 128×128 (same footprint)
+        # Compute crop coordinates based on selection
+        crop_lr_size = 32
+        crop_sr_size = crop_lr_size * 4  # 128
 
-        fig_zoom, axes = plt.subplots(1, 2, figsize=(6, 3))
+        lr_h, lr_w = lr_display.shape[:2]
+        sr_h, sr_w = sr_display.shape[:2]
+
+        if z_choice == "Top-Left":
+            lr_y0, lr_x0 = 0, 0
+        elif z_choice == "Top-Right":
+            lr_y0, lr_x0 = 0, max(0, lr_w - crop_lr_size)
+        elif z_choice == "Bottom-Left":
+            lr_y0, lr_x0 = max(0, lr_h - crop_lr_size), 0
+        elif z_choice == "Bottom-Right":
+            lr_y0, lr_x0 = max(0, lr_h - crop_lr_size), max(0, lr_w - crop_lr_size)
+        else:  # Centre
+            lr_y0, lr_x0 = max(0, lr_h // 2 - crop_lr_size // 2), max(0, lr_w // 2 - crop_lr_size // 2)
+
+        sr_y0, sr_x0 = lr_y0 * 4, lr_x0 * 4
+
+        lr_crop = lr_display[lr_y0:lr_y0 + crop_lr_size, lr_x0:lr_x0 + crop_lr_size]
+        sr_crop = sr_display[sr_y0:sr_y0 + crop_sr_size, sr_x0:sr_x0 + crop_sr_size]
+
+        # Calculate Laplacian variance sharpness for both crops
+        import cv2
+        lr_gray = cv2.cvtColor(np.clip(lr_crop * 255, 0, 255).astype(np.uint8), cv2.COLOR_RGB2GRAY)
+        sr_gray = cv2.cvtColor(np.clip(sr_crop * 255, 0, 255).astype(np.uint8), cv2.COLOR_RGB2GRAY)
+        lr_var = float(cv2.Laplacian(lr_gray, cv2.CV_64F).var())
+        sr_var = float(cv2.Laplacian(sr_gray, cv2.CV_64F).var())
+
+        fig_zoom, axes = plt.subplots(1, 2, figsize=(7, 3.5), dpi=150)
         fig_zoom.patch.set_facecolor("#0d1117")
         axes[0].imshow(lr_crop, interpolation="nearest")
-        axes[0].set_title("LR crop (10 m)", color="#aabbcc", fontsize=8)
+        axes[0].set_title(f"LR Input (10m)\nSharpness: {lr_var:.1f}", color="#aabbcc", fontsize=9)
         axes[0].axis("off")
         axes[1].imshow(sr_crop, interpolation="nearest")
-        axes[1].set_title("SR crop (2.5 m)", color="#44ee88", fontsize=8)
+        axes[1].set_title(f"SR Output (2.5m)\nSharpness: {sr_var:.1f} (+{(sr_var/(lr_var+1e-5)-1)*100:+.0f}%)", color="#44ee88", fontsize=9)
         axes[1].axis("off")
         fig_zoom.tight_layout(pad=0.3)
         st.pyplot(fig_zoom, width='stretch')
         plt.close(fig_zoom)
-        st.caption("Same geographic footprint · 16× more pixels in SR")
+        st.caption(f"Same geographic footprint · {sr_crop.shape[0]}×{sr_crop.shape[1]} px vs {lr_crop.shape[0]}×{lr_crop.shape[1]} px")
 
     # ── Comparison PNG from pipeline (NDVI before/after) ─────────────────────
     cmp_png = OUTPUT_DIR / f"{selected_aoi}_ndvi_comparison.png"

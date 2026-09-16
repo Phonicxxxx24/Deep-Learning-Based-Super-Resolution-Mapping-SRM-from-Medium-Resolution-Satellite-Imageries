@@ -287,88 +287,133 @@ def process_input_geotiff(
             logging.warning("  %s not found — zero-filled at pos %d", band_id, out_idx)
 
     # ── 4. Tile into 128×128 patches, SR each, assemble ──────────────────────
-    # Model hard-constraint mask is built for 128px input.  Any input larger
-    # than 128px must be split into tiles.
+    # ── 4. Tiling with Hann window blending (max quality) ────────────────────
     SCALE = 4
-    n_ph = max(1, (H + patch_size - 1) // patch_size)   # tiles along height
-    n_pw = max(1, (W + patch_size - 1) // patch_size)   # tiles along width
-    logging.info(
-        "Tiling %dx%d input into %d×%d grid of %d×%dpx patches → %dx%d SR output",
-        H, W, n_ph, n_pw, patch_size, patch_size, n_ph * patch_size * SCALE, n_pw * patch_size * SCALE,
-    )
+    patch_size = cfg.patch_size
+    overlap = args.overlap if (args.overlap is not None) else getattr(cfg, "overlap", 32)
+    use_tta = getattr(args, "tta", False) or getattr(args, "max_quality", False) or getattr(cfg, "use_tta", False)
 
-    # Pad input so it divides evenly into patch_size tiles
-    pad_h = n_ph * patch_size - H
-    pad_w = n_pw * patch_size - W
-    if pad_h > 0 or pad_w > 0:
-        remapped = np.pad(remapped, ((0, 0), (0, pad_h), (0, pad_w)), mode="reflect")
-        logging.info("Padded input to %s for tiling", remapped.shape)
+    if overlap > 0 and (H > patch_size or W > patch_size):
+        stride = patch_size - overlap
+        def get_starts(dim, p_size, st):
+            if dim <= p_size:
+                return [0]
+            starts = list(range(0, dim - p_size + 1, st))
+            if starts[-1] + p_size < dim:
+                starts.append(dim - p_size)
+            return starts
 
-    # Preallocate full SR output
-    Ph, Pw = n_ph * patch_size, n_pw * patch_size        # padded LR dims
-    sr_full = np.zeros((10, Ph * SCALE, Pw * SCALE), dtype=np.float32)
-    unc_full = np.zeros((Ph * SCALE, Pw * SCALE), dtype=np.float32)
+        y_starts = get_starts(H, patch_size, stride)
+        x_starts = get_starts(W, patch_size, stride)
+        total_tiles = len(y_starts) * len(x_starts)
+        logging.info(
+            "Tiling %dx%d input with overlap=%dpx (stride=%dpx, TTA=%s) → %d tiles (%d×%d grid) with 2D Hann blending",
+            H, W, overlap, stride, use_tta, total_tiles, len(y_starts), len(x_starts)
+        )
 
-    total_tiles = n_ph * n_pw
-    t_sr_start = time.time()
+        # 2D Hann window for smooth boundary blending
+        wy = np.hanning(patch_size * SCALE + 2)[1:-1]
+        wx = np.hanning(patch_size * SCALE + 2)[1:-1]
+        w2d = np.outer(wy, wx).astype(np.float32)
+        w2d = np.maximum(w2d, 1e-3)
 
-    for ti in range(n_ph):
-        for tj in range(n_pw):
-            tile_idx = ti * n_pw + tj + 1
-            logging.info("  Tile %d/%d (row=%d col=%d) …", tile_idx, total_tiles, ti, tj)
+        sr_accum = np.zeros((10, H * SCALE, W * SCALE), dtype=np.float32)
+        unc_accum = np.zeros((H * SCALE, W * SCALE), dtype=np.float32)
+        weight_accum = np.zeros((H * SCALE, W * SCALE), dtype=np.float32)
 
-            # Extract patch
-            y0, x0 = ti * patch_size, tj * patch_size
-            tile = remapped[:, y0:y0 + patch_size, x0:x0 + patch_size]  # (10, 128, 128)
+        tile_count = 0
+        t_sr_start = time.time()
+        for yi, y0 in enumerate(y_starts):
+            for xi, x0 in enumerate(x_starts):
+                tile_count += 1
+                logging.info("  Tile %d/%d (y=%d, x=%d)...", tile_count, total_tiles, y0, x0)
+                tile = remapped[:, y0:y0 + patch_size, x0:x0 + patch_size]
+                padded_tile, pad_info = preprocess_scene(tile, scale=1.0, patch_multiple=patch_size)
 
-            # Preprocess (scale=1.0 because already reflectance)
-            padded_tile, pad_info = preprocess_scene(tile, scale=1.0, patch_multiple=patch_size)
+                tile_label = f"{aoi_name}_t{yi}{xi}"
+                sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label, use_tta=use_tta)
+                sr_tile = sr_dict["sr_final"].squeeze(0).cpu().numpy()
 
-            # SR inference on this tile
-            tile_label = f"{aoi_name}_t{ti}{tj}"
-            sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label)
-            sr_tile = sr_dict["sr_fused"].squeeze(0).cpu().numpy()    # (10, 512, 512)
+                is_centre = (yi == len(y_starts) // 2) and (xi == len(x_starts) // 2)
+                if is_centre or total_tiles <= 4:
+                    lr_rgbn = pipeline._extract_rgbn(padded_tile.to(pipeline.device))
+                    unc_tile_result, _ = compute_uncertainty_map(
+                        model=pipeline.model_diffusion,
+                        lr_rgbn=lr_rgbn,
+                        n_variations=cfg.models.uncertainty_variations,
+                        sampling_steps=cfg.models.sampling_steps,
+                        aoi_name=tile_label,
+                    )
+                    unc_np = unc_tile_result.squeeze(0).squeeze(0).cpu().numpy()
+                else:
+                    unc_np = np.zeros((patch_size * SCALE, patch_size * SCALE), dtype=np.float32)
 
-            # Uncertainty: only compute on the centre tile (model requires n>3).
-            # Other tiles get a zero placeholder — saves 15× uncertainty time.
-            centre_ti = n_ph // 2
-            centre_tj = n_pw // 2
-            if ti == centre_ti and tj == centre_tj:
-                lr_rgbn = pipeline._extract_rgbn(padded_tile.to(pipeline.device))
-                unc_tile_result, _ = compute_uncertainty_map(
-                    model=pipeline.model_diffusion,
-                    lr_rgbn=lr_rgbn,
-                    n_variations=cfg.models.uncertainty_variations,
-                    sampling_steps=cfg.models.sampling_steps,
-                    aoi_name=tile_label,
-                )
-                unc_np = unc_tile_result.squeeze(0).squeeze(0).cpu().numpy()
-            else:
-                unc_np = np.zeros((patch_size * SCALE, patch_size * SCALE), dtype=np.float32)
+                oy, ox = y0 * SCALE, x0 * SCALE
+                sr_accum[:, oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] += sr_tile * w2d
+                unc_accum[oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] += unc_np * w2d
+                weight_accum[oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] += w2d
 
-            # Remove padding from SR tile edges that correspond to LR padding
-            sr_h = (patch_size - pad_info.pad_top - pad_info.pad_bottom) * SCALE
-            sr_w = (patch_size - pad_info.pad_left - pad_info.pad_right) * SCALE
-            sr_tile_crop = sr_tile[
-                :,
-                pad_info.pad_top * SCALE: pad_info.pad_top * SCALE + sr_h,
-                pad_info.pad_left * SCALE: pad_info.pad_left * SCALE + sr_w,
-            ]
-            unc_crop = unc_np[
-                pad_info.pad_top * SCALE: pad_info.pad_top * SCALE + sr_h,
-                pad_info.pad_left * SCALE: pad_info.pad_left * SCALE + sr_w,
-            ]
+        sr_time = time.time() - t_sr_start
+        weight_accum = np.maximum(weight_accum, 1e-6)
+        sr_final = sr_accum / weight_accum
+        unc_final = unc_accum / weight_accum
+    else:
+        # Standard non-overlapping grid for smaller images or overlap=0
+        n_ph = max(1, (H + patch_size - 1) // patch_size)
+        n_pw = max(1, (W + patch_size - 1) // patch_size)
+        logging.info(
+            "Tiling %dx%d input into %d×%d grid of %d×%dpx patches (TTA=%s) → %dx%d SR output",
+            H, W, n_ph, n_pw, patch_size, patch_size, use_tta, n_ph * patch_size * SCALE, n_pw * patch_size * SCALE,
+        )
 
-            # Place into output (use full 512×512 since tile is exactly 128×128)
-            oy, ox = ti * patch_size * SCALE, tj * patch_size * SCALE
-            sr_full[:, oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] = sr_tile
-            unc_full[oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] = unc_np
+        pad_h = n_ph * patch_size - H
+        pad_w = n_pw * patch_size - W
+        if pad_h > 0 or pad_w > 0:
+            remapped_pad = np.pad(remapped, ((0, 0), (0, pad_h), (0, pad_w)), mode="reflect")
+        else:
+            remapped_pad = remapped
 
-    sr_time = time.time() - t_sr_start
+        Ph, Pw = n_ph * patch_size, n_pw * patch_size
+        sr_full = np.zeros((10, Ph * SCALE, Pw * SCALE), dtype=np.float32)
+        unc_full = np.zeros((Ph * SCALE, Pw * SCALE), dtype=np.float32)
+        total_tiles = n_ph * n_pw
+        t_sr_start = time.time()
 
-    # Crop SR output to actual content (remove padding artefacts)
-    sr_final = sr_full[:, :H * SCALE, :W * SCALE]
-    unc_final = unc_full[:H * SCALE, :W * SCALE]
+        for ti in range(n_ph):
+            for tj in range(n_pw):
+                tile_idx = ti * n_pw + tj + 1
+                logging.info("  Tile %d/%d (row=%d col=%d) …", tile_idx, total_tiles, ti, tj)
+                y0, x0 = ti * patch_size, tj * patch_size
+                tile = remapped_pad[:, y0:y0 + patch_size, x0:x0 + patch_size]
+                padded_tile, pad_info = preprocess_scene(tile, scale=1.0, patch_multiple=patch_size)
+
+                tile_label = f"{aoi_name}_t{ti}{tj}"
+                sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label, use_tta=use_tta)
+                sr_tile = sr_dict["sr_final"].squeeze(0).cpu().numpy()
+
+                centre_ti = n_ph // 2
+                centre_tj = n_pw // 2
+                if ti == centre_ti and tj == centre_tj:
+                    lr_rgbn = pipeline._extract_rgbn(padded_tile.to(pipeline.device))
+                    unc_tile_result, _ = compute_uncertainty_map(
+                        model=pipeline.model_diffusion,
+                        lr_rgbn=lr_rgbn,
+                        n_variations=cfg.models.uncertainty_variations,
+                        sampling_steps=cfg.models.sampling_steps,
+                        aoi_name=tile_label,
+                    )
+                    unc_np = unc_tile_result.squeeze(0).squeeze(0).cpu().numpy()
+                else:
+                    unc_np = np.zeros((patch_size * SCALE, patch_size * SCALE), dtype=np.float32)
+
+                oy, ox = ti * patch_size * SCALE, tj * patch_size * SCALE
+                sr_full[:, oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] = sr_tile
+                unc_full[oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] = unc_np
+
+        sr_time = time.time() - t_sr_start
+        sr_final = sr_full[:, :H * SCALE, :W * SCALE]
+        unc_final = unc_full[:H * SCALE, :W * SCALE]
+
     logging.info("SR tiling complete in %.2fs → output shape: %s", sr_time, sr_final.shape)
 
     # ── 5. Export SR GeoTIFF directly ─────────────────────────────────────────
@@ -441,9 +486,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--aoi",
-        type=str,
+        nargs="+",
         default=None,
-        help="Specific AOI key to process (e.g. 'urban_berlin', 'agri_valencia', 'disaster_derna')",
+        help="Specific AOI key(s) to process (e.g. --aoi mumbai_urban uttarakhand_disaster jaisalmer_desert)",
     )
     parser.add_argument(
         "--all-aois",
@@ -478,6 +523,22 @@ def main() -> None:
         action="store_true",
         help="Run LAM explainability after SR inference. Runs on CPU, takes 2-5 min per AOI.",
     )
+    parser.add_argument(
+        "--tta",
+        action="store_true",
+        help="Enable Test-Time Augmentation (4-fold dihedral ensembling) for maximum sharpness.",
+    )
+    parser.add_argument(
+        "--max-quality",
+        action="store_true",
+        help="Enable all max-quality settings: 100 DDIM steps, TTA ensembling, overlapping Hann tiling.",
+    )
+    parser.add_argument(
+        "--overlap",
+        type=int,
+        default=None,
+        help="Patch overlap in pixels for tiling (default: from config, e.g. 32).",
+    )
 
     args = parser.parse_args()
     cfg = SRMConfig.from_yaml(args.config)
@@ -511,6 +572,7 @@ def main() -> None:
 
     # 2. Initialize DualPathSRPipeline
     logging.info("Loading super-resolution models...")
+    use_tta_flag = args.tta or args.max_quality or getattr(cfg, "use_tta", False)
     pipeline = DualPathSRPipeline(
         opensr_ckpt=cfg.models.opensr_ckpt_path,
         opensr_config_name=cfg.models.opensr_config_name,
@@ -520,6 +582,7 @@ def main() -> None:
         enable_hard_constraint=cfg.hard_constraint.enabled,
         filter_type=cfg.hard_constraint.filter_type,
         filter_cutoff=cfg.hard_constraint.cutoff,
+        use_tta=use_tta_flag,
     )
 
     # 3. Process AOIs or direct GeoTIFF input
@@ -530,9 +593,10 @@ def main() -> None:
         out_name = args.input_name or input_path.stem.replace(" ", "_")
         process_input_geotiff(str(input_path), out_name, cfg, pipeline, args)
     elif args.aoi:
-        if args.aoi not in cfg.aois:
-            raise KeyError(f"AOI '{args.aoi}' not found in configuration. Available: {list(cfg.aois.keys())}")
-        process_single_aoi(args.aoi, cfg, pipeline, args)
+        for aoi_key in args.aoi:
+            if aoi_key not in cfg.aois:
+                raise KeyError(f"AOI '{aoi_key}' not found in configuration. Available: {list(cfg.aois.keys())}")
+            process_single_aoi(aoi_key, cfg, pipeline, args)
     elif args.all_aois:
         for aoi_key in cfg.aois.keys():
             process_single_aoi(aoi_key, cfg, pipeline, args)
