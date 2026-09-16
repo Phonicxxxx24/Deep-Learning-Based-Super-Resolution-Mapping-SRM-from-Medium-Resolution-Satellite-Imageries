@@ -154,6 +154,10 @@ with st.sidebar:
     st.markdown("*SIH 2026 · 4× spatial enhancement*")
     st.divider()
 
+    # Discover all GeoTIFF outputs on disk
+    available_tifs = sorted(OUTPUT_DIR.glob("*_sr_10band_2.5m.tif"))
+    aoi_keys_on_disk = [p.stem.replace("_sr_10band_2.5m", "") for p in available_tifs]
+
     # Ensure any on-disk output is in AOI_META
     for k in aoi_keys_on_disk:
         if k not in AOI_META:
