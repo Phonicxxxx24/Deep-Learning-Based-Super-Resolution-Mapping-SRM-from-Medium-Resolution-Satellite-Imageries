@@ -16,6 +16,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import rasterio
+from skimage import exposure
+from scipy.ndimage import convolve
 import streamlit as st
 
 from srm.applications import (
@@ -62,6 +64,42 @@ AOI_META = {
         "lat": 32.7667, "lon": 22.6367,
         "index": "MNDWI",
         "icon": "🌊",
+    },
+    "punjab_crops": {
+        "label": "Ludhiana, Punjab, India (Crop Monitoring)",
+        "lat": 30.9010, "lon": 75.8573,
+        "index": "NDVI",
+        "icon": "🌾",
+    },
+    "mumbai_urban": {
+        "label": "Mumbai, Maharashtra, India (Urban Mapping)",
+        "lat": 19.0760, "lon": 72.8777,
+        "index": "NDBI",
+        "icon": "🌆",
+    },
+    "uttarakhand_disaster": {
+        "label": "Chamoli, Uttarakhand, India (Disaster / Landslide)",
+        "lat": 30.4200, "lon": 79.3800,
+        "index": "MNDWI",
+        "icon": "🏔️",
+    },
+    "sundarbans": {
+        "label": "Sundarbans, West Bengal, India (Mangrove Delta)",
+        "lat": 21.9497, "lon": 88.9003,
+        "index": "MNDWI",
+        "icon": "🌿",
+    },
+    "jaisalmer_desert": {
+        "label": "Jaisalmer, Rajasthan, India (Arid Land / Solar)",
+        "lat": 26.9157, "lon": 70.9083,
+        "index": "NDVI",
+        "icon": "🏜️",
+    },
+    "gujarat_ahmedabad": {
+        "label": "Ahmedabad, Gujarat, India (Custom Input)",
+        "lat": 23.0300, "lon": 72.2400,
+        "index": "NDVI",
+        "icon": "🏙️",
     },
 }
 
@@ -116,12 +154,17 @@ with st.sidebar:
     st.markdown("*SIH 2026 · 4× spatial enhancement*")
     st.divider()
 
-    # AOI selector — only show AOIs that have outputs on disk
-    available_tifs = sorted(OUTPUT_DIR.glob("*_sr_10band_2.5m.tif"))
-    aoi_keys_on_disk = [p.stem.replace("_sr_10band_2.5m", "") for p in available_tifs]
+    # Ensure any on-disk output is in AOI_META
+    for k in aoi_keys_on_disk:
+        if k not in AOI_META:
+            AOI_META[k] = {
+                "label": k.replace("_", " ").title(),
+                "lat": 20.5937, "lon": 78.9629,
+                "index": "NDVI",
+                "icon": "🛰️",
+            }
 
-    all_aois = list(AOI_META.keys())
-    selectable = [k for k in all_aois if k in aoi_keys_on_disk]
+    selectable = [k for k in AOI_META.keys() if k in aoi_keys_on_disk]
 
     if selectable:
         aoi_labels = [f"{AOI_META[k]['icon']} {AOI_META[k]['label']}" for k in selectable]
@@ -176,7 +219,7 @@ if not selectable:
         if BENCHMARK_CSV.exists():
             df_bench = pd.read_csv(BENCHMARK_CSV)
             st.dataframe(df_bench, width='stretch')
-            st.plotly_chart(metrics_bar_chart(df_bench), width='stretch')
+            st.plotly_chart(metrics_bar_chart(df_bench), width='stretch', key="no_out_metrics_bar")
         else:
             st.info("No benchmark CSV yet. Run: `.venv\\Scripts\\python.exe run_pipeline.py --benchmark`")
 
@@ -232,44 +275,168 @@ tab_map, tab_spectral, tab_indices, tab_metrics, tab_lam = st.tabs([
 # TAB 1 — Map & SR Output
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_map:
-    col1, col2 = st.columns(2, gap="medium")
 
-    with col1:
-        st.subheader("SR Output — RGB composite (2.5 m)")
-        rgb = create_rgb_composite(sr_data)
+    # ── Helper: simulate LR by 4× downsample then nearest-neighbour upscale ──
+    # This shows what the original 10 m Sentinel-2 pixel grid looked like.
+    # We average-pool 4×4 blocks → 128×128 (true LR resolution)
+    # then display at full size with nearest-neighbour (exposes pixel grid).
+    H, W = sr_data.shape[1], sr_data.shape[2]
+    # 4× average-pool to 128×128
+    lr_sim = sr_data.reshape(
+        sr_data.shape[0], H // 4, 4, W // 4, 4
+    ).mean(axis=(2, 4))                              # (C, 128, 128)
+
+    sr_rgb  = create_rgb_composite(sr_data)          # (H, W, 3) float [0,1]
+    lr_rgb  = create_rgb_composite(lr_sim)           # (128, 128, 3) float [0,1]
+
+    # ── Display enhancement (visual only — GeoTIFF unchanged) ─────────────────
+    def enhance_for_display(img: np.ndarray, clahe: bool = True, sharpen: bool = True) -> np.ndarray:
+        """Apply CLAHE + unsharp mask for better visual clarity.
+        Purely for display — does NOT modify stored GeoTIFF data."""
+        out = img.copy().astype(np.float32)
+        if clahe:
+            # Per-channel adaptive histogram equalisation
+            for c in range(out.shape[2]):
+                out[..., c] = exposure.equalize_adapthist(
+                    np.clip(out[..., c], 0, 1), clip_limit=0.03
+                ).astype(np.float32)
+        if sharpen:
+            # Unsharp mask: img + amount*(img - blurred)
+            kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]], dtype=np.float32)
+            for c in range(out.shape[2]):
+                out[..., c] = np.clip(convolve(out[..., c], kernel), 0, 1)
+        return out
+
+    # ── Banner ────────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#1a2340,#0d1117);border:1px solid #2a3a60;
+                border-radius:10px;padding:12px 18px;margin-bottom:1rem;">
+      <b style="color:#4488ff;font-size:1.05em;">⚡ Resolution Enhancement</b>
+      &nbsp;|&nbsp;
+      <span style="color:#aabbcc;">10 m Sentinel-2 L2A &nbsp;→&nbsp;
+      <b style="color:#44ee88;">2.5 m Super-Resolved (4× sharper)</b></span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Enhancement toggle ────────────────────────────────────────────────────
+    with st.expander("🎛️ Display Enhancement Settings", expanded=True):
+        ecol1, ecol2 = st.columns(2)
+        with ecol1:
+            use_clahe   = st.toggle("CLAHE (adaptive contrast)", value=True,
+                                    help="Adaptive histogram equalisation — boosts local contrast in low-contrast regions")
+        with ecol2:
+            use_sharpen = st.toggle("Unsharp Mask (edge sharpening)", value=True,
+                                    help="Laplacian sharpening filter — enhances edge crispness for visual clarity")
+    st.caption("⚠️ Enhancement is display-only — underlying GeoTIFF reflectance values are unchanged.")
+
+    def to_display_uint8(img: np.ndarray, max_dim: int = 1024) -> np.ndarray:
+        h, w = img.shape[:2]
+        if max(h, w) > max_dim:
+            step = int(np.ceil(max(h, w) / max_dim))
+            img = img[::step, ::step]
+        return np.clip(img * 255.0, 0, 255).astype(np.uint8)
+
+    sr_display = enhance_for_display(sr_rgb, clahe=use_clahe, sharpen=use_sharpen)
+    lr_display = lr_rgb   # keep LR as-is to show the 'before' faithfully
+
+    # ── 3-column comparison: LR | SR | Zoom ──────────────────────────────────
+    col_lr, col_sr, col_zoom = st.columns([1, 1, 1], gap="medium")
+
+    with col_lr:
+        st.markdown("**📡 Original Input — 10 m (LR)**")
         st.image(
-            rgb, width='stretch', clamp=True,
-            caption="B04-B03-B02 · percentile contrast stretch",
+            to_display_uint8(lr_rgb), width='stretch',
         )
         st.caption(
-            f"Shape: {sr_data.shape[1]} × {sr_data.shape[2]} px · "
-            f"{sr_data.shape[0]} bands · Resolution ~2.5 m (4× SR)"
+            f"{lr_sim.shape[2]} × {lr_sim.shape[1]} px · 10 m/px · {sr_data.shape[0]} bands\n"
+            "Pixel grid visible at native 10 m resolution"
         )
 
-    with col2:
+    with col_sr:
+        enh_label = ""
+        if use_clahe and use_sharpen: enh_label = " · CLAHE + Sharpen"
+        elif use_clahe: enh_label = " · CLAHE"
+        elif use_sharpen: enh_label = " · Sharpen"
+        st.markdown(f"**✨ Super-Resolved Output — 2.5 m (SR){enh_label}**")
+        st.image(
+            to_display_uint8(sr_display), width='stretch',
+        )
+        st.caption(
+            f"{H} × {W} px · 2.5 m/px · {sr_data.shape[0]} bands\n"
+            "Dual-path LDSR-S2 + SEN2SRLite with FourierHardConstraint"
+        )
+
+    with col_zoom:
+        st.markdown("**🔍 Pixel-Level Zoom — Centre Crop**")
+        lr_cx, lr_cy = lr_display.shape[1] // 2, lr_display.shape[0] // 2
+        lr_crop = lr_display[lr_cy-16:lr_cy+16, lr_cx-16:lr_cx+16]   # 32×32 (10m pixels)
+
+        sr_cx, sr_cy = sr_display.shape[1] // 2, sr_display.shape[0] // 2
+        sr_crop = sr_display[sr_cy-64:sr_cy+64, sr_cx-64:sr_cx+64]   # 128×128 (same footprint)
+
+        fig_zoom, axes = plt.subplots(1, 2, figsize=(6, 3))
+        fig_zoom.patch.set_facecolor("#0d1117")
+        axes[0].imshow(lr_crop, interpolation="nearest")
+        axes[0].set_title("LR crop (10 m)", color="#aabbcc", fontsize=8)
+        axes[0].axis("off")
+        axes[1].imshow(sr_crop, interpolation="nearest")
+        axes[1].set_title("SR crop (2.5 m)", color="#44ee88", fontsize=8)
+        axes[1].axis("off")
+        fig_zoom.tight_layout(pad=0.3)
+        st.pyplot(fig_zoom, width='stretch')
+        plt.close(fig_zoom)
+        st.caption("Same geographic footprint · 16× more pixels in SR")
+
+    # ── Comparison PNG from pipeline (NDVI before/after) ─────────────────────
+    cmp_png = OUTPUT_DIR / f"{selected_aoi}_ndvi_comparison.png"
+    if not cmp_png.exists():
+        # Try any comparison PNG
+        cmp_pngs = sorted(OUTPUT_DIR.glob(f"{selected_aoi}_*_comparison.png"))
+        cmp_png = cmp_pngs[0] if cmp_pngs else None
+
+    if cmp_png and Path(cmp_png).exists():
+        st.divider()
+        st.subheader("📊 Pipeline Comparison Figure (from run_pipeline.py)")
+        st.image(str(cmp_png), width='stretch',
+                 caption="6-panel comparison generated by the pipeline: RGB LR vs SR + Spectral Index LR vs SR + Zoom + Histogram")
+
+    # ── Uncertainty map ───────────────────────────────────────────────────────
+    st.divider()
+    col_unc1, col_unc2 = st.columns([1, 1], gap="medium")
+
+    with col_unc1:
         if unc_path.exists():
-            st.subheader("Uncertainty Map (per-pixel std dev)")
+            st.subheader("🎯 Uncertainty Map (per-pixel std dev)")
             with rasterio.open(unc_path) as usrc:
                 unc = usrc.read(1).astype(np.float32)
             vmax = float(np.percentile(unc, 95)) + 1e-8
-            # Render as heatmap image
             fig_unc, ax_unc = plt.subplots(figsize=(6, 5))
             im_unc = ax_unc.imshow(unc, cmap="inferno", vmin=0, vmax=vmax)
             plt.colorbar(im_unc, ax=ax_unc, label="Std Dev")
-            ax_unc.set_title(f"Uncertainty — {aoi_meta['label']}")
+            ax_unc.set_title(f"Uncertainty — {aoi_meta['label']}", color="#c0c8d8")
             ax_unc.axis("off")
             fig_unc.patch.set_facecolor("#0d1117")
             ax_unc.set_facecolor("#0d1117")
             st.pyplot(fig_unc, width='stretch')
             plt.close(fig_unc)
-            st.caption("Brighter = more uncertain | derived from stochastic DDIM sampling")
+            st.caption("Brighter = model was less certain | 5 stochastic DDIM passes (n_uncertainty=5)")
         else:
             st.info(
-                "No uncertainty map found for this AOI.\n\n"
+                f"No uncertainty map for **{aoi_meta['label']}**.\n\n"
                 f"Run: `.venv\\Scripts\\python.exe run_pipeline.py --aoi {selected_aoi}`"
             )
 
-    # Folium geographic map
+    with col_unc2:
+        if unc_path.exists():
+            st.subheader("📈 Uncertainty Distribution")
+            st.plotly_chart(uncertainty_histogram(unc), width='stretch', key=f"unc_hist_{selected_aoi}")
+            col_um1, col_um2 = st.columns(2)
+            with col_um1:
+                st.metric("Mean Std Dev", f"{unc.mean():.4f}")
+            with col_um2:
+                st.metric("Max Std Dev (P95)", f"{vmax:.4f}")
+
+    # ── Folium geographic map ─────────────────────────────────────────────────
     st.divider()
     st.subheader("🌍 Geographic Extent")
     if FOLIUM_AVAILABLE:
@@ -278,7 +445,6 @@ with tab_map:
             st_folium(folium_map, height=350, width='stretch', key="main_map")
         except Exception as e:
             st.warning(f"Map render failed: {e}")
-            # Fallback: lat/lon map
             m = render_folium_map_latlon(
                 aoi_meta.get("lat", 0), aoi_meta.get("lon", 0),
                 aoi_name=aoi_meta["label"],
@@ -293,7 +459,7 @@ with tab_map:
 with tab_spectral:
     st.subheader("Band Reflectance Distribution")
     st.caption("Box plot of all 10 spectral bands from the SR output at 2.5 m resolution.")
-    st.plotly_chart(spectral_box_plot(sr_data, BAND_NAMES), width='stretch')
+    st.plotly_chart(spectral_box_plot(sr_data, BAND_NAMES), width='stretch', key=f"spectral_box_{selected_aoi}")
 
     st.divider()
     st.subheader("Band Statistics")
@@ -387,10 +553,10 @@ with tab_metrics:
 
         col_m1, col_m2 = st.columns(2, gap="medium")
         with col_m1:
-            st.plotly_chart(metrics_bar_chart(df), width='stretch')
+            st.plotly_chart(metrics_bar_chart(df), width='stretch', key="tab_metrics_bar")
         with col_m2:
             if "scene_idx" in df.columns:
-                st.plotly_chart(psnr_per_scene_chart(df), width='stretch')
+                st.plotly_chart(psnr_per_scene_chart(df), width='stretch', key="tab_metrics_psnr_scene")
 
         # Summary stats by method
         st.divider()
@@ -412,7 +578,7 @@ with tab_metrics:
         st.subheader(f"Uncertainty Distribution — {aoi_meta['label']}")
         with rasterio.open(unc_path) as usrc_m:
             unc_m = usrc_m.read(1).astype(np.float32)
-        st.plotly_chart(uncertainty_histogram(unc_m), width='stretch')
+        st.plotly_chart(uncertainty_histogram(unc_m), width='stretch', key=f"tab_unc_hist_{selected_aoi}")
 
         coverage_target = 0.90
         unc_mean_val = float(unc_m.mean())

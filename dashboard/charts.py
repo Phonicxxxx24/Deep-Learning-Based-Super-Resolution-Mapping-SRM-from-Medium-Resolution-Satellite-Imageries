@@ -1,4 +1,4 @@
-﻿"""Reusable Plotly chart builders for the SRM Streamlit dashboard.
+"""Reusable Plotly chart builders for the SRM Streamlit dashboard.
 
 No models, no tensors, no CUDA. Pure data -> Plotly figures.
 """
@@ -28,8 +28,12 @@ def spectral_box_plot(sr_data: np.ndarray, band_names: list) -> go.Figure:
     ]
     for i, name in enumerate(band_names):
         colour = colours[i % len(colours)]
+        band_flat = sr_data[i].flatten()
+        if len(band_flat) > 20000:
+            step = max(1, len(band_flat) // 20000)
+            band_flat = band_flat[::step]
         fig.add_trace(go.Box(
-            y=sr_data[i].flatten(),
+            y=band_flat,
             name=name,
             boxpoints=False,
             marker_color=colour,
@@ -117,6 +121,9 @@ def uncertainty_histogram(unc_data: np.ndarray) -> go.Figure:
         Plotly Figure.
     """
     vals = unc_data.flatten()
+    if len(vals) > 50000:
+        step = max(1, len(vals) // 50000)
+        vals = vals[::step]
     p99 = float(np.percentile(vals, 99))
     vals_clipped = vals[vals <= p99 * 1.5]
 

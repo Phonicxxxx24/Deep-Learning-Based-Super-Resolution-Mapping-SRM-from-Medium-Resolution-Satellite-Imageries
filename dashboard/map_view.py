@@ -1,11 +1,57 @@
 """Folium map component for SRM dashboard. No models, no tensors, no CUDA."""
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Optional
 
 import folium
 import rasterio
 from rasterio.warp import transform_bounds
+
+# Load .env if present (project root two levels up from this file)
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+if _env_path.exists():
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
+_CARTO_KEY = os.environ.get("CARTO_API_KEY", "").strip()
+_CARTO_VALID = bool(_CARTO_KEY and _CARTO_KEY != "your_carto_api_key_here")
+
+# Tile configuration: CartoDB dark_matter if API key is set, else OpenStreetMap
+if _CARTO_VALID:
+    _TILE_URL = (
+        f"https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png"
+        f"?api_key={_CARTO_KEY}"
+    )
+    _TILE_ATTR = (
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> '
+        'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    )
+    _TILES: str | None = None  # use custom TileLayer below
+else:
+    _TILE_URL = None
+    _TILE_ATTR = None
+    _TILES = "OpenStreetMap"
+
+
+def _make_map(lat: float, lon: float, zoom: int = 13) -> folium.Map:
+    """Create a Folium map with CartoDB dark_matter (if CARTO_API_KEY set) or OpenStreetMap."""
+    if _CARTO_VALID and _TILE_URL:
+        m = folium.Map(location=[lat, lon], zoom_start=zoom, tiles=None)
+        folium.TileLayer(
+            tiles=_TILE_URL,
+            attr=_TILE_ATTR,
+            name="CartoDB Dark Matter",
+            subdomains="abcd",
+        ).add_to(m)
+    else:
+        m = folium.Map(location=[lat, lon], zoom_start=zoom, tiles="OpenStreetMap")
+    return m
 
 
 def render_folium_map(
@@ -37,11 +83,7 @@ def render_folium_map(
     center_lat = (bottom + top) / 2
     center_lon = (left + right) / 2
 
-    m = folium.Map(
-        location=[center_lat, center_lon],
-        zoom_start=13,
-        tiles="CartoDB dark_matter",
-    )
+    m = _make_map(center_lat, center_lon, zoom=13)
 
     # SR extent bounding box
     folium.Rectangle(
@@ -92,7 +134,7 @@ def render_folium_map_latlon(
     import math
     delta_lon = edge_size_km / 2 / (111.0 * max(math.cos(math.radians(lat)), 0.01))
 
-    m = folium.Map(location=[lat, lon], zoom_start=13, tiles="CartoDB dark_matter")
+    m = _make_map(lat, lon, zoom=13)
 
     folium.Rectangle(
         bounds=[[lat - delta_lat, lon - delta_lon], [lat + delta_lat, lon + delta_lon]],

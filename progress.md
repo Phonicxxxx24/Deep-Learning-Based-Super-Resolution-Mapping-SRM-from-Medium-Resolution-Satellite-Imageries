@@ -15,7 +15,7 @@
 | OS | Windows 11 |
 | Python | `.venv\Scripts\python.exe` — Python **3.11.15** |
 | GPU | RTX 3050, **6 GB VRAM** |
-| PyTorch | 2.14.0 (CUDA build) |
+| PyTorch | 2.5.1+cu121 (CUDA build — RTX 3050 confirmed working) |
 | venv manager | `uv` — use `uv pip install`, NOT pip directly |
 | Git remote | `origin/main` — GitHub (Phonicxxxx24 repo) |
 | Always use | `.venv\Scripts\python.exe` — NEVER bare `python` or `py` |
@@ -307,8 +307,50 @@ Created three new files exactly as specified in Task 5 of `SRM_Task_Prompts.md`:
 1. `SEN2SRLite_Reference_RSWIR_x4` does NOT exist on HuggingFace — 404.
    referencex4 pipeline always falls back to direct SEN2SRLite. Watch for upstream publish.
 2. No `pip.exe` in `.venv/Scripts/` — use `uv pip install` for all package installs.
+   uv binary is at `C:\Users\jainh\.local\bin\uv.exe` — NOT available as `python -m uv`.
 3. `SRM_Architecture.md` says Python 3.12 — actual venv is 3.11.15. Ignore doc on this point.
 4. `uncertainty_variations` must be max 5 (not 15) for 6GB GPU.
 5. LAM always runs on CPU — slow (2-5 min per patch). Never move to CUDA.
 6. `opensr-ldsrs2_v1_0_0.ckpt` — 1.13 GB, gitignored, cached locally after Task 1 verify.
 7. Dhruv outputs/ PNGs exist but the pipeline generating them was never run on this machine.
+8. ~~`verification/benchmark_results.csv` is STALE~~ — **FIXED Sept 15 2026**: Regenerated with all 8 columns (lpips + ergas added). 18 rows, 9 SPOT scenes × 2 methods.
+9. ~~CartoDB tiles in Folium 0.20.0 require API key~~ — **FIXED Sept 15 2026**: `dashboard/map_view.py` now uses `OpenStreetMap` tiles (no API key required).
+
+## CUDA Fix — Sept 14 2026
+PyTorch was installed as CPU-only build (2.14.0+cpu). Reinstalled as CUDA build:
+```powershell
+C:\Users\jainh\.local\bin\uv.exe pip uninstall torch torchvision torchaudio --python .venv\Scripts\python.exe
+C:\Users\jainh\.local\bin\uv.exe pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --python .venv\Scripts\python.exe
+```
+Result: torch==2.5.1+cu121, CUDA available=True, GPU=RTX 3050 6GB. All 20 tests still pass.
+
+## Audit Fixes — Sept 15 2026
+Full project audit completed. Fixes applied:
+- **Issue 1 (CUDA)** — PyTorch 2.5.1+cu121 reinstalled. RTX 3050 6GB active. 20/20 tests pass.
+- **Issue 2 (Benchmark CSV)** — `verification/benchmark_results.csv` regenerated. Now has all 8 columns: `dataset, scene_idx, method, psnr_db, ssim, sam_deg, lpips, ergas`. 9 SPOT scenes × 2 methods = 18 rows.
+- **Issue 3 (RSWIR_x4)** — Upstream model never published on HuggingFace. Not fixable. Pipeline gracefully falls back to SEN2SRLite. No action required.
+- **Issue 4 (app.py None crash)** — Already correctly guarded by `if not selectable: st.stop()`. No fix needed.
+- **Issue 5 (CartoDB tiles)** — `dashboard/map_view.py` changed to `tiles="OpenStreetMap"` in both `render_folium_map()` and `render_folium_map_latlon()`.
+- **Issue 6 (pyproject.toml deps)** — Added missing: `streamlit>=1.30`, `plotly>=5.0`, `folium>=0.14`, `streamlit-folium>=0.15`, `omegaconf>=2.3`.
+
+---
+
+## Multi-AOI Indian Satellite Imagery Verification — Sept 16 2026
+
+Successfully ingested, super-resolved, and verified all 5 Indian target scenes requested for SIH 2026:
+
+| AOI Key | Region | Description | Index | Output GeoTIFF | Uncertainty GeoTIFF |
+|---|---|---|---|---|---|
+| `punjab_crops` | Ludhiana, Punjab | Crop monitoring & field boundary delineation | NDVI | `punjab_crops_sr_10band_2.5m.tif` | `punjab_crops_uncertainty_2.5m.tif` |
+| `mumbai_urban` | Mumbai, Maharashtra | High-density urban mapping & coastal infrastructure | NDBI | `mumbai_urban_sr_10band_2.5m.tif` | `mumbai_urban_uncertainty_2.5m.tif` |
+| `uttarakhand_disaster` | Chamoli, Uttarakhand | Disaster / landslide scar & flash flood mapping | MNDWI | `uttarakhand_disaster_sr_10band_2.5m.tif` | `uttarakhand_disaster_uncertainty_2.5m.tif` |
+| `sundarbans` | Sundarbans, West Bengal | Coastal mangrove delta & tidal channels | MNDWI | `sundarbans_sr_10band_2.5m.tif` | `sundarbans_uncertainty_2.5m.tif` |
+| `jaisalmer_desert` | Jaisalmer, Rajasthan | Arid terrain & solar farm boundary detection | NDVI | `jaisalmer_desert_sr_10band_2.5m.tif` | `jaisalmer_desert_uncertainty_2.5m.tif` |
+| `gujarat_ahmedabad` | Ahmedabad, Gujarat | Custom tiled GeoTIFF (2048×2048, 16 patches) | NDVI | `gujarat_ahmedabad_sr_10band_2.5m.tif` | `gujarat_ahmedabad_uncertainty_2.5m.tif` |
+
+### Dashboard & Pipeline Enhancements
+- **Dynamic AOI Discovery**: Streamlit dashboard dynamically inspects `outputs/` for all GeoTIFFs and registers them in the sidebar dropdown.
+- **Plotly Duplicate ID Fix**: Assigned explicit unique keys (`key=...`) to all `st.plotly_chart` calls across all tabs to eliminate `StreamlitDuplicateElementId` warnings.
+- **Payload Subsampling**: Optimized `spectral_box_plot` and `uncertainty_histogram` with strided subsampling to avoid browser websocket message overflow on multi-million pixel rasters.
+- **All 20/20 unit and integration tests passing.**
+

@@ -194,6 +194,12 @@ def process_single_aoi(
         "urban_berlin": "NDBI",
         "agri_valencia": "NDVI",
         "disaster_derna": "MNDWI",
+        "punjab_crops": "NDVI",
+        "mumbai_urban": "NDBI",
+        "uttarakhand_disaster": "MNDWI",
+        "sundarbans": "MNDWI",
+        "jaisalmer_desert": "NDVI",
+        "gujarat_ahmedabad": "NDVI",
     }
     chosen_index = index_map.get(aoi_key, "NDVI")
 
@@ -219,6 +225,207 @@ def process_single_aoi(
         ingest_time,
         sr_time,
     )
+
+def process_input_geotiff(
+    input_path: str,
+    aoi_name: str,
+    cfg,
+    pipeline,
+    args: argparse.Namespace,
+    patch_size: int = 128,
+) -> None:
+    """Run SR pipeline on an existing GeoTIFF file, bypassing STAC ingestion.
+
+    Automatically tiles inputs larger than 128×128 into patch_size patches,
+    super-resolves each at 4×, then reassembles the full high-res output.
+    For a 512×512 input this produces a 2048×2048 SR GeoTIFF.
+
+    Band remapping: file bands are mapped to model order
+    [B02, B03, B04, B05, B06, B07, B08, B8A, B11, B12] by description.
+    Missing bands are zero-filled. DN values (max > 2.0) are divided by 10000.
+    """
+    import torch
+    import xarray as xr
+    import rioxarray  # noqa: F401
+    from srm.preprocessing import preprocess_scene
+    from srm.uncertainty import compute_uncertainty_map
+    from rasterio.transform import Affine
+    import rasterio.crs
+
+    logging.info("=" * 80)
+    logging.info("PROCESSING INPUT FILE: %s", input_path)
+    logging.info("Output name: %s", aoi_name)
+    logging.info("=" * 80)
+
+    # ── 1. Read GeoTIFF ───────────────────────────────────────────────────────
+    with rasterio.open(input_path) as src:
+        raw = src.read().astype(np.float32)          # (C, H, W)
+        file_crs = src.crs
+        file_transform = src.transform
+        file_descriptions = [d or f"Band{i+1}" for i, d in enumerate(src.descriptions)]
+
+    logging.info("Input: %d bands, shape=%s, CRS=%s", raw.shape[0], raw.shape[1:], file_crs)
+
+    # ── 2. Normalise to [0, 1] ────────────────────────────────────────────────
+    if raw.max() > 2.0:
+        logging.info("Values > 2.0 — applying /10000 reflectance scaling")
+        raw = raw / 10_000.0
+    raw = np.clip(raw, 0.0, 1.0)
+
+    # ── 3. Remap to 10-band model order ──────────────────────────────────────
+    TARGET_BANDS = ["B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B11", "B12"]
+    H, W = raw.shape[1], raw.shape[2]
+    remapped = np.zeros((10, H, W), dtype=np.float32)
+
+    desc_upper = [d.upper().strip() for d in file_descriptions]
+    for out_idx, band_id in enumerate(TARGET_BANDS):
+        if band_id in desc_upper:
+            in_idx = desc_upper.index(band_id)
+            remapped[out_idx] = raw[in_idx]
+            logging.info("  Mapped %s → pos %d (file band %d)", band_id, out_idx, in_idx + 1)
+        else:
+            logging.warning("  %s not found — zero-filled at pos %d", band_id, out_idx)
+
+    # ── 4. Tile into 128×128 patches, SR each, assemble ──────────────────────
+    # Model hard-constraint mask is built for 128px input.  Any input larger
+    # than 128px must be split into tiles.
+    SCALE = 4
+    n_ph = max(1, (H + patch_size - 1) // patch_size)   # tiles along height
+    n_pw = max(1, (W + patch_size - 1) // patch_size)   # tiles along width
+    logging.info(
+        "Tiling %dx%d input into %d×%d grid of %d×%dpx patches → %dx%d SR output",
+        H, W, n_ph, n_pw, patch_size, patch_size, n_ph * patch_size * SCALE, n_pw * patch_size * SCALE,
+    )
+
+    # Pad input so it divides evenly into patch_size tiles
+    pad_h = n_ph * patch_size - H
+    pad_w = n_pw * patch_size - W
+    if pad_h > 0 or pad_w > 0:
+        remapped = np.pad(remapped, ((0, 0), (0, pad_h), (0, pad_w)), mode="reflect")
+        logging.info("Padded input to %s for tiling", remapped.shape)
+
+    # Preallocate full SR output
+    Ph, Pw = n_ph * patch_size, n_pw * patch_size        # padded LR dims
+    sr_full = np.zeros((10, Ph * SCALE, Pw * SCALE), dtype=np.float32)
+    unc_full = np.zeros((Ph * SCALE, Pw * SCALE), dtype=np.float32)
+
+    total_tiles = n_ph * n_pw
+    t_sr_start = time.time()
+
+    for ti in range(n_ph):
+        for tj in range(n_pw):
+            tile_idx = ti * n_pw + tj + 1
+            logging.info("  Tile %d/%d (row=%d col=%d) …", tile_idx, total_tiles, ti, tj)
+
+            # Extract patch
+            y0, x0 = ti * patch_size, tj * patch_size
+            tile = remapped[:, y0:y0 + patch_size, x0:x0 + patch_size]  # (10, 128, 128)
+
+            # Preprocess (scale=1.0 because already reflectance)
+            padded_tile, pad_info = preprocess_scene(tile, scale=1.0, patch_multiple=patch_size)
+
+            # SR inference on this tile
+            tile_label = f"{aoi_name}_t{ti}{tj}"
+            sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label)
+            sr_tile = sr_dict["sr_fused"].squeeze(0).cpu().numpy()    # (10, 512, 512)
+
+            # Uncertainty: only compute on the centre tile (model requires n>3).
+            # Other tiles get a zero placeholder — saves 15× uncertainty time.
+            centre_ti = n_ph // 2
+            centre_tj = n_pw // 2
+            if ti == centre_ti and tj == centre_tj:
+                lr_rgbn = pipeline._extract_rgbn(padded_tile.to(pipeline.device))
+                unc_tile_result, _ = compute_uncertainty_map(
+                    model=pipeline.model_diffusion,
+                    lr_rgbn=lr_rgbn,
+                    n_variations=cfg.models.uncertainty_variations,
+                    sampling_steps=cfg.models.sampling_steps,
+                    aoi_name=tile_label,
+                )
+                unc_np = unc_tile_result.squeeze(0).squeeze(0).cpu().numpy()
+            else:
+                unc_np = np.zeros((patch_size * SCALE, patch_size * SCALE), dtype=np.float32)
+
+            # Remove padding from SR tile edges that correspond to LR padding
+            sr_h = (patch_size - pad_info.pad_top - pad_info.pad_bottom) * SCALE
+            sr_w = (patch_size - pad_info.pad_left - pad_info.pad_right) * SCALE
+            sr_tile_crop = sr_tile[
+                :,
+                pad_info.pad_top * SCALE: pad_info.pad_top * SCALE + sr_h,
+                pad_info.pad_left * SCALE: pad_info.pad_left * SCALE + sr_w,
+            ]
+            unc_crop = unc_np[
+                pad_info.pad_top * SCALE: pad_info.pad_top * SCALE + sr_h,
+                pad_info.pad_left * SCALE: pad_info.pad_left * SCALE + sr_w,
+            ]
+
+            # Place into output (use full 512×512 since tile is exactly 128×128)
+            oy, ox = ti * patch_size * SCALE, tj * patch_size * SCALE
+            sr_full[:, oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] = sr_tile
+            unc_full[oy:oy + patch_size * SCALE, ox:ox + patch_size * SCALE] = unc_np
+
+    sr_time = time.time() - t_sr_start
+
+    # Crop SR output to actual content (remove padding artefacts)
+    sr_final = sr_full[:, :H * SCALE, :W * SCALE]
+    unc_final = unc_full[:H * SCALE, :W * SCALE]
+    logging.info("SR tiling complete in %.2fs → output shape: %s", sr_time, sr_final.shape)
+
+    # ── 5. Export SR GeoTIFF directly ─────────────────────────────────────────
+    out_dir = Path(cfg.output.dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # SR transform: pixel size is 1/4 of LR
+    sr_transform = Affine(
+        file_transform.a / SCALE, file_transform.b, file_transform.c,
+        file_transform.d, file_transform.e / SCALE, file_transform.f,
+    )
+    out_crs = file_crs or rasterio.crs.CRS.from_epsg(4326)
+
+    sr_tif_path = out_dir / f"{aoi_name}_sr_10band_2.5m.tif"
+    with rasterio.open(
+        sr_tif_path, "w",
+        driver="GTiff", height=sr_final.shape[1], width=sr_final.shape[2],
+        count=10, dtype="float32", crs=out_crs, transform=sr_transform,
+        compress="lzw",
+    ) as dst:
+        dst.write(sr_final)
+        dst.update_tags(BAND_NAMES=",".join(TARGET_BANDS))
+    logging.info("Saved SR GeoTIFF: %s", sr_tif_path.name)
+
+    unc_tif_path = out_dir / f"{aoi_name}_uncertainty_2.5m.tif"
+    with rasterio.open(
+        unc_tif_path, "w",
+        driver="GTiff", height=unc_final.shape[0], width=unc_final.shape[1],
+        count=1, dtype="float32", crs=out_crs, transform=sr_transform,
+        compress="lzw",
+    ) as dst:
+        dst.write(unc_final[np.newaxis])
+    logging.info("Saved uncertainty GeoTIFF: %s", unc_tif_path.name)
+
+    # ── 6. Verify ─────────────────────────────────────────────────────────────
+    with rasterio.open(sr_tif_path) as vsrc:
+        logging.info(
+            "VERIFIED: %s (bands=%d, shape=%s, CRS=%s, transform=%s)",
+            sr_tif_path.name, vsrc.count, (vsrc.height, vsrc.width), vsrc.crs, vsrc.transform,
+        )
+
+    # ── 7. Comparison figure ──────────────────────────────────────────────────
+    from srm.applications import generate_comparison_figure
+    fig_path = out_dir / f"{aoi_name}_ndvi_comparison.png"
+    generate_comparison_figure(
+        lr_10b=remapped[:, :H, :W],       # original LR (unpadded)
+        sr_10b=sr_final,
+        aoi_name=aoi_name,
+        output_path=fig_path,
+        primary_index="NDVI",
+    )
+    logging.info("Comparison figure saved: %s", fig_path.name)
+
+    logging.info("=" * 80)
+    logging.info("INPUT FILE PROCESSING COMPLETE: %s", aoi_name)
+    logging.info("=" * 80)
+
 
 
 def main() -> None:
@@ -252,6 +459,19 @@ def main() -> None:
         "--test-mode",
         action="store_true",
         help="Run verification test mode (evaluates 1 AOI and benchmark)",
+    )
+    parser.add_argument(
+        "--input",
+        type=str,
+        default=None,
+        help="Path to an existing GeoTIFF to super-resolve (skips STAC ingestion). "
+             "Bands are auto-remapped to the 10-band model order.",
+    )
+    parser.add_argument(
+        "--input-name",
+        type=str,
+        default=None,
+        help="Output name prefix for --input mode (default: stem of input filename).",
     )
     parser.add_argument(
         "--lam",
@@ -302,19 +522,23 @@ def main() -> None:
         filter_cutoff=cfg.hard_constraint.cutoff,
     )
 
-    # 3. Process AOIs
-    if args.aoi:
+    # 3. Process AOIs or direct GeoTIFF input
+    if args.input:
+        input_path = Path(args.input)
+        if not input_path.exists():
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+        out_name = args.input_name or input_path.stem.replace(" ", "_")
+        process_input_geotiff(str(input_path), out_name, cfg, pipeline, args)
+    elif args.aoi:
         if args.aoi not in cfg.aois:
             raise KeyError(f"AOI '{args.aoi}' not found in configuration. Available: {list(cfg.aois.keys())}")
         process_single_aoi(args.aoi, cfg, pipeline, args)
     elif args.all_aois:
-        for aoi_key in ["urban_berlin", "agri_valencia", "disaster_derna"]:
+        for aoi_key in cfg.aois.keys():
             process_single_aoi(aoi_key, cfg, pipeline, args)
     elif args.test_mode:
-        # In test mode, process 1 real AOI to verify full pipeline execution
         process_single_aoi("agri_valencia", cfg, pipeline, args)
     else:
-        # Default: process all 3 AOIs
         for aoi_key in ["urban_berlin", "agri_valencia", "disaster_derna"]:
             process_single_aoi(aoi_key, cfg, pipeline, args)
 

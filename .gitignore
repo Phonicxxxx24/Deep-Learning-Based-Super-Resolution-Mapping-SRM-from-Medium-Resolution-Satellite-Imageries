@@ -50,6 +50,7 @@ outputs/*.tiff
 outputs/*.cog
 data/
 datacubes/
+input/
 
 # IDEs & developer tools
 .vscode/
@@ -66,3 +67,8 @@ Thumbs.db
 !verification/environment_check.log
 
 vendor/
+
+# Environment variables / secrets (API keys)
+.env
+.env.*
+!.env.example

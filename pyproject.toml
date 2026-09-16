@@ -21,6 +21,11 @@ dependencies = [
     "scikit-image",
     "lpips",
     "pyyaml",
+    "streamlit>=1.30",
+    "plotly>=5.0",
+    "folium>=0.14",
+    "streamlit-folium>=0.15",
+    "omegaconf>=2.3",
 ]
 
 [tool.setuptools.packages.find]

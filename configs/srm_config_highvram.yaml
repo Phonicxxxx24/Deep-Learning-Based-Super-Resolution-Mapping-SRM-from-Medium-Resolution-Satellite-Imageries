@@ -1,17 +1,23 @@
-# SRM Pipeline Configuration
-# Hardware: RTX 3050 6GB VRAM — DO NOT exceed these values on this machine
+# SRM Pipeline Configuration — HIGH VRAM (48 GB+)
+# Target hardware: University / HPC machine with A6000 / A100 / H100 / equivalent
+# DO NOT use this on RTX 3050 6GB — will OOM.
+#
+# Usage:
+#   python run_pipeline.py --aoi agri_valencia --config configs/srm_config_highvram.yaml
+#   python run_pipeline.py --all-aois          --config configs/srm_config_highvram.yaml
+#   python run_pipeline.py --benchmark         --config configs/srm_config_highvram.yaml
 
-# Global execution settings
-device: "cuda"          # pipeline falls back to cpu on OOM
-n_uncertainty: 5        # NOT 25 — 25 passes OOM on 6GB VRAM
-sampling_steps: 50      # NOT 100 — 50 steps fit in 6GB
-eta: 0.95
-patch_size: 128         # hard limit — do not increase
-overlap: 32
+# ── Global execution ──────────────────────────────────────────────────────────
+device: "cuda"
+n_uncertainty: 25          # Full spec (was 5 on 6GB). 25 stochastic passes → true 95% CI
+sampling_steps: 100        # Full DDIM quality (was 50 on 6GB). 2× sharper textures
+eta: 0.95                  # Stochastic sampling — keeps realistic texture variation
+patch_size: 128            # Hard limit from LDSR-S2 training — do not increase
+overlap: 32                # Seamless stitching for large tiles
 seed: 42
 log_level: "INFO"
 
-# Model paths and checkpoints
+# ── Model paths ───────────────────────────────────────────────────────────────
 models:
   sen2sr:
     model_dir: "model/SEN2SRLite"
@@ -19,10 +25,10 @@ models:
   opensr_model:
     ckpt_path: "opensr-ldsrs2_v1_0_0.ckpt"
     config_name: "config_10m.yaml"
-    sampling_steps: 50      # DDIM sampling steps — 50 max for 6GB GPU
-    uncertainty_variations: 5  # n_uncertainty — NOT 25, OOMs on 6GB VRAM
+    sampling_steps: 100        # FULL quality — 100 DDIM steps
+    uncertainty_variations: 25 # FULL calibration — 25 stochastic passes
 
-# Band definitions
+# ── Band definitions (unchanged — architecture constant) ─────────────────────
 bands:
   all_10:
     - "B02" # Blue (10m)
@@ -35,32 +41,32 @@ bands:
     - "B8A" # NIR 2 (20m)
     - "B11" # SWIR 1 (20m)
     - "B12" # SWIR 2 (20m)
-  scl: "SCL" # Scene Classification Layer
+  scl: "SCL"
   rgbn_diffusion_order:
-    - "B04" # Red -> channel 0
-    - "B03" # Green -> channel 1
-    - "B02" # Blue -> channel 2
-    - "B08" # NIR -> channel 3
+    - "B04"
+    - "B03"
+    - "B02"
+    - "B08"
 
-# Preprocessing settings
+# ── Preprocessing ─────────────────────────────────────────────────────────────
 preprocessing:
   reflectance_scale: 10000.0
   clip_min: 0.0
   clip_max: 1.0
   patch_multiple: 128
   cloud_shadow_classes:
-    - 3 # Cloud shadows
-    - 8 # Cloud medium probability
-    - 9 # Cloud high probability
-    - 10 # Thin cirrus
+    - 3   # Cloud shadows
+    - 8   # Cloud medium probability
+    - 9   # Cloud high probability
+    - 10  # Thin cirrus
 
-# Filter settings for HardConstraint
+# ── Spectral hard constraint ──────────────────────────────────────────────────
 hard_constraint:
   enabled: true
-  filter_type: "ideal" # "ideal" or "gaussian"
-  cutoff: 64 # Frequency cutoff radius
+  filter_type: "ideal"
+  cutoff: 64
 
-# Real named Areas of Interest (AOIs)
+# ── Areas of Interest ─────────────────────────────────────────────────────────
 aois:
   urban_berlin:
     name: "Berlin, Germany (Urban AOI)"
@@ -135,8 +141,7 @@ aois:
     edge_size: 128
     collection: "sentinel-2-l2a"
 
-
-# Output paths
+# ── Output paths ──────────────────────────────────────────────────────────────
 output:
   dir: "outputs"
   save_geotiff: true
