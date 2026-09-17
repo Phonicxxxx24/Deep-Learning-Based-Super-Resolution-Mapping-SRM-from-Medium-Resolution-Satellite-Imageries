@@ -40,6 +40,29 @@ opensr-ldsrs2_v1_0_0.ckpt
 model/
 models/
 
+# Database & SQLite files
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+data/srm_scans.db
+
+# Node & Next.js frontend dependencies and build outputs
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+.vercel/
+frontend/.vercel/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
 # Large geospatial raster outputs & data caches
 *.tif
 *.tiff
@@ -51,6 +74,16 @@ outputs/*.cog
 data/
 datacubes/
 input/
+
+# Runtime SR job outputs (preserves baseline comparison PNGs)
+outputs/*_lr_rgb.png
+outputs/*_sr_rgb.png
+outputs/*_uncertainty.png
+outputs/*_ndvi.png
+outputs/*_mndwi.png
+outputs/*_ndbi.png
+outputs/*_spectral_chart.png
+outputs/*_band_stats.json
 
 # IDEs & developer tools
 .vscode/
