@@ -297,29 +297,17 @@ with tab_map:
     def enhance_for_display(
         img: np.ndarray,
         clahe: bool = True,
-        contrast_strength: float = 1.0,
         sharpen: bool = True,
         sharpen_strength: float = 1.0,
     ) -> np.ndarray:
-        """Apply adaptive contrast (CLAHE) + dynamic tonal contrast + high-boost unsharp mask.
+        """Apply CLAHE + high-boost unsharp mask for crystal-clear visual clarity.
         Purely for display — does NOT modify stored GeoTIFF data."""
         out = img.copy().astype(np.float32)
-        
-        # 1. Adaptive histogram equalization (CLAHE)
         if clahe:
-            # Scale clip_limit with user contrast setting (base 0.035 * contrast_strength)
-            clip_lim = float(np.clip(0.035 * contrast_strength, 0.005, 0.080))
             for c in range(out.shape[2]):
                 out[..., c] = exposure.equalize_adapthist(
-                    np.clip(out[..., c], 0.0, 1.0), clip_limit=clip_lim
+                    np.clip(out[..., c], 0, 1), clip_limit=0.035
                 ).astype(np.float32)
-
-        # 2. Dynamic tonal contrast scaling around mean luminance
-        if contrast_strength != 1.0:
-            mean_val = float(np.mean(out))
-            out = np.clip((out - mean_val) * contrast_strength + mean_val, 0.0, 1.0)
-
-        # 3. High-boost edge sharpening
         if sharpen:
             k = float(sharpen_strength)
             # High-boost sharpening kernel: preserves energy while boosting edge gradients
@@ -339,35 +327,23 @@ with tab_map:
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Enhancement controls ──────────────────────────────────────────────────
-    with st.expander("🎛️ Display Enhancement, Contrast & Sharpness Settings", expanded=True):
-        col_ctrl1, col_ctrl2 = st.columns(2, gap="large")
-        with col_ctrl1:
-            st.markdown("**🌓 Contrast & Dynamic Range**")
-            c_sub1, c_sub2 = st.columns([1, 1.4])
-            with c_sub1:
-                use_clahe = st.toggle(
-                    "Adaptive CLAHE", value=True,
-                    help="Adaptive histogram equalisation — balances local contrast across heterogeneous terrain"
-                )
-            with c_sub2:
-                contrast_strength = st.slider(
-                    "Contrast Intensity", min_value=0.5, max_value=2.5, value=1.0, step=0.1,
-                    help="Adjusts tonal contrast and CLAHE clip limit (0.5 = soft/flat, 1.0 = standard, 2.5 = high dynamic punch)"
-                )
-        with col_ctrl2:
-            st.markdown("**⚡ Edge Definition & Sharpness**")
-            s_sub1, s_sub2 = st.columns([1, 1.4])
-            with s_sub1:
-                use_sharpen = st.toggle(
-                    "High-Boost Sharpen", value=True,
-                    help="Laplacian high-boost filter — brings out roads, building edges, and field boundaries"
-                )
-            with s_sub2:
-                sharpen_strength = st.slider(
-                    "Sharpening Intensity", min_value=0.5, max_value=2.5, value=1.2, step=0.1,
-                    help="Controls edge gradient boost (0.5 = subtle, 1.2 = recommended, 2.5 = razor crisp)"
-                ) if use_sharpen else 1.0
+    # ── Enhancement toggle ────────────────────────────────────────────────────
+    with st.expander("🎛️ Display Enhancement & Sharpness Settings", expanded=True):
+        ecol1, ecol2, ecol3 = st.columns([1, 1, 1])
+        with ecol1:
+            use_clahe = st.toggle(
+                "CLAHE (adaptive contrast)", value=True,
+                help="Adaptive histogram equalisation — boosts local contrast across heterogeneous terrain"
+            )
+        with ecol2:
+            use_sharpen = st.toggle(
+                "Edge Sharpening (High-Boost)", value=True,
+                help="Laplacian high-boost filter — brings out roads, building edges, and field boundaries"
+            )
+        with ecol3:
+            sharpen_strength = st.slider(
+                "Sharpening Intensity", min_value=0.5, max_value=2.5, value=1.2, step=0.1
+            ) if use_sharpen else 1.0
 
     st.caption("⚠️ Display enhancement is visual-only — scientific GeoTIFF reflectance and indices remain unadulterated.")
 
@@ -376,11 +352,7 @@ with tab_map:
         return np.clip(img * 255.0, 0, 255).astype(np.uint8)
 
     sr_display = enhance_for_display(
-        sr_rgb,
-        clahe=use_clahe,
-        contrast_strength=contrast_strength,
-        sharpen=use_sharpen,
-        sharpen_strength=sharpen_strength,
+        sr_rgb, clahe=use_clahe, sharpen=use_sharpen, sharpen_strength=sharpen_strength
     )
     lr_display = lr_rgb   # keep LR faithful to show the raw input resolution
 
@@ -396,14 +368,10 @@ with tab_map:
         )
 
     with col_sr:
-        enh_label_parts = []
-        if use_clahe:
-            enh_label_parts.append(f"CLAHE (×{contrast_strength:.1f})")
-        elif contrast_strength != 1.0:
-            enh_label_parts.append(f"Contrast (×{contrast_strength:.1f})")
-        if use_sharpen:
-            enh_label_parts.append(f"Sharpen (×{sharpen_strength:.1f})")
-        enh_label = f" · {' + '.join(enh_label_parts)}" if enh_label_parts else ""
+        enh_label = ""
+        if use_clahe and use_sharpen: enh_label = f" · CLAHE + Sharpen (×{sharpen_strength:.1f})"
+        elif use_clahe: enh_label = " · CLAHE"
+        elif use_sharpen: enh_label = f" · Sharpen (×{sharpen_strength:.1f})"
         st.markdown(f"**✨ Super-Resolved Output — 2.5 m (SR){enh_label}**")
         st.image(to_display_uint8(sr_display), width='stretch')
         st.caption(

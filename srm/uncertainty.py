@@ -113,3 +113,39 @@ def compute_uncertainty_map(
     )
 
     return unc_tensor, stats
+
+
+def compute_uncertainty(
+    lr_input: torch.Tensor,
+    pipeline: object,
+    n_variations: int = 5,
+    sampling_steps: int = 50,
+    aoi_name: str = "custom_aoi",
+) -> torch.Tensor:
+    """Convenience wrapper for uncertainty estimation.
+
+    Accepts (1, 10, H, W) or (1, 4, H, W) tensor and either DualPathSRPipeline
+    or SRLatentDiffusion model, returning a (1, 512, 512) uncertainty tensor.
+    """
+    model = getattr(pipeline, "model_diffusion", pipeline)
+
+    if lr_input.ndim == 4 and lr_input.shape[1] == 10:
+        lr_rgbn = lr_input[:, [0, 1, 2, 6]]
+    elif lr_input.ndim == 3 and lr_input.shape[0] == 10:
+        lr_rgbn = lr_input[[0, 1, 2, 6]].unsqueeze(0)
+    elif lr_input.ndim == 3 and lr_input.shape[0] == 4:
+        lr_rgbn = lr_input.unsqueeze(0)
+    else:
+        lr_rgbn = lr_input
+
+    unc_tensor, _stats = compute_uncertainty_map(
+        model=model,
+        lr_rgbn=lr_rgbn,
+        n_variations=n_variations,
+        sampling_steps=sampling_steps,
+        aoi_name=aoi_name,
+    )
+    if unc_tensor.ndim == 4 and unc_tensor.shape[0] == 1:
+        return unc_tensor.squeeze(0)
+    return unc_tensor
+

@@ -1,0 +1,26 @@
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "leaflet/dist/leaflet.css";
+import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "SRM — Sentinel-2 Super-Resolution",
+  description:
+    "Deep learning based 4× super-resolution mapping from 10 m to 2.5 m using LDSR-S2 diffusion + SEN2SRLite",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
+        {children}
+      </body>
+    </html>
+  );
+}

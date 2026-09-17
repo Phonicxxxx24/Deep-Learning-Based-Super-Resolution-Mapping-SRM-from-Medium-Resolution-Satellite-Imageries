@@ -234,3 +234,19 @@ def preprocess_scene(
     padded_tensor, padding_info = pad_to_multiple(tensor, multiple=patch_multiple)
 
     return padded_tensor, padding_info
+
+
+def preprocess(
+    tensor: torch.Tensor,
+    cfg: Optional[object] = None,
+) -> Tuple[torch.Tensor, Tuple[int, int, int, int]]:
+    """Preprocess a multispectral tensor: sanitize and pad to 128px multiple.
+
+    Returns:
+        Tuple[torch.Tensor, Tuple[int, int, int, int]]: (padded_tensor, (pad_left, pad_right, pad_top, pad_bottom))
+    """
+    tensor = sanitize_tensor(tensor)
+    padded, info = pad_to_multiple(tensor, multiple=128)
+    pad_tuple = (info.pad_left, info.pad_right, info.pad_top, info.pad_bottom)
+    return padded, pad_tuple
+

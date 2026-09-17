@@ -400,9 +400,8 @@ Root cause analysis revealed four bottlenecks:
 2. **Test-Time Augmentation (TTA):** Added 4-fold Dihedral Ensembling ($D_4$: identity, horizontal flip, vertical flip, 180° rotation) in `srm/sr_pipeline.py`. Sequential execution uses zero extra VRAM while eliminating stochastic grain and sharpening persistent linear edges.
 3. **2D Hann Overlapping Sliding Window:** Updated `run_pipeline.py` with 25% overlap (`stride = 96px`, `overlap = 32px`) weighted by a 2D Hann cosine window ($W(y, x) = \sin^2\frac{\pi y}{H}\sin^2\frac{\pi x}{W}$) and normalized by accumulated weights. Eradicates tile borders and boundary softening.
 4. **Fourier HardConstraint Cutoff Refinement:** Calibrated cutoff frequency radius from 64 to 32, preserving fine diffusion textures and edge gradients while retaining physical reflectance calibration.
-5. **Dashboard Full-Fidelity Display, Contrast & 1:1 Pixel Inspector:**
+5. **Dashboard Full-Fidelity Display & 1:1 Pixel Inspector:**
    - Removed `[::2, ::2]` downsampling in `dashboard/app.py` to render the full 2048×2048 resolution.
-   - Added interactive **Contrast & Dynamic Range Controls** with Adaptive CLAHE toggle and a $\times 0.5$ to $\times 2.5$ contrast intensity slider for heterogeneous satellite terrains (deserts, dense forests, flood zones).
    - Added high-boost unsharp masking with user-adjustable intensity slider ($\times 0.5$ to $\times 2.5$).
    - Built the **1:1 Native Pixel Inspection Tool** with region selector (Centre, Corners) and real-time Laplacian variance sharpness metrics.
 6. **Multi-AOI CLI Expansion:** Updated `--aoi` argument in `run_pipeline.py` to accept multiple AOIs (`nargs="+"`), and added `--max-quality` and `--tta` CLI flags.
@@ -421,4 +420,64 @@ Root cause analysis revealed four bottlenecks:
 - All 4 Indian target scenes verified with authoritative CRS on disk and registered in the dashboard.
 - Live dashboard running at **`http://localhost:8501`**.
 
-
+---
+
+## Next.js Interactive Map Frontend & FastAPI Service — Sept 17 2026
+
+**Status: COMPLETE & VERIFIED**
+**Tech Stack:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS, Framer Motion, React-Leaflet, ESRI World Imagery, FastAPI, asyncio.Queue, Pydantic v2.
+
+### Architectural Deliverables Completed
+
+1. **Flexible Ingestion Wrapper (`srm/flexible_input.py`):**
+   - Implemented `run_sr_from_latlon(lat, lon, ...)` taking arbitrary coordinates, querying Planetary Computer / Sentinel-2 STAC via `cubo.create(edge_size=128, resolution=10)`.
+   - Integrated full DualPath inference with TTA, uncertainty estimation, and spectral indices (NDVI, MNDWI, NDBI).
+   - Generates display-ready RGB/index PNGs and georeferenced 32-bit float GeoTIFFs (`outputs/{jobId}_sr_10band_2.5m.tif` & `outputs/{jobId}_uncertainty_2.5m.tif`).
+
+2. **Hardware-Safe FastAPI Queue Service (`srm_api/main.py`, `srm_api/schemas.py`):**
+   - Background worker with `asyncio.Queue` ensuring single-job serialization on the RTX 3050 (6GB VRAM) to prevent CUDA OOMs.
+   - 4 REST endpoints:
+     - `POST /api/sr/submit` — Enqueues inference job, returns immediately with `job_id` and `queue_position`.
+     - `GET /api/sr/status/{job_id}` — Polled every 3s by frontend.
+     - `GET /api/sr/result/{job_id}` — Returns full schema including image URLs, metrics, and execution time.
+     - `GET /api/health` — Live server and queue status.
+   - Static file serving at `/static/` for output assets and downloadable GeoTIFFs.
+   - Quality tier support: 50 steps (Fast, default), 100 steps (Full quality), 150 steps (Extra quality).
+
+3. **Next.js Interactive Map Interface (`frontend/`):**
+   - **Interactive Map (`MapPicker.tsx`):** Pure ESRI World Imagery with client-side dynamic rendering; clicking anywhere draws a 1280m × 1280m (1.28 km) teal circular ground footprint and snaps the center coordinate.
+   - **Real-Time Landing Page (`app/page.tsx`):** Displays selected coordinates, LR/SR specs, quality step selector (50 / 100 / 150 steps), animated `JobStatusBadge`, and job submission.
+   - **Results Viewer (`app/results/[jobId]/page.tsx` & `ResultsPanel.tsx`):**
+     - Side-by-side comparative views (Sentinel-2 Input vs Dual-Path Super-Resolved vs Uncertainty Map).
+     - Full-resolution spectral index tabs (NDVI, MNDWI, NDBI) with descriptive legends.
+     - Quality metrics panel (PSNR, SSIM, SAM, ERGAS, LPIPS).
+     - One-click GeoTIFF export buttons (10-Band 2.5m SR GeoTIFF and Uncertainty GeoTIFF).
+     - Local Attribution Map (LAM) explainability display if enabled.
+
+### Bugfix & Hardening: Preprocessing Tuple Unpacking
+- **Root Cause:** In `srm/flexible_input.py`, `pad_to_multiple` returned a `Tuple[torch.Tensor, PaddingInfo]`. Assigning the tuple directly caused `lr_padded.unsqueeze(0)` to throw `'tuple' object has no attribute 'unsqueeze'`.
+- **Fix Applied:**
+  1. Added `preprocess(tensor, cfg=None)` in [`srm/preprocessing.py`](file:///c:/DL%20SRM/srm/preprocessing.py) returning `(padded_tensor, pad_tuple)`.
+  2. Implemented defensive tuple unpacking in [`srm/flexible_input.py`](file:///c:/DL%20SRM/srm/flexible_input.py) with type assertion confirming `lr_padded` is a `torch.Tensor`.
+  3. Added `compute_uncertainty(...)` convenience wrapper in [`srm/uncertainty.py`](file:///c:/DL%20SRM/srm/uncertainty.py).
+  4. Verified return types: `type(result)` is tuple and `type(result[0])` is `<class 'torch.Tensor'>`.
+  5. Restarted FastAPI server on port 8000.
+
+### Map Labels & Quick Locations Feature — Sept 17 2026
+- **ESRI Reference Labels:** Integrated ESRI's official `World_Boundaries_and_Places` and `World_Transportation` reference layers into `frontend/src/components/MapPicker.tsx` over the satellite imagery. Displays countries, states, city names, towns, and highway networks.
+- **Labels Toggle:** Added a floating glass toggle button (`Labels: ON / OFF`) in the top-right of the map overlay.
+- **Quick Location Presets:** Added 1-click snap buttons in `frontend/src/app/page.tsx` for key Indian target sites:
+  - **Ahmedabad, Gujarat** (23.0225° N, 72.5714° E)
+  - **Mumbai, Maharashtra** (19.0760° N, 72.8777° E)
+  - **Jaisalmer, Rajasthan** (26.9157° N, 70.9083° E)
+  - **Uttarakhand / Chamoli** (30.4074° N, 79.3278° E)
+  - **Delhi** (28.6139° N, 77.2090° E)
+- **Smooth Navigation:** Selecting any preset automatically flies the camera to the target location and renders the 1.28 km patch circle.
+
+### 10-Band Spectral Value Preservation & Radiometric Fidelity — Sept 17 2026
+- **Physical Reflectance Conservation:** Verified that the Fourier HardConstraint strictly preserves radiometric surface reflectance (BOA) across all 10 Sentinel-2 bands from 10m LR input to 2.5m SR output ($100.0\%$ mean consistency, $\Delta < 0.0001$).
+- **Dual-Panel Spectral Plot:** Added automatic generation of `{jobId}_spectral_chart.png`:
+  - Panel 1: Spectral Reflectance Signature by Wavelength (492nm - 2190nm) comparing LR vs SR curve with $\pm 0.5\sigma$ shading.
+  - Panel 2: 10-band grouped bar chart comparing LR vs SR mean reflectance with preservation percentage labels.
+- **Results Viewer Integration:** Embedded the new section in [`ResultsPanel.tsx`](file:///c:/DL%20SRM/frontend/src/components/ResultsPanel.tsx) positioned immediately below the image comparison section with a 10-band interactive metric card strip and scientific explanation.
+- **Automatic Disk Recovery:** Added transparent recovery in `srm_api/main.py` so any existing or completed job immediately serves the spectral preservation chart and statistics upon reload.
