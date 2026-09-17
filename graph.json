@@ -2,19 +2,19 @@
   "version": "1.0.0",
   "project": "Sentinel-2 Dual-Path Super-Resolution Mapping (SRM)",
   "summary": {
-    "total_nodes": 875,
-    "total_edges": 1546,
+    "total_nodes": 889,
+    "total_edges": 1583,
     "node_types": {
-      "file_python": 60,
+      "file_python": 61,
       "package": 118,
       "imported_symbol": 172,
       "class": 90,
-      "function": 273,
-      "file_frontend": 18,
-      "ts_symbol": 80,
-      "component": 21,
+      "function": 275,
+      "file_frontend": 19,
+      "ts_symbol": 88,
+      "component": 22,
       "constant": 19,
-      "module": 13,
+      "module": 14,
       "interface": 9,
       "type": 2
     }
@@ -1220,6 +1220,85 @@
       "file": "frontend/src/app/results/[jobId]/page.tsx"
     },
     {
+      "id": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "type": "file_frontend",
+      "label": "BeforeAfterSlider.tsx",
+      "file": "frontend/src/components/BeforeAfterSlider.tsx",
+      "category": "frontend"
+    },
+    {
+      "id": "import:next/image",
+      "type": "package",
+      "label": "next/image",
+      "file": ""
+    },
+    {
+      "id": "symbol:next/image.Image",
+      "type": "ts_symbol",
+      "label": "Image",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.SlidersHorizontal",
+      "type": "ts_symbol",
+      "label": "SlidersHorizontal",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Play",
+      "type": "ts_symbol",
+      "label": "Play",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Pause",
+      "type": "ts_symbol",
+      "label": "Pause",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.ArrowLeftRight",
+      "type": "ts_symbol",
+      "label": "ArrowLeftRight",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Maximize2",
+      "type": "ts_symbol",
+      "label": "Maximize2",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.CheckCircle2",
+      "type": "ts_symbol",
+      "label": "CheckCircle2",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Eye",
+      "type": "ts_symbol",
+      "label": "Eye",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.RotateCcw",
+      "type": "ts_symbol",
+      "label": "RotateCcw",
+      "file": ""
+    },
+    {
+      "id": "symbol:@/utils/api.staticUrl",
+      "type": "ts_symbol",
+      "label": "staticUrl",
+      "file": ""
+    },
+    {
+      "id": "component:frontend/src/components/BeforeAfterSlider.tsx:BeforeAfterSlider",
+      "type": "component",
+      "label": "BeforeAfterSlider",
+      "file": "frontend/src/components/BeforeAfterSlider.tsx"
+    },
+    {
       "id": "file:frontend/src/components/Card3D.tsx",
       "type": "file_frontend",
       "label": "Card3D.tsx",
@@ -1386,12 +1465,6 @@
       "file": ""
     },
     {
-      "id": "symbol:lucide-react.RotateCcw",
-      "type": "ts_symbol",
-      "label": "RotateCcw",
-      "file": ""
-    },
-    {
       "id": "symbol:lucide-react.Download",
       "type": "ts_symbol",
       "label": "Download",
@@ -1401,18 +1474,6 @@
       "id": "symbol:lucide-react.Grid",
       "type": "ts_symbol",
       "label": "Grid",
-      "file": ""
-    },
-    {
-      "id": "symbol:lucide-react.Maximize2",
-      "type": "ts_symbol",
-      "label": "Maximize2",
-      "file": ""
-    },
-    {
-      "id": "symbol:@/utils/api.staticUrl",
-      "type": "ts_symbol",
-      "label": "staticUrl",
       "file": ""
     },
     {
@@ -1516,18 +1577,6 @@
       "category": "frontend"
     },
     {
-      "id": "import:next/image",
-      "type": "package",
-      "label": "next/image",
-      "file": ""
-    },
-    {
-      "id": "symbol:next/image.Image",
-      "type": "ts_symbol",
-      "label": "Image",
-      "file": ""
-    },
-    {
       "id": "symbol:lucide-react.Map",
       "type": "ts_symbol",
       "label": "Map",
@@ -1558,6 +1607,12 @@
       "file": ""
     },
     {
+      "id": "symbol:lucide-react.Sliders",
+      "type": "ts_symbol",
+      "label": "Sliders",
+      "file": ""
+    },
+    {
       "id": "import:./LiquidBackdrop",
       "type": "module",
       "label": "./LiquidBackdrop",
@@ -1579,6 +1634,18 @@
       "id": "symbol:./Card3D.Card3D",
       "type": "ts_symbol",
       "label": "Card3D",
+      "file": ""
+    },
+    {
+      "id": "import:./BeforeAfterSlider",
+      "type": "module",
+      "label": "./BeforeAfterSlider",
+      "file": ""
+    },
+    {
+      "id": "symbol:./BeforeAfterSlider.BeforeAfterSlider",
+      "type": "ts_symbol",
+      "label": "BeforeAfterSlider",
       "file": ""
     },
     {
@@ -2097,6 +2164,56 @@
       "doc": ""
     },
     {
+      "id": "file:scratch/regenerate_indices.py",
+      "type": "file_python",
+      "label": "regenerate_indices.py",
+      "file": "scratch/regenerate_indices.py",
+      "category": "root"
+    },
+    {
+      "id": "import:matplotlib",
+      "type": "package",
+      "label": "matplotlib",
+      "file": ""
+    },
+    {
+      "id": "import:PIL",
+      "type": "package",
+      "label": "PIL",
+      "file": ""
+    },
+    {
+      "id": "symbol:PIL.Image",
+      "type": "imported_symbol",
+      "label": "Image",
+      "file": ""
+    },
+    {
+      "id": "func:scratch/regenerate_indices.py:_save_index_pair",
+      "type": "function",
+      "label": "_save_index_pair",
+      "file": "scratch/regenerate_indices.py",
+      "args": [
+        "lr_2d",
+        "sr_2d",
+        "lr_path",
+        "sr_path",
+        "cmap",
+        "title_prefix"
+      ],
+      "is_async": false,
+      "doc": ""
+    },
+    {
+      "id": "func:scratch/regenerate_indices.py:main",
+      "type": "function",
+      "label": "main",
+      "file": "scratch/regenerate_indices.py",
+      "args": [],
+      "is_async": false,
+      "doc": ""
+    },
+    {
       "id": "file:scripts/run_env_check.py",
       "type": "file_python",
       "label": "run_env_check.py",
@@ -2483,24 +2600,6 @@
       "file": ""
     },
     {
-      "id": "import:matplotlib",
-      "type": "package",
-      "label": "matplotlib",
-      "file": ""
-    },
-    {
-      "id": "import:PIL",
-      "type": "package",
-      "label": "PIL",
-      "file": ""
-    },
-    {
-      "id": "symbol:PIL.Image",
-      "type": "imported_symbol",
-      "label": "Image",
-      "file": ""
-    },
-    {
       "id": "import:torch.nn.functional",
       "type": "package",
       "label": "torch.nn.functional",
@@ -2520,17 +2619,20 @@
       "doc": "Save a 3-band (C, H, W) float32 array as a display-ready PNG."
     },
     {
-      "id": "func:srm/flexible_input.py:_save_index_png",
+      "id": "func:srm/flexible_input.py:_save_index_pair",
       "type": "function",
-      "label": "_save_index_png",
+      "label": "_save_index_pair",
       "file": "srm/flexible_input.py",
       "args": [
-        "index_2d",
-        "path",
-        "cmap"
+        "lr_2d",
+        "sr_2d",
+        "lr_path",
+        "sr_path",
+        "cmap",
+        "title_prefix"
       ],
       "is_async": false,
-      "doc": ""
+      "doc": "Save calibrated 10m LR and 2.5m SR index maps with a shared dynamic colorbar scale."
     },
     {
       "id": "func:srm/flexible_input.py:_save_uncertainty_png",
@@ -8514,6 +8616,96 @@
       "relationship": "defines_component"
     },
     {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:next/image",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:next/image.Image",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:framer-motion",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:framer-motion.motion",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:lucide-react",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.SlidersHorizontal",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Play",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Pause",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.ArrowLeftRight",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Maximize2",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Sparkles",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Layers",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.CheckCircle2",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Eye",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.RotateCcw",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:@/utils/api",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:@/utils/api.staticUrl",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "component:frontend/src/components/BeforeAfterSlider.tsx:BeforeAfterSlider",
+      "relationship": "defines_component"
+    },
+    {
       "source": "file:frontend/src/components/Card3D.tsx",
       "target": "import:react",
       "relationship": "imports"
@@ -8950,6 +9142,11 @@
     },
     {
       "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "symbol:lucide-react.Sliders",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
       "target": "import:./LiquidBackdrop",
       "relationship": "imports"
     },
@@ -8966,6 +9163,16 @@
     {
       "source": "file:frontend/src/components/ResultsPanel.tsx",
       "target": "symbol:./Card3D.Card3D",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "import:./BeforeAfterSlider",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "symbol:./BeforeAfterSlider.BeforeAfterSlider",
       "relationship": "imports_symbol"
     },
     {
@@ -9554,6 +9761,86 @@
       "relationship": "defines_function"
     },
     {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:os",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:re",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:pathlib",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:pathlib.Path",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:numpy",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:rasterio",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:matplotlib",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:matplotlib.pyplot",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:PIL",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:PIL.Image",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:srm.applications",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:srm.applications.compute_ndvi",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:srm.applications.compute_mndwi",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:srm.applications.compute_ndbi",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "func:scratch/regenerate_indices.py:_save_index_pair",
+      "relationship": "defines_function"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "func:scratch/regenerate_indices.py:main",
+      "relationship": "defines_function"
+    },
+    {
       "source": "file:scripts/run_env_check.py",
       "target": "import:os",
       "relationship": "imports"
@@ -10055,7 +10342,7 @@
     },
     {
       "source": "file:srm/flexible_input.py",
-      "target": "func:srm/flexible_input.py:_save_index_png",
+      "target": "func:srm/flexible_input.py:_save_index_pair",
       "relationship": "defines_function"
     },
     {

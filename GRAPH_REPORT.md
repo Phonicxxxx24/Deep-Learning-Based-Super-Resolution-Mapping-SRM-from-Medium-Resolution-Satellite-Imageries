@@ -1,8 +1,8 @@
 # Codebase Architecture & Dependency Graph (Graphify)
 
 > **Repository:** Deep-Learning-Based-Super-Resolution-Mapping-SRM-from-Medium-Resolution-Satellite-Imageries  
-> **Total Indexed Nodes:** 875  
-> **Total Directed Edges:** 1546  
+> **Total Indexed Nodes:** 889  
+> **Total Directed Edges:** 1583  
 > **Interactive Graph:** [graph.html](file:///C:/DL SRM/graph.html)  
 > **Raw Graph Dataset:** [graph.json](file:///C:/DL SRM/graph.json)
 
@@ -78,6 +78,7 @@ graph TD
 | **Component** | `RootLayout` | [frontend/src/app/layout.tsx](file:///C:/DL SRM/frontend/src/app/layout.tsx) | React UI Component |
 | **Component** | `HomePage` | [frontend/src/app/page.tsx](file:///C:/DL SRM/frontend/src/app/page.tsx) | React UI Component |
 | **Component** | `ResultsPage` | [frontend/src/app/results/[jobId]/page.tsx](file:///C:/DL SRM/frontend/src/app/results/[jobId]/page.tsx) | React UI Component |
+| **Component** | `BeforeAfterSlider` | [frontend/src/components/BeforeAfterSlider.tsx](file:///C:/DL SRM/frontend/src/components/BeforeAfterSlider.tsx) | React UI Component |
 | **Component** | `Card3D` | [frontend/src/components/Card3D.tsx](file:///C:/DL SRM/frontend/src/components/Card3D.tsx) | React UI Component |
 | **Component** | `CommandHeader` | [frontend/src/components/CommandHeader.tsx](file:///C:/DL SRM/frontend/src/components/CommandHeader.tsx) | React UI Component |
 | **Component** | `Satellite3DIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
@@ -86,7 +87,6 @@ graph TD
 | **Component** | `EarthGlobeIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
 | **Component** | `DatabaseArchiveIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
 | **Component** | `LiquidWaveIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
-| **Component** | `UrbanGridIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
 | **Type** | `MaximizeImageData` | [frontend/src/components/ImageMaximizeModal.tsx](file:///C:/DL SRM/frontend/src/components/ImageMaximizeModal.tsx) | TypeScript Contract |
 | **Type** | `QualityTierSteps` | [frontend/src/lib/constants.ts](file:///C:/DL SRM/frontend/src/lib/constants.ts) | TypeScript Contract |
 | **Type** | `SubmitResponse` | [frontend/src/types/index.ts](file:///C:/DL SRM/frontend/src/types/index.ts) | TypeScript Contract |

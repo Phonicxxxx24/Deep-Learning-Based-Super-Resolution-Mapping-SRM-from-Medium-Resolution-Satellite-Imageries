@@ -70,8 +70,11 @@ class SRResult(BaseModel):
     spectral_chart_url: Optional[str] = None  # 10-band spectral preservation plot PNG
     lam_url: Optional[str] = None
     ndvi_url: Optional[str] = None
+    lr_ndvi_url: Optional[str] = None
     mndwi_url: Optional[str] = None
+    lr_mndwi_url: Optional[str] = None
     ndbi_url: Optional[str] = None
+    lr_ndbi_url: Optional[str] = None
     metrics: BandMetrics
     band_stats: Optional[list[BandPreservationStat]] = None
     patch_size_px: int = 128

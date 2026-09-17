@@ -225,11 +225,14 @@ def run_sr_from_latlon(
         except Exception as e:
             logger.warning("[%s] LAM failed: %s", job_id, e)
 
-    # ── 6. Spectral indices ────────────────────────────────────────────────
+    # ── 6. Spectral indices (both 10m LR and 2.5m SR) ───────────────────────
     sr_np = sr_tensor.numpy()  # (10, 512, 512)
-    ndvi_map  = compute_ndvi(sr_np)
-    mndwi_map = compute_mndwi(sr_np)
-    ndbi_map  = compute_ndbi(sr_np)
+    ndvi_map     = compute_ndvi(sr_np)
+    mndwi_map    = compute_mndwi(sr_np)
+    ndbi_map     = compute_ndbi(sr_np)
+    lr_ndvi_map  = compute_ndvi(lr_np)
+    lr_mndwi_map = compute_mndwi(lr_np)
+    lr_ndbi_map  = compute_ndbi(lr_np)
 
     # ── 7. Export GeoTIFFs ─────────────────────────────────────────────────
     crs, orig_transform = extract_georeferencing(da[0])
@@ -271,13 +274,51 @@ def run_sr_from_latlon(
         rgb = np.clip((rgb - p2) / (p98 - p2 + 1e-8), 0, 1)
         Image.fromarray((rgb * 255).astype(np.uint8)).save(path)
 
-    def _save_index_png(index_2d: np.ndarray, path: Path, cmap: str = "RdYlGn") -> None:
-        fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=100)
-        ax.imshow(index_2d, cmap=cmap, vmin=-0.3, vmax=0.8)
-        ax.axis("off")
-        plt.tight_layout(pad=0)
-        plt.savefig(path, bbox_inches="tight", pad_inches=0)
-        plt.close(fig)
+    def _save_index_pair(
+        lr_2d: np.ndarray,
+        sr_2d: np.ndarray,
+        lr_path: Path,
+        sr_path: Path,
+        cmap: str = "RdYlGn",
+        title_prefix: str = "Index",
+    ) -> None:
+        """Save calibrated 10m LR and 2.5m SR index maps with a shared dynamic colorbar scale."""
+        lr_clean = np.nan_to_num(lr_2d, nan=0.0)
+        sr_clean = np.nan_to_num(sr_2d, nan=0.0)
+
+        if lr_clean.shape != sr_clean.shape:
+            zoom_h = sr_clean.shape[0] // lr_clean.shape[0]
+            zoom_w = sr_clean.shape[1] // lr_clean.shape[1]
+            lr_display = np.repeat(np.repeat(lr_clean, zoom_h, axis=0), zoom_w, axis=1)
+        else:
+            lr_display = lr_clean
+
+        p2 = float(np.nanpercentile(sr_clean, 2))
+        p98 = float(np.nanpercentile(sr_clean, 98))
+        margin = max(0.01, (p98 - p2) * 0.05)
+        vmin = round(p2 - margin, 2)
+        vmax = round(p98 + margin, 2)
+        if vmax - vmin < 0.05:
+            vmin = round(float(np.nanmin(sr_clean)), 2)
+            vmax = round(float(np.nanmax(sr_clean)), 2)
+            if vmax <= vmin:
+                vmax = vmin + 0.1
+
+        for data, res_label, out_path in [
+            (lr_display, "10m LR (Before)", lr_path),
+            (sr_clean, "2.5m SR (After)", sr_path),
+        ]:
+            fig, ax = plt.subplots(figsize=(5.4, 5.8), dpi=120, facecolor="#0e131d")
+            im = ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.axis("off")
+            ax.set_title(f"{title_prefix} — {res_label}", color="#ffffff", fontsize=10, fontweight="bold", pad=8)
+            cbar = fig.colorbar(im, ax=ax, orientation="horizontal", fraction=0.045, pad=0.03, shrink=0.85)
+            cbar.ax.tick_params(labelsize=8, colors="#ffffff")
+            cbar.outline.set_edgecolor("#4a5568")
+            cbar.set_label(f"Index Value Scale [{vmin} to {vmax}]", color="#e2e8f0", fontsize=8, fontweight="bold", labelpad=4)
+            plt.tight_layout()
+            plt.savefig(out_path, facecolor=fig.get_facecolor(), edgecolor="none", bbox_inches="tight")
+            plt.close(fig)
 
     def _save_uncertainty_png(unc: np.ndarray, path: Path) -> None:
         arr = unc.squeeze()  # (H, W)
@@ -289,15 +330,18 @@ def run_sr_from_latlon(
         plt.savefig(path, bbox_inches="tight", pad_inches=0)
         plt.close(fig)
 
-    sr_rgb_path  = output_dir / f"{job_id}_sr_rgb.png"
-    lr_rgb_path  = output_dir / f"{job_id}_lr_rgb.png"
-    unc_png_path = output_dir / f"{job_id}_uncertainty.png"
-    ndvi_path    = output_dir / f"{job_id}_ndvi.png"
-    mndwi_path   = output_dir / f"{job_id}_mndwi.png"
-    ndbi_path    = output_dir / f"{job_id}_ndbi.png"
-    lam_path     = output_dir / f"{job_id}_lam.png"
-    chart_path   = output_dir / f"{job_id}_spectral_chart.png"
-    stats_json   = output_dir / f"{job_id}_band_stats.json"
+    sr_rgb_path   = output_dir / f"{job_id}_sr_rgb.png"
+    lr_rgb_path   = output_dir / f"{job_id}_lr_rgb.png"
+    unc_png_path  = output_dir / f"{job_id}_uncertainty.png"
+    ndvi_path     = output_dir / f"{job_id}_ndvi.png"
+    lr_ndvi_path  = output_dir / f"{job_id}_lr_ndvi.png"
+    mndwi_path    = output_dir / f"{job_id}_mndwi.png"
+    lr_mndwi_path = output_dir / f"{job_id}_lr_mndwi.png"
+    ndbi_path     = output_dir / f"{job_id}_ndbi.png"
+    lr_ndbi_path  = output_dir / f"{job_id}_lr_ndbi.png"
+    lam_path      = output_dir / f"{job_id}_lam.png"
+    chart_path    = output_dir / f"{job_id}_spectral_chart.png"
+    stats_json    = output_dir / f"{job_id}_band_stats.json"
 
     # SR RGB: B04 (idx 2), B03 (idx 1), B02 (idx 0) → true colour
     _save_rgb_png(sr_np[[2, 1, 0]], sr_rgb_path)
@@ -312,9 +356,9 @@ def run_sr_from_latlon(
     if uncertainty is not None:
         _save_uncertainty_png(uncertainty.numpy(), unc_png_path)
 
-    _save_index_png(ndvi_map,  ndvi_path,  cmap="YlGn")
-    _save_index_png(mndwi_map, mndwi_path, cmap="Blues")
-    _save_index_png(ndbi_map,  ndbi_path,  cmap="YlOrRd")
+    _save_index_pair(lr_ndvi_map, ndvi_map, lr_ndvi_path, ndvi_path, cmap="RdYlGn", title_prefix="NDVI (Vegetation Index)")
+    _save_index_pair(lr_mndwi_map, mndwi_map, lr_mndwi_path, mndwi_path, cmap="YlGnBu", title_prefix="MNDWI (Water Index)")
+    _save_index_pair(lr_ndbi_map, ndbi_map, lr_ndbi_path, ndbi_path, cmap="plasma", title_prefix="NDBI (Built-up Index)")
 
     if kde_map is not None:
         fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=100)
