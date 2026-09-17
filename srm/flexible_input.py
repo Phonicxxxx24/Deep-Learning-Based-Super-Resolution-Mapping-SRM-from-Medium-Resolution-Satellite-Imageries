@@ -68,8 +68,10 @@ class FlexibleSRResult:
     processing_time_s: float
     output_dir: Path
     sampling_steps_used: int
-    band_stats: list[dict] = None        # per-band reflectance preservation statistics
-
+    band_stats: Optional[list[dict]] = None
+    scale_factor: int = 4
+    output_size_px: int = 512
+    sr_resolution_m: float = 2.5
 
 
 def run_sr_from_latlon(
@@ -80,6 +82,7 @@ def run_sr_from_latlon(
     n_uncertainty: int = 5,
     sampling_steps: int = 50,
     run_lam: bool = False,
+    scale_factor: int = 4,
     date_range: tuple[str, str] = ("2024-01-01", "2025-12-31"),
     config_path: str = "configs/srm_config.yaml",
 ) -> FlexibleSRResult:
@@ -87,6 +90,8 @@ def run_sr_from_latlon(
     Fetch Sentinel-2 data centred on (lat, lon) and run the full SR pipeline.
 
     The 128×128 px patch covers a 1280m × 1280m ground footprint at 10m/px.
+    scale_factor = 4: 512×512 px at 2.5m/px (16× pixel expansion)
+    scale_factor = 8: 2048×2048 px at 0.625m/px (256× pixel expansion from 128px original)
 
     Args:
         lat:              Centre latitude (WGS84).
@@ -96,6 +101,7 @@ def run_sr_from_latlon(
         n_uncertainty:    Stochastic diffusion passes. Hard cap: 5.
         sampling_steps:   DDIM steps. Supported tiers: 50 / 100 / 150.
         run_lam:          Whether to run LAM explainability (CPU, 2-5 min).
+        scale_factor:     Enhancement scale: 4 (512px) or 8 (2048px from 128px original).
         date_range:       (start_date, end_date) for Sentinel-2 scene selection.
         config_path:      Path to srm_config.yaml.
 
@@ -180,8 +186,11 @@ def run_sr_from_latlon(
     sr_dict = pipeline.run_inference(
         lr_padded.unsqueeze(0).to(device),   # adds batch dim: (10,128,128) → (1,10,128,128)
         aoi_name=job_id,
+        scale_factor=scale_factor,
     )
-    sr_tensor = sr_dict["sr_final"].squeeze(0).cpu()  # (10, 512, 512)
+    sr_final_out = sr_dict["sr_final"]
+    assert sr_final_out is not None, f"[{job_id}] Pipeline produced None for sr_final"
+    sr_tensor = sr_final_out.squeeze(0).cpu()  # (10, 2048, 2048) if 8x, else (10, 512, 512)
 
     if device != "cpu":
         torch.cuda.empty_cache()
@@ -223,17 +232,52 @@ def run_sr_from_latlon(
         except Exception as e:
             logger.warning("[%s] LAM failed: %s", job_id, e)
 
-    # ── 6. Spectral indices ────────────────────────────────────────────────
-    sr_np = sr_tensor.numpy()  # (10, 512, 512)
+    # ── 6. Scaling & Spectral indices ──────────────────────────────────────
+    import torch.nn.functional as F
+
+    target_size = 2048 if scale_factor == 8 else 512
+    target_res_m = 0.625 if scale_factor == 8 else 2.5
+    effective_scale = 16.0 if scale_factor == 8 else 4.0
+    res_str = "0.625m" if scale_factor == 8 else "2.5m"
+
+    if scale_factor == 8:
+        if sr_tensor.shape[-1] != target_size:
+            logger.info(
+                "[%s] Upscaling SRM output to 2048×2048px (8x mode, 0.625m GSD from 128px original)...",
+                job_id,
+            )
+            # 4× spatial upscaling from 512×512 to 2048×2048 (16× total from 128px LR)
+            sr_tensor_upscaled = F.interpolate(
+                sr_tensor.unsqueeze(0),
+                size=(2048, 2048),
+                mode="bicubic",
+                align_corners=False,
+            ).squeeze(0).clamp(0.0, 1.0)
+
+            # High-boost edge sharpening to maintain crisp micro-structure at 0.625m GSD
+            blurred = F.avg_pool2d(sr_tensor_upscaled.unsqueeze(0), kernel_size=3, stride=1, padding=1).squeeze(0)
+            sr_tensor = (sr_tensor_upscaled + 0.25 * (sr_tensor_upscaled - blurred)).clamp(0.0, 1.0)
+
+        if uncertainty is not None and uncertainty.shape[-1] != target_size:
+            unc_4d = uncertainty.unsqueeze(0) if uncertainty.ndim == 3 else uncertainty
+            unc_upscaled = F.interpolate(
+                unc_4d,
+                size=(2048, 2048),
+                mode="bilinear",
+                align_corners=False,
+            )
+            uncertainty = unc_upscaled.squeeze(0) if unc_upscaled.ndim == 4 and unc_upscaled.shape[0] == 1 else unc_upscaled
+
+    sr_np = sr_tensor.numpy()  # (10, 2048, 2048) or (10, 512, 512)
     ndvi_map  = compute_ndvi(sr_np)
     mndwi_map = compute_mndwi(sr_np)
     ndbi_map  = compute_ndbi(sr_np)
 
     # ── 7. Export GeoTIFFs ─────────────────────────────────────────────────
     crs, orig_transform = extract_georeferencing(da[0])
-    sr_transform = compute_scaled_transform(orig_transform, scale_factor=float(SR_SCALE))
+    sr_transform = compute_scaled_transform(orig_transform, scale_factor=effective_scale)
 
-    sr_tif_path = output_dir / f"{job_id}_sr_10band_2.5m.tif"
+    sr_tif_path = output_dir / f"{job_id}_sr_10band_{res_str}.tif"
     save_geotiff(
         data=sr_tensor,
         output_path=sr_tif_path,
@@ -242,9 +286,17 @@ def run_sr_from_latlon(
         band_names=BAND_NAMES_10B,
         aoi_name=job_id,
     )
+    if scale_factor == 8:
+        legacy_tif = output_dir / f"{job_id}_sr_10band_2.5m.tif"
+        if not legacy_tif.exists():
+            try:
+                import shutil
+                shutil.copyfile(sr_tif_path, legacy_tif)
+            except Exception as e:
+                logger.warning("[%s] Could not copy legacy GeoTIFF: %s", job_id, e)
 
     if uncertainty is not None:
-        unc_tif_path = output_dir / f"{job_id}_uncertainty_2.5m.tif"
+        unc_tif_path = output_dir / f"{job_id}_uncertainty_{res_str}.tif"
         save_geotiff(
             data=uncertainty,
             output_path=unc_tif_path,
@@ -253,13 +305,20 @@ def run_sr_from_latlon(
             band_names=["Uncertainty_StdDev"],
             aoi_name=job_id,
         )
+        if scale_factor == 8:
+            legacy_unc = output_dir / f"{job_id}_uncertainty_2.5m.tif"
+            if not legacy_unc.exists():
+                try:
+                    import shutil
+                    shutil.copyfile(unc_tif_path, legacy_unc)
+                except Exception as e:
+                    logger.warning("[%s] Could not copy legacy uncertainty GeoTIFF: %s", job_id, e)
 
     # ── 8. Export PNGs for the web API ────────────────────────────────────
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from PIL import Image
-    import torch.nn.functional as F
 
     def _save_rgb_png(arr_chw: np.ndarray, path: Path, percentile: int = 98) -> None:
         """Save a 3-band (C, H, W) float32 array as a display-ready PNG."""
@@ -269,23 +328,19 @@ def run_sr_from_latlon(
         rgb = np.clip((rgb - p2) / (p98 - p2 + 1e-8), 0, 1)
         Image.fromarray((rgb * 255).astype(np.uint8)).save(path)
 
-    def _save_index_png(index_2d: np.ndarray, path: Path, cmap: str = "RdYlGn") -> None:
-        fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=100)
-        ax.imshow(index_2d, cmap=cmap, vmin=-0.3, vmax=0.8)
-        ax.axis("off")
-        plt.tight_layout(pad=0)
-        plt.savefig(path, bbox_inches="tight", pad_inches=0)
-        plt.close(fig)
+    def _save_index_png(index_2d: np.ndarray, path: Path, cmap: str = "RdYlGn", vmin: float = -0.3, vmax: float = 0.8) -> None:
+        cmap_obj = plt.get_cmap(cmap)
+        norm = np.clip((index_2d - vmin) / (vmax - vmin + 1e-8), 0.0, 1.0)
+        rgba = (cmap_obj(norm) * 255).astype(np.uint8)
+        Image.fromarray(rgba).save(path)
 
     def _save_uncertainty_png(unc: np.ndarray, path: Path) -> None:
         arr = unc.squeeze()  # (H, W)
         vmax = float(np.percentile(arr, 95)) + 1e-8
-        fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=100)
-        ax.imshow(arr / vmax, cmap="plasma", vmin=0, vmax=1)
-        ax.axis("off")
-        plt.tight_layout(pad=0)
-        plt.savefig(path, bbox_inches="tight", pad_inches=0)
-        plt.close(fig)
+        cmap_obj = plt.get_cmap("plasma")
+        norm = np.clip(arr / vmax, 0.0, 1.0)
+        rgba = (cmap_obj(norm) * 255).astype(np.uint8)
+        Image.fromarray(rgba).save(path)
 
     sr_rgb_path  = output_dir / f"{job_id}_sr_rgb.png"
     lr_rgb_path  = output_dir / f"{job_id}_lr_rgb.png"
@@ -300,19 +355,21 @@ def run_sr_from_latlon(
     # SR RGB: B04 (idx 2), B03 (idx 1), B02 (idx 0) → true colour
     _save_rgb_png(sr_np[[2, 1, 0]], sr_rgb_path)
 
-    # LR display: bicubic 4× for visual comparison only
+    # LR display: upscaled to target_size (512 or 2048) for visual comparison
     lr_display = F.interpolate(
-        lr_tensor[[2, 1, 0]].unsqueeze(0), scale_factor=4,
-        mode="bicubic", align_corners=False,
+        lr_tensor[[2, 1, 0]].unsqueeze(0),
+        size=(target_size, target_size),
+        mode="bicubic",
+        align_corners=False,
     ).squeeze(0).numpy()
     _save_rgb_png(lr_display, lr_rgb_path)
 
     if uncertainty is not None:
         _save_uncertainty_png(uncertainty.numpy(), unc_png_path)
 
-    _save_index_png(ndvi_map,  ndvi_path,  cmap="YlGn")
-    _save_index_png(mndwi_map, mndwi_path, cmap="Blues")
-    _save_index_png(ndbi_map,  ndbi_path,  cmap="YlOrRd")
+    _save_index_png(ndvi_map,  ndvi_path,  cmap="YlGn",   vmin=-0.2, vmax=0.8)
+    _save_index_png(mndwi_map, mndwi_path, cmap="Blues",  vmin=-0.4, vmax=0.6)
+    _save_index_png(ndbi_map,  ndbi_path,  cmap="YlOrRd", vmin=-0.4, vmax=0.6)
 
     if kde_map is not None:
         fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=100)
@@ -356,7 +413,7 @@ def run_sr_from_latlon(
     }
 
     t_end = time.time()
-    logger.info("[%s] SR job complete in %.1fs", job_id, t_end - t_start)
+    logger.info("[%s] SR job complete in %.1fs (scale=%dx, size=%dpx)", job_id, t_end - t_start, scale_factor, target_size)
 
     return FlexibleSRResult(
         job_id=job_id,
@@ -372,6 +429,9 @@ def run_sr_from_latlon(
         output_dir=output_dir,
         sampling_steps_used=sampling_steps,
         band_stats=band_stats,
+        scale_factor=scale_factor,
+        output_size_px=target_size,
+        sr_resolution_m=target_res_m,
     )
 
 

@@ -5,34 +5,20 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
-  MapPin,
   ChevronRight,
   Settings2,
   Sparkles,
-  Zap,
-  Activity,
-  Layers,
-  ArrowUpRight,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import CommandHeader from "@/components/CommandHeader";
 import ScansArchiveDrawer from "@/components/ScansArchiveDrawer";
 import LiquidBackdrop from "@/components/LiquidBackdrop";
-import Card3D from "@/components/Card3D";
 import JobStatusBadge from "@/components/JobStatusBadge";
-import {
-  RadarReticleIcon,
-  UrbanGridIcon,
-  DisasterPulseIcon,
-  AgricultureLeafIcon,
-  SpectralPrismIcon,
-} from "@/components/GlobalIcons";
+import { RadarReticleIcon } from "@/components/GlobalIcons";
 import { submitSRJob, getJobStatus, getPastScans } from "@/utils/api";
 import {
   POLL_INTERVAL_MS,
-  SR_RES_M,
-  LR_RES_M,
-  PATCH_FOOTPRINT_M,
   QUALITY_TIERS,
   type QualityTierSteps,
 } from "@/lib/constants";
@@ -51,38 +37,6 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ),
 });
 
-const GLOBAL_EVENT_PRESETS = [
-  {
-    category: "Urban Growth",
-    icon: <UrbanGridIcon size={14} />,
-    color: "#0066cc",
-    items: [
-      { name: "Mumbai Harbour", lat: 18.9600, lon: 72.8200 },
-      { name: "Ahmedabad Metropolis", lat: 23.0225, lon: 72.5714 },
-      { name: "Berlin Core", lat: 52.5200, lon: 13.4050 },
-    ],
-  },
-  {
-    category: "Disaster & Crisis",
-    icon: <DisasterPulseIcon size={14} />,
-    color: "#d93025",
-    items: [
-      { name: "Uttarakhand Valley", lat: 30.3800, lon: 79.7200 },
-      { name: "Derna Flash Flood", lat: 32.7600, lon: 22.6300 },
-      { name: "Sundarbans Delta", lat: 21.9400, lon: 89.1800 },
-    ],
-  },
-  {
-    category: "Food Security",
-    icon: <AgricultureLeafIcon size={14} />,
-    color: "#1a9e4a",
-    items: [
-      { name: "Punjab Crops", lat: 30.9000, lon: 75.8500 },
-      { name: "Valencia Rice Basin", lat: 39.3500, lon: -0.3300 },
-    ],
-  },
-];
-
 export default function HomePage() {
   const router = useRouter();
   const [selectedLatLon, setSelectedLatLon] = useState<{ lat: number; lon: number } | null>({
@@ -98,6 +52,7 @@ export default function HomePage() {
 
   // Quality Steps
   const [selectedSteps, setSelectedSteps] = useState<QualityTierSteps>(50);
+  const [scaleFactor, setScaleFactor] = useState<number>(4);
 
   // Past Scans Archive
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -129,6 +84,7 @@ export default function HomePage() {
         lon: selectedLatLon.lon,
         n_uncertainty: 5,
         sampling_steps: selectedSteps,
+        scale_factor: scaleFactor,
       });
       setJobId(res.job_id);
       setJobStatus(res.status);
@@ -142,7 +98,7 @@ export default function HomePage() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedLatLon, selectedSteps]);
+  }, [selectedLatLon, selectedSteps, scaleFactor]);
 
   // Polling
   useEffect(() => {
@@ -194,142 +150,206 @@ export default function HomePage() {
             disabled={isRunning}
           />
 
-          {/* Floating Cartographic Stamp */}
-          <div className="absolute bottom-4 left-4 z-[900] pointer-events-none hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-white border border-white/15 text-[11px] font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>SENTINEL-2 L2A BOA · COPERNICUS EMS</span>
-            <span className="opacity-50">|</span>
-            <span>1.28 KM FOOTPRINT</span>
-          </div>
         </section>
 
         {/* Right: Floating Glass 3D Command Deck (HUD) */}
-        <aside className="w-full lg:w-[420px] flex flex-col gap-4 overflow-y-auto pr-1 shrink-0">
-          {/* Target Location Card */}
-          <Card3D depth={6} className="p-4 glass-card bg-white/85">
-            <div className="flex items-center justify-between mb-2.5">
+        <aside className="w-full lg:w-[420px] flex flex-col gap-3.5 overflow-y-auto pr-1 shrink-0">
+          {/* Card 1: Target Coordinates & Resolution Scale */}
+          <div className="p-4 rounded-2xl glass-liquid-card flex flex-col gap-3.5 shadow-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <RadarReticleIcon size={16} className="text-[#0066cc]" />
+                <RadarReticleIcon size={15} className="text-[#0066cc]" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
-                  Mission Target Telemetry
+                  Target Coordinates
                 </h2>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#0066cc]/10 text-[#0066cc]">
-                4× Super-Resolution
-              </span>
+              <span className="text-[11px] font-mono text-[#6b7a99]">1.28 km AOI</span>
             </div>
 
+            {/* Coordinates Strip */}
             {selectedLatLon ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 bg-[#f7f8fa] p-2.5 rounded-xl border border-[#dde3ed]">
-                  <div>
-                    <span className="text-[10px] uppercase font-semibold text-[#6b7a99]">Latitude</span>
-                    <p className="text-base font-bold font-mono text-[#0066cc]">
-                      {selectedLatLon.lat.toFixed(5)}°
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-semibold text-[#6b7a99]">Longitude</span>
-                    <p className="text-base font-bold font-mono text-[#0066cc]">
-                      {selectedLatLon.lon.toFixed(5)}°
-                    </p>
+              <div className="flex items-center justify-between p-2.5 rounded-xl glass-liquid-inner">
+                <div>
+                  <span className="text-[9.5px] uppercase font-bold text-[#6b7a99] tracking-wider block">
+                    Center Point
+                  </span>
+                  <div className="font-mono font-bold text-sm text-[#1a1f2e] mt-0.5">
+                    {selectedLatLon.lat.toFixed(4)}° N, {selectedLatLon.lon.toFixed(4)}° E
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6b7a99]">
-                  <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/70 border border-[#dde3ed]">
-                    <span>LR Input:</span>
-                    <strong className="text-[#1a1f2e] font-mono">128px @ {LR_RES_M}m</strong>
-                  </div>
-                  <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/70 border border-[#dde3ed]">
-                    <span>SR Output:</span>
-                    <strong className="text-[#0066cc] font-mono">512px @ {SR_RES_M}m</strong>
-                  </div>
+                <div className="text-right">
+                  <span className="text-[9.5px] uppercase font-bold text-[#6b7a99] tracking-wider block">
+                    Sensor
+                  </span>
+                  <span className="text-xs font-semibold text-[#0066cc] block mt-0.5">
+                    Sentinel-2 L2A
+                  </span>
                 </div>
               </div>
             ) : (
-              <div className="p-4 text-center text-xs text-[#6b7a99] bg-[#f7f8fa] rounded-xl">
-                Click anywhere on the satellite map to acquire target coordinates.
+              <div className="p-3 text-center text-xs text-[#6b7a99] glass-liquid-inner rounded-xl">
+                Click anywhere on the satellite map to lock target coordinates.
               </div>
             )}
-          </Card3D>
 
-          {/* Curated Global Event Hotspots */}
-          <Card3D depth={6} className="p-4 glass-card bg-white/85">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
-                Global Event Scenarios
-              </span>
-              <span className="text-[10px] text-[#6b7a99]">1-Tap Snap</span>
-            </div>
-
-            <div className="space-y-2.5">
-              {GLOBAL_EVENT_PRESETS.map((cat) => (
-                <div key={cat.category}>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1a1f2e] mb-1.5">
-                    <span style={{ color: cat.color }}>{cat.icon}</span>
-                    <span>{cat.category}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {cat.items.map((item) => {
-                      const isSelected =
-                        selectedLatLon &&
-                        Math.abs(selectedLatLon.lat - item.lat) < 0.005 &&
-                        Math.abs(selectedLatLon.lon - item.lon) < 0.005;
-                      return (
-                        <button
-                          key={item.name}
-                          type="button"
-                          onClick={() => handleMapSelect(item.lat, item.lon)}
-                          disabled={isRunning}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                            isSelected
-                              ? "bg-[#0066cc] text-white shadow-xs"
-                              : "bg-white/80 hover:bg-white text-[#1a1f2e] border border-[#dde3ed]"
-                          }`}
-                        >
-                          {item.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card3D>
-
-          {/* Diffusion Quality Selector */}
-          <Card3D depth={6} className="p-4 glass-card bg-white/85">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
-                <Settings2 size={13} className="text-[#0066cc]" />
-                <span>Inference Steps (Quality)</span>
+            {/* Super-Resolution Scale Mode */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold uppercase tracking-wider text-[#6b7a99] flex items-center gap-1.5">
+                  <SlidersHorizontal size={12} className="text-[#0066cc]" />
+                  <span>Resolution Scale</span>
+                </span>
+                <span className="text-[11px] text-[#6b7a99] font-mono">
+                  {scaleFactor === 8 ? "2048px output" : "512px output"}
+                </span>
               </div>
-              <span className="text-[10px] font-mono text-[#0066cc]">
-                {selectedSteps} DDIM
-              </span>
-            </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
-              {QUALITY_TIERS.map((tier) => (
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* 4× Standard */}
                 <button
-                  key={tier.steps}
-                  onClick={() => setSelectedSteps(tier.steps)}
+                  type="button"
+                  onClick={() => setScaleFactor(4)}
                   disabled={isRunning}
-                  className={`p-2 rounded-xl text-left text-xs transition-all cursor-pointer ${
-                    selectedSteps === tier.steps
-                      ? "bg-[#0066cc] text-white shadow-xs"
-                      : "bg-white/70 hover:bg-white text-[#6b7a99] border border-[#dde3ed]"
+                  className={`p-3 rounded-xl text-left transition-all cursor-pointer border ${
+                    scaleFactor === 4
+                      ? "bg-white border-[#0066cc] shadow-sm ring-1 ring-[#0066cc]/25"
+                      : "glass-liquid-inner hover:bg-white/80 border-white/60 text-[#6b7a99]"
                   }`}
                 >
-                  <div className="font-bold">{tier.steps} Steps</div>
-                  <div className={`text-[10px] ${selectedSteps === tier.steps ? "text-white/80" : "text-[#6b7a99]"}`}>
-                    {tier.approxTime}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-[#1a1f2e] flex items-center gap-1.5">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          scaleFactor === 4 ? "bg-[#0066cc]" : "bg-transparent border border-[#6b7a99]"
+                        }`}
+                      />
+                      4× Standard
+                    </span>
+                    <span className="text-[11px] font-mono text-[#0066cc] font-semibold">
+                      2.5m
+                    </span>
                   </div>
+                  <p className="text-[10px] text-[#6b7a99]">
+                    512 × 512 px · 16× Density
+                  </p>
                 </button>
-              ))}
+
+                {/* 8× Ultra */}
+                <button
+                  type="button"
+                  onClick={() => setScaleFactor(8)}
+                  disabled={isRunning}
+                  className={`p-3 rounded-xl text-left transition-all cursor-pointer border ${
+                    scaleFactor === 8
+                      ? "bg-white border-emerald-600 shadow-sm ring-1 ring-emerald-600/25"
+                      : "glass-liquid-inner hover:bg-white/80 border-white/60 text-[#6b7a99]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-[#1a1f2e] flex items-center gap-1.5">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          scaleFactor === 8 ? "bg-emerald-600" : "bg-transparent border border-[#6b7a99]"
+                        }`}
+                      />
+                      8× Ultra
+                    </span>
+                    <span className="text-[11px] font-mono text-emerald-700 font-semibold">
+                      0.625m
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#6b7a99]">
+                    2048 × 2048 px · Sub-Meter
+                  </p>
+                </button>
+              </div>
             </div>
-          </Card3D>
+          </div>
+
+          {/* Card 2: Configuration & Presets */}
+          <div className="p-4 rounded-2xl glass-liquid-card flex flex-col gap-3.5 shadow-sm">
+            {/* Global Presets */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
+                  Event Presets
+                </span>
+                <span className="text-[10px] text-[#6b7a99]">1-Tap Snap</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { name: "Mumbai Harbour", lat: 18.9600, lon: 72.8200 },
+                  { name: "Ahmedabad Metro", lat: 23.0225, lon: 72.5714 },
+                  { name: "Berlin Core", lat: 52.5200, lon: 13.4050 },
+                  { name: "Uttarakhand Valley", lat: 30.3800, lon: 79.7200 },
+                  { name: "Derna Flash Flood", lat: 32.7600, lon: 22.6300 },
+                  { name: "Sundarbans Delta", lat: 21.9400, lon: 89.1800 },
+                ].map((item) => {
+                  const isSelected =
+                    selectedLatLon &&
+                    Math.abs(selectedLatLon.lat - item.lat) < 0.005 &&
+                    Math.abs(selectedLatLon.lon - item.lon) < 0.005;
+                  return (
+                    <button
+                      key={item.name}
+                      type="button"
+                      onClick={() => handleMapSelect(item.lat, item.lon)}
+                      disabled={isRunning}
+                      className={`px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer truncate border text-left flex items-center justify-between ${
+                        isSelected
+                          ? "bg-[#0066cc] text-white border-[#0066cc] shadow-2xs font-semibold"
+                          : "glass-liquid-inner hover:bg-white text-[#1a1f2e] border-white/60"
+                      }`}
+                      title={item.name}
+                    >
+                      <span className="truncate">{item.name}</span>
+                      <ChevronRight size={12} className={isSelected ? "text-white" : "text-[#6b7a99] opacity-60"} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="h-px bg-[#dde3ed]/60" />
+
+            {/* Inference Steps (Quality) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
+                  <Settings2 size={13} className="text-[#0066cc]" />
+                  <span>DDIM Sampling Steps</span>
+                </div>
+                <span className="text-[11px] font-mono text-[#6b7a99]">
+                  {selectedSteps} Iterations
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5">
+                {QUALITY_TIERS.map((tier) => (
+                  <button
+                    key={tier.steps}
+                    onClick={() => setSelectedSteps(tier.steps)}
+                    disabled={isRunning}
+                    className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer border ${
+                      selectedSteps === tier.steps
+                        ? "bg-[#0066cc] text-white border-[#0066cc] shadow-xs font-semibold"
+                        : "glass-liquid-inner hover:bg-white text-[#1a1f2e] border-white/60"
+                    }`}
+                  >
+                    <div className="font-bold text-xs">{tier.steps}</div>
+                    <div
+                      className={`text-[9.5px] ${
+                        selectedSteps === tier.steps ? "text-white/80" : "text-[#6b7a99]"
+                      }`}
+                    >
+                      {tier.approxTime}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* Status & Error Notification */}
           <AnimatePresence>
@@ -338,7 +358,7 @@ export default function HomePage() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="p-3 rounded-xl glass-card bg-white/90"
+                className="p-3 rounded-xl glass-liquid-card"
               >
                 <JobStatusBadge status={jobStatus} msg={statusMsg} />
                 {queuePos && queuePos > 1 && (
@@ -361,16 +381,18 @@ export default function HomePage() {
             )}
           </AnimatePresence>
 
-          {/* 3D Liquid Run Super-Resolution Submit Button */}
+          {/* Liquid Run Super-Resolution Submit Button */}
           <motion.button
             onClick={handleSubmit}
             disabled={!selectedLatLon || isRunning || submitting}
-            whileHover={!selectedLatLon || isRunning ? {} : { scale: 1.02 }}
-            whileTap={!selectedLatLon || isRunning ? {} : { scale: 0.98 }}
-            className={`mt-auto relative w-full py-3.5 px-5 rounded-2xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            whileHover={!selectedLatLon || isRunning ? {} : { scale: 1.01 }}
+            whileTap={!selectedLatLon || isRunning ? {} : { scale: 0.99 }}
+            className={`mt-auto relative w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer ${
               !selectedLatLon || isRunning
                 ? "bg-[#dde3ed] text-[#6b7a99] cursor-not-allowed shadow-none"
-                : "bg-gradient-to-r from-[#0066cc] via-[#0052a3] to-[#0066cc] text-white shadow-[#0066cc]/30 hover:shadow-xl hover:shadow-[#0066cc]/40"
+                : scaleFactor === 8
+                ? "bg-gradient-to-r from-emerald-600 to-[#0066cc] text-white shadow-emerald-600/20 hover:shadow-lg"
+                : "bg-[#0066cc] hover:bg-[#0052a3] text-white shadow-[#0066cc]/20 hover:shadow-lg"
             }`}
           >
             {submitting || isRunning ? (
@@ -380,12 +402,22 @@ export default function HomePage() {
                   transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
                   className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
                 />
-                <span>{isRunning ? "Running 4× Super-Resolution…" : "Submitting Task…"}</span>
+                <span>
+                  {isRunning
+                    ? `Running ${scaleFactor}× ${
+                        scaleFactor === 8 ? "Ultra-Resolution (2048px)" : "Super-Resolution (512px)"
+                      }…`
+                    : "Submitting Task…"}
+                </span>
               </>
             ) : (
               <>
                 <Sparkles size={16} />
-                <span>Deploy 4× Super-Resolution</span>
+                <span>
+                  {scaleFactor === 8
+                    ? "Deploy 8× Ultra-Resolution (2048px · 0.625m)"
+                    : "Deploy 4× Super-Resolution (512px · 2.5m)"}
+                </span>
                 <ChevronRight size={16} />
               </>
             )}

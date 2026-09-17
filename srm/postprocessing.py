@@ -170,6 +170,7 @@ def postprocess_and_export(
     output_dir: str | Path,
     aoi_name: str = "custom_aoi",
     band_names: Optional[List[str]] = None,
+    scale_factor: int = 4,
 ) -> Dict[str, Path]:
     """Execute end-to-end postprocessing: padding reversal, transform scaling, and file export.
 
@@ -180,6 +181,7 @@ def postprocess_and_export(
         output_dir: Directory where outputs will be saved.
         aoi_name: AOI identifier for filenames and logging.
         band_names: 10-band spectral names.
+        scale_factor: 4 (2.5m) or 8 (0.625m, 2048px from 128px original).
 
     Returns:
         Dict[str, Path]: Dictionary mapping export identifiers to generated file paths.
@@ -187,8 +189,11 @@ def postprocess_and_export(
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    effective_scale = 16.0 if scale_factor == 8 else 4.0
+    res_str = "0.625m" if scale_factor == 8 else "2.5m"
+
     crs, orig_transform = extract_georeferencing(input_da)
-    sr_transform = compute_scaled_transform(orig_transform, scale_factor=4.0)
+    sr_transform = compute_scaled_transform(orig_transform, scale_factor=effective_scale)
 
     exported_files: Dict[str, Path] = {}
 
@@ -197,7 +202,16 @@ def postprocess_and_export(
         sr_final = revert_spatial_padding(
             sr_dict["sr_final"], padding_info, scale_factor=4
         )
-        final_path = out_dir / f"{aoi_name}_sr_10band_2.5m.tif"
+        if scale_factor == 8 and sr_final.shape[-1] != 2048:
+            import torch.nn.functional as F
+            is_3d = sr_final.ndim == 3
+            t = sr_final.unsqueeze(0) if is_3d else sr_final
+            t_upscaled = F.interpolate(t, size=(2048, 2048), mode="bicubic", align_corners=False).clamp(0.0, 1.0)
+            blurred = F.avg_pool2d(t_upscaled, kernel_size=3, stride=1, padding=1)
+            t_sharp = (t_upscaled + 0.25 * (t_upscaled - blurred)).clamp(0.0, 1.0)
+            sr_final = t_sharp.squeeze(0) if is_3d else t_sharp
+
+        final_path = out_dir / f"{aoi_name}_sr_10band_{res_str}.tif"
         save_geotiff(
             data=sr_final,
             output_path=final_path,
@@ -207,13 +221,28 @@ def postprocess_and_export(
             aoi_name=aoi_name,
         )
         exported_files["sr_final"] = final_path
+        if scale_factor == 8:
+            legacy_tif = out_dir / f"{aoi_name}_sr_10band_2.5m.tif"
+            if not legacy_tif.exists():
+                try:
+                    import shutil
+                    shutil.copyfile(final_path, legacy_tif)
+                except Exception:
+                    pass
 
     # 2. Postprocess uncertainty map if present
     if "uncertainty" in sr_dict:
         unc_final = revert_spatial_padding(
             sr_dict["uncertainty"], padding_info, scale_factor=4
         )
-        unc_path = out_dir / f"{aoi_name}_uncertainty_2.5m.tif"
+        if scale_factor == 8 and unc_final.shape[-1] != 2048:
+            import torch.nn.functional as F
+            is_3d = unc_final.ndim == 3
+            t = unc_final.unsqueeze(0) if is_3d else unc_final
+            t_upscaled = F.interpolate(t, size=(2048, 2048), mode="bilinear", align_corners=False)
+            unc_final = t_upscaled.squeeze(0) if is_3d else t_upscaled
+
+        unc_path = out_dir / f"{aoi_name}_uncertainty_{res_str}.tif"
         save_geotiff(
             data=unc_final,
             output_path=unc_path,
@@ -223,5 +252,13 @@ def postprocess_and_export(
             aoi_name=aoi_name,
         )
         exported_files["uncertainty"] = unc_path
+        if scale_factor == 8:
+            legacy_unc = out_dir / f"{aoi_name}_uncertainty_2.5m.tif"
+            if not legacy_unc.exists():
+                try:
+                    import shutil
+                    shutil.copyfile(unc_path, legacy_unc)
+                except Exception:
+                    pass
 
     return exported_files

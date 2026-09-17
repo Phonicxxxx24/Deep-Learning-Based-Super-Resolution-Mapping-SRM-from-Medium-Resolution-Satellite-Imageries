@@ -1,131 +1,137 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
   Download,
-  BarChart2,
-  Map,
   Layers,
-  AlertCircle,
-  Clock,
   Sparkles,
   FileDown,
-  Activity,
-  TrendingUp,
-  CheckCircle2,
-  ShieldCheck,
-  ExternalLink,
+  FileText,
+  Clock,
+  Maximize2,
+  X,
+  Eye,
+  Info,
 } from "lucide-react";
 
 import LiquidBackdrop from "./LiquidBackdrop";
-import Card3D from "./Card3D";
-import {
-  Satellite3DIcon,
-  SpectralPrismIcon,
-  RadarReticleIcon,
-  LiquidWaveIcon,
-} from "./GlobalIcons";
+import ImageSwipeComparator from "./ImageSwipeComparator";
+import ExecutiveReportModal from "./ExecutiveReportModal";
+import SpectralFidelityGraphs from "./SpectralFidelityGraphs";
 import type { SRResult } from "@/types";
 import { staticUrl } from "@/utils/api";
 
-type IndexTab = "ndvi" | "mndwi" | "ndbi";
-
-const INDEX_CONFIG: Record<
-  IndexTab,
-  { label: string; desc: string; urlKey: keyof SRResult; cmapNote: string }
-> = {
-  ndvi: {
-    label: "NDVI",
-    desc: "Normalized Difference Vegetation Index",
-    urlKey: "ndvi_url",
-    cmapNote: "Green = dense vegetation, Yellow = sparse, Red/Brown = soil/water",
-  },
-  mndwi: {
-    label: "MNDWI",
-    desc: "Modified Normalized Difference Water Index",
-    urlKey: "mndwi_url",
-    cmapNote: "Blue = open water bodies, White/Grey = non-water",
-  },
-  ndbi: {
-    label: "NDBI",
-    desc: "Normalized Difference Built-up Index",
-    urlKey: "ndbi_url",
-    cmapNote: "Red/Orange = urban/built-up, Green/Yellow = non-urban",
-  },
-};
-
-function MetricCard({
-  label,
-  value,
-  unit,
-  description,
-}: {
-  label: string;
-  value: number | null;
-  unit: string;
-  description?: string;
-}) {
-  return (
-    <Card3D depth={6} className="p-3.5 glass-card bg-white/85 flex flex-col gap-1">
-      <span className="text-[11px] font-semibold text-[#6b7a99] uppercase tracking-wider">
-        {label}
-      </span>
-      <span className="text-xl font-bold font-mono text-[#1a1f2e]">
-        {value === null ? "—" : value.toFixed(2)}
-        {value !== null && unit ? ` ${unit}` : ""}
-      </span>
-      {description && (
-        <span className="text-[10px] text-[#6b7a99] mt-0.5">
-          {description}
-        </span>
-      )}
-    </Card3D>
-  );
+interface ChannelConfig {
+  id: string;
+  title: string;
+  badge: string;
+  badgeColor: string;
+  src?: string | null;
+  resolution: string;
+  formula?: string;
+  interpretation: string;
+  colorScale?: { minLabel: string; maxLabel: string; gradient: string };
 }
 
-function CompareImageCard({
-  label,
-  src,
-  badge,
-  subtext,
+function SpectralChannelCard({
+  channel,
+  onInspect,
 }: {
-  label: string;
-  src: string;
-  badge: string;
-  subtext?: string;
+  channel: ChannelConfig;
+  onInspect: (ch: ChannelConfig) => void;
 }) {
   return (
-    <Card3D depth={8} className="glass-card bg-white/90 flex flex-col overflow-hidden group">
-      <div className="relative w-full aspect-square bg-[#0e131d] overflow-hidden">
-        <Image
-          src={staticUrl(src)}
-          alt={label}
-          fill
-          sizes="(max-width: 768px) 100vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-          unoptimized
-        />
-        <div className="absolute bottom-2.5 left-2.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-black/75 backdrop-blur-md text-white border border-white/20 shadow-md">
-          {badge}
+    <div className="rounded-2xl glass-liquid-card flex flex-col overflow-hidden group shadow-sm transition-all hover:shadow-md hover:border-[#0066cc]/40">
+      {/* Top Header Strip */}
+      <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-white/60 bg-white/40">
+        <div>
+          <span className="text-[9.5px] uppercase font-bold text-[#6b7a99] tracking-wider block">
+            {channel.resolution}
+          </span>
+          <h3 className="text-xs font-bold text-[#1a1f2e] truncate">{channel.title}</h3>
         </div>
+        <span
+          className="text-[9.5px] font-bold px-2 py-0.5 rounded-full border"
+          style={{
+            backgroundColor: `${channel.badgeColor}15`,
+            color: channel.badgeColor,
+            borderColor: `${channel.badgeColor}30`,
+          }}
+        >
+          {channel.badge}
+        </span>
       </div>
-      <div className="p-3.5 bg-white/80">
-        <h3 className="text-xs font-bold text-[#1a1f2e]">{label}</h3>
-        {subtext && <p className="text-[11px] text-[#6b7a99] mt-0.5">{subtext}</p>}
+
+      {/* Image Container - Square Aspect Ratio without letterbox */}
+      <div
+        onClick={() => channel.src && onInspect(channel)}
+        className="relative w-full aspect-square bg-[#0f172a] overflow-hidden cursor-pointer"
+      >
+        {channel.src ? (
+          <>
+            <Image
+              src={staticUrl(channel.src)}
+              alt={channel.title}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+              unoptimized
+            />
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-2xs">
+              <Maximize2 size={14} />
+              <span>Inspect</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full text-xs text-[#6b7a99]">
+            Channel unavailable
+          </div>
+        )}
       </div>
-    </Card3D>
+
+      {/* Footer Info & Physics Legend */}
+      <div className="p-3 glass-liquid-inner flex flex-col gap-1.5 mt-auto">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-[#1a1f2e] font-semibold">{channel.interpretation}</span>
+          {channel.formula && (
+            <span className="text-[9.5px] font-mono text-[#6b7a99]">{channel.formula}</span>
+          )}
+        </div>
+        {channel.colorScale ? (
+          <div className="flex flex-col gap-0.5 pt-1 border-t border-white/50">
+            <div
+              className="w-full h-1.5 rounded-full"
+              style={{ background: channel.colorScale.gradient }}
+            />
+            <div className="text-[9px] font-mono text-[#6b7a99] flex justify-between">
+              <span>{channel.colorScale.minLabel}</span>
+              <span>{channel.colorScale.maxLabel}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-1 border-t border-white/50 text-[9px] text-[#6b7a99] font-mono">
+            True Color RGB Composite (B04-B03-B02)
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
 export default function ResultsPanel({ result }: { result: SRResult }) {
-  const [indexTab, setIndexTab] = useState<IndexTab>("ndvi");
+  const [reportOpen, setReportOpen] = useState<boolean>(false);
+  const [activeInspectChannel, setActiveInspectChannel] = useState<ChannelConfig | null>(null);
+  const [scaleFactor, setScaleFactor] = useState<number>(result.scale_factor ?? 4);
 
-  const srTifUrl = staticUrl(`/static/${result.job_id}_sr_10band_2.5m.tif`);
-  const uncTifUrl = staticUrl(`/static/${result.job_id}_uncertainty_2.5m.tif`);
+  const resStr = result.sr_resolution_m ? `${result.sr_resolution_m}m` : (scaleFactor === 8 ? "0.625m" : "2.5m");
+  const sizePx = result.output_size_px ?? (scaleFactor === 8 ? 2048 : 512);
+
+  const srTifUrl = staticUrl(`/static/${result.job_id}_sr_10band_${resStr}.tif`);
+  const uncTifUrl = staticUrl(`/static/${result.job_id}_uncertainty_${resStr}.tif`);
 
   const meanPreservation =
     result.band_stats && result.band_stats.length > 0
@@ -135,193 +141,191 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
         ).toFixed(1)
       : null;
 
+  // 5-Channel Spectral Suite Definitions
+  const channels: ChannelConfig[] = [
+    {
+      id: "lr",
+      title: "Normal Sentinel-2",
+      badge: "10m L2A",
+      badgeColor: "#0066cc",
+      src: result.lr_rgb_url,
+      resolution: "Input Optical",
+      interpretation: "Native Optical S2",
+      formula: "B04 + B03 + B02",
+    },
+    {
+      id: "sr",
+      title: "New Processed Event",
+      badge: `${scaleFactor}× Super-Res`,
+      badgeColor: scaleFactor === 8 ? "#059669" : "#0284c7",
+      src: result.sr_rgb_url,
+      resolution: `${resStr} Sub-Meter`,
+      interpretation: "Dual-Path Enhanced",
+      formula: "LDSR-S2 + SEN2SR",
+    },
+    {
+      id: "ndvi",
+      title: "NDVI Vegetation Filter",
+      badge: "Canopy Index",
+      badgeColor: "#16a34a",
+      src: result.ndvi_url,
+      resolution: `${resStr} Resolution`,
+      interpretation: "Biomass & Chlorophyll",
+      formula: "(B08-B04)/(B08+B04)",
+      colorScale: {
+        minLabel: "Sparse [-0.2]",
+        maxLabel: "Dense [+0.8]",
+        gradient: "linear-gradient(to right, #a16207, #ca8a04, #84cc16, #15803d)",
+      },
+    },
+    {
+      id: "mndwi",
+      title: "MNDWI Hydrology Filter",
+      badge: "Water Index",
+      badgeColor: "#0284c7",
+      src: result.mndwi_url,
+      resolution: `${resStr} Resolution`,
+      interpretation: "Water & Moisture",
+      formula: "(B03-B11)/(B03+B11)",
+      colorScale: {
+        minLabel: "Non-Water [-0.4]",
+        maxLabel: "Deep Water [+0.6]",
+        gradient: "linear-gradient(to right, #f8fafc, #93c5fd, #3b82f6, #1d4ed8)",
+      },
+    },
+    {
+      id: "ndbi",
+      title: "NDBI Urban Filter",
+      badge: "Built-up Index",
+      badgeColor: "#ea580c",
+      src: result.ndbi_url,
+      resolution: `${resStr} Resolution`,
+      interpretation: "Impervious Concrete",
+      formula: "(B11-B08)/(B11+B08)",
+      colorScale: {
+        minLabel: "Natural [-0.4]",
+        maxLabel: "Urban Built-up [+0.6]",
+        gradient: "linear-gradient(to right, #22c55e, #facc15, #f97316, #b91c1c)",
+      },
+    },
+  ];
+
   return (
-    <div className="relative min-h-screen p-5 sm:p-8 flex flex-col gap-6 max-w-6xl mx-auto text-[#1a1f2e]">
+    <div className="relative min-h-screen w-full max-w-[100vw] px-4 sm:px-8 lg:px-12 py-5 flex flex-col gap-5 text-[#1a1f2e]">
       {/* Liquid Organic Mesh Background */}
       <LiquidBackdrop />
 
       {/* ── Top Command Bar ── */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl glass-panel shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl glass-liquid-card shadow-sm">
+        <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-white hover:bg-[#f7f8fa] text-[#1a1f2e] border border-[#dde3ed] shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl glass-liquid-inner hover:bg-white text-[#1a1f2e] border border-white/60 shadow-2xs transition-all cursor-pointer"
           >
-            <ArrowLeft size={14} /> Back to Command Map
+            <ArrowLeft size={14} /> Command Map
           </Link>
-          <div className="w-px h-6 bg-[#dde3ed]" />
+          <div className="w-px h-6 bg-[#dde3ed]/60" />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-[#1a1f2e]">
-                4× Super-Resolution Telemetry
+              <h1 className="text-sm sm:text-base font-bold text-[#1a1f2e]">
+                {scaleFactor === 8 ? "8× Ultra-Resolution (2048px · 0.625m)" : "4× Super-Resolution (512px · 2.5m)"} Telemetry
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25">
-                ✓ Inference Complete
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                ✓ Complete
               </span>
             </div>
-            <p className="text-xs text-[#6b7a99] font-mono mt-0.5">
-              Lat {result.lat.toFixed(5)}°, Lon {result.lon.toFixed(5)}° · Job ID:{" "}
-              <strong className="text-[#0066cc]">{result.job_id}</strong>
+            <p className="text-[11px] text-[#6b7a99] font-mono mt-0.5">
+              Lat {result.lat.toFixed(4)}°, Lon {result.lon.toFixed(4)}° · Job{" "}
+              <strong className="text-[#0066cc] font-mono">{result.job_id}</strong>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-xs">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill font-mono text-[#1a1f2e]">
-            <Clock size={12} className="text-[#0066cc]" />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-liquid-inner text-[11px] font-mono text-[#1a1f2e]">
             <span>{result.processing_time_s.toFixed(1)}s Runtime</span>
+            <span className="opacity-30">|</span>
+            <span className="text-[#0066cc] font-semibold">{result.sampling_steps_used ?? 50} DDIM</span>
+            <span className="opacity-30">|</span>
+            <span className="text-emerald-700 font-semibold">{scaleFactor}× Scale</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill font-mono text-[#0066cc] font-semibold">
-            <Sparkles size={12} />
-            <span>{result.sampling_steps_used ?? 50} DDIM Steps</span>
-          </div>
+          <button
+            onClick={() => setReportOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0066cc] text-white hover:bg-[#0052a3] font-semibold text-xs transition-all shadow-xs cursor-pointer"
+          >
+            <FileText size={13} />
+            <span>Executive Dossier</span>
+          </button>
         </div>
       </header>
 
-      {/* ── Before / After / Uncertainty Comparison ── */}
-      <section className="space-y-3">
+      {/* ── Interactive Split-Screen Swipe Visual Comparator ── */}
+      <section className="space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Map size={15} className="text-[#0066cc]" />
+            <Sparkles size={16} className="text-[#0066cc]" />
             <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
-              High-Fidelity Spatial Triad Comparison
+              Interactive Split-Screen Visual Comparator
             </h2>
           </div>
           <span className="text-xs text-[#6b7a99] font-mono">
-            Ground Footprint: 1.28 km × 1.28 km
+            Drag divider to inspect resolution leap · Scroll to zoom · Drag to pan
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CompareImageCard
-            label="Sentinel-2 L2A Input"
-            src={result.lr_rgb_url}
-            badge={`${result.patch_size_px}px @ ${result.lr_resolution_m}m`}
-            subtext="B04-B03-B02 true color (bicubic 4× display)"
-          />
-          <CompareImageCard
-            label="Dual-Path Super-Resolved"
-            src={result.sr_rgb_url}
-            badge={`${result.output_size_px}px @ ${result.sr_resolution_m}m`}
-            subtext="4× enhanced RGB composite via LDSR-S2"
-          />
-          {result.uncertainty_url ? (
-            <CompareImageCard
-              label="Per-Pixel Epistemic Uncertainty"
-              src={result.uncertainty_url}
-              badge="Std dev across passes"
-              subtext="Plasma map (brighter = higher uncertainty)"
-            />
-          ) : (
-            <div className="rounded-2xl glass-card flex items-center justify-center p-6 text-xs text-center text-[#6b7a99]">
-              Uncertainty map not generated for this run
-            </div>
-          )}
-        </div>
+        <ImageSwipeComparator
+          lrUrl={result.lr_rgb_url}
+          srUrl={result.sr_rgb_url}
+          ndviUrl={result.ndvi_url}
+          mndwiUrl={result.mndwi_url}
+          ndbiUrl={result.ndbi_url}
+          uncertaintyUrl={result.uncertainty_url}
+          initialScale={result.scale_factor ?? 4}
+          aoiLabel={`Lat ${result.lat.toFixed(4)}, Lon ${result.lon.toFixed(4)}`}
+        />
       </section>
 
-      {/* ── 10-Band Radiometric Fidelity & Physical Preservation ── */}
-      <section className="rounded-2xl p-5 glass-card bg-white/85 space-y-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <Activity size={18} className="text-[#0066cc]" />
+      {/* ── Derived Spectral Indices & Multi-Band Suite (Normal S2, Processed Event, and All 3 Filters) ── */}
+      <section className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Layers size={16} className="text-[#0066cc]" />
             <div>
-              <h2 className="text-sm font-bold text-[#1a1f2e]">
-                Spectral Band Value Preservation & Radiometric Fidelity
+              <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
+                Derived Spectral Indices & Physical Channel Suite
               </h2>
               <p className="text-xs text-[#6b7a99]">
-                Proves physical surface reflectance (BOA) conservation from 10m input to 2.5m output across all 10 Sentinel-2 bands.
+                Normal Sentinel-2 input, new super-resolved event, and derived spectral filters (NDVI, MNDWI, NDBI).
               </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#0066cc]/10 text-[#0066cc] border border-[#0066cc]/20">
-              <ShieldCheck size={13} />
-              <span>Fourier HardConstraint</span>
-            </span>
-
-            {meanPreservation && (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25">
-                <CheckCircle2 size={13} />
-                <span>{meanPreservation}% Mean Preservation</span>
-              </span>
-            )}
-          </div>
+          <span className="text-xs font-mono text-[#0066cc] bg-[#0066cc]/10 px-3 py-1 rounded-full font-semibold shrink-0">
+            {resStr} Resolution · {sizePx}×{sizePx}px Full-Bleed
+          </span>
         </div>
 
-        {/* Generated Dual-Panel Spectral Chart */}
-        {result.spectral_chart_url ? (
-          <div className="relative w-full rounded-xl overflow-hidden border border-[#dde3ed] aspect-[2.6/1] bg-[#0e131d] shadow-xs">
-            <Image
-              src={staticUrl(result.spectral_chart_url)}
-              alt="Spectral Reflectance Curve and 10-Band Radiometric Consistency Chart"
-              fill
-              priority
-              loading="eager"
-              className="object-contain"
-              unoptimized
+        {/* 5-Card Synchronized Multi-Channel Gallery */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
+          {channels.map((ch) => (
+            <SpectralChannelCard
+              key={ch.id}
+              channel={ch}
+              onInspect={(channel) => setActiveInspectChannel(channel)}
             />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center p-8 rounded-xl glass-panel text-xs text-[#6b7a99]">
-            Spectral chart generating…
-          </div>
-        )}
-
-        {/* Per-Band Metrics Strip */}
-        {result.band_stats && result.band_stats.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-[#6b7a99]">
-              <span className="font-bold uppercase tracking-wider">
-                Per-Band Reflectance Metrics (492 nm → 2190 nm)
-              </span>
-              <span>LR Input vs SR Output (BOA Reflectance)</span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-              {result.band_stats.map((s) => (
-                <div
-                  key={s.band}
-                  className="rounded-xl p-2.5 bg-white/70 border border-[#dde3ed] flex flex-col gap-1 text-xs shadow-2xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#1a1f2e]">{s.band}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                        s.preservation_pct >= 99.0
-                          ? "bg-emerald-500/10 text-emerald-700"
-                          : "bg-[#0066cc]/10 text-[#0066cc]"
-                      }`}
-                    >
-                      {s.preservation_pct.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-[#6b7a99]">
-                    {s.name} ({s.wavelength_nm} nm)
-                  </div>
-                  <div className="mt-1 pt-1 border-t border-[#dde3ed] flex justify-between text-[10px] font-mono">
-                    <span className="text-sky-600">LR: {s.lr_mean.toFixed(4)}</span>
-                    <span className="text-[#0066cc]">SR: {s.sr_mean.toFixed(4)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Explanatory Guarantee */}
-        <div className="rounded-xl p-3.5 bg-[#0066cc]/5 border border-[#0066cc]/20 text-xs leading-relaxed flex items-start gap-3">
-          <TrendingUp size={16} className="text-[#0066cc] shrink-0 mt-0.5" />
-          <p className="text-[#1a1f2e]">
-            <strong className="text-[#0066cc]">Physical Consistency Guarantee:</strong> Unlike generic AI upscalers that invent visual hallucinations, our model mathematically enforces low-frequency Fourier phase and spectral flux conservation against true Sentinel-2 observations, ensuring that downstream calculations (NDVI, biophysical canopy parameters) remain scientifically rigorous.
-          </p>
+          ))}
         </div>
       </section>
 
+      {/* ── 10-Band Radiometric Fidelity & Interactive Vector Graphs ── */}
+      <SpectralFidelityGraphs
+        bandStats={result.band_stats}
+        meanPreservation={meanPreservation}
+        scaleFactor={scaleFactor}
+      />
+
       {/* ── GeoTIFF Downloads ── */}
-      <section className="rounded-2xl p-4.5 glass-card bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+      <section className="rounded-2xl p-4 glass-liquid-card flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-sm">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
             Enterprise GeoTIFF Deliverables
@@ -337,118 +341,96 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#0066cc] hover:bg-[#0052a3] text-white shadow-xs transition-all cursor-pointer"
           >
             <FileDown size={14} />
-            10-Band SR GeoTIFF (2.5m)
+            10-Band SR GeoTIFF ({resStr})
           </a>
-          <a
-            href={uncTifUrl}
-            download
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-[#f7f8fa] text-[#1a1f2e] border border-[#dde3ed] shadow-2xs transition-all cursor-pointer"
-          >
-            <Download size={14} />
-            Uncertainty GeoTIFF
-          </a>
-        </div>
-      </section>
-
-      {/* ── Quality Metrics ── */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <BarChart2 size={15} className="text-[#0066cc]" />
-          <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
-            Empirical Validation Metrics
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <MetricCard
-            label="PSNR"
-            value={result.metrics.psnr_db}
-            unit="dB"
-            description="Reconstruction fidelity"
-          />
-          <MetricCard
-            label="SSIM"
-            value={result.metrics.ssim}
-            unit=""
-            description="Structural similarity"
-          />
-          <MetricCard
-            label="SAM"
-            value={result.metrics.sam_deg}
-            unit="°"
-            description="Spectral angle mapper"
-          />
-          <MetricCard
-            label="ERGAS"
-            value={result.metrics.ergas}
-            unit=""
-            description="Relative error ratio"
-          />
-          <MetricCard
-            label="LPIPS"
-            value={result.metrics.lpips}
-            unit=""
-            description="Perceptual similarity"
-          />
-        </div>
-      </section>
-
-      {/* ── Spectral Indices ── */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers size={15} className="text-[#0066cc]" />
-            <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
-              Derived Spectral Indices (2.5m Resolution)
-            </h2>
-          </div>
-          <span className="text-xs text-[#6b7a99]">Computed directly on super-resolved bands</span>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex gap-2 flex-wrap">
-          {(Object.keys(INDEX_CONFIG) as IndexTab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setIndexTab(tab)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                indexTab === tab
-                  ? "bg-[#0066cc] text-white shadow-xs"
-                  : "bg-white/80 hover:bg-white text-[#6b7a99] border border-[#dde3ed]"
-              }`}
+          {uncTifUrl && (
+            <a
+              href={uncTifUrl}
+              download
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold glass-liquid-inner hover:bg-white text-[#1a1f2e] border border-white/60 shadow-2xs transition-all cursor-pointer"
             >
-              {INDEX_CONFIG[tab].label}
-              <span className="ml-1.5 opacity-80 font-normal">— {INDEX_CONFIG[tab].desc}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Index Viewer */}
-        <Card3D depth={6} className="glass-card bg-white/90 overflow-hidden flex flex-col">
-          {result[INDEX_CONFIG[indexTab].urlKey] ? (
-            <div className="relative w-full aspect-[2/1] sm:aspect-[21/9] bg-[#0e131d] overflow-hidden">
-              <Image
-                src={staticUrl(result[INDEX_CONFIG[indexTab].urlKey] as string)}
-                alt={INDEX_CONFIG[indexTab].label}
-                fill
-                className="object-contain"
-                unoptimized
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-48 gap-2 text-[#6b7a99]">
-              <AlertCircle size={16} />
-              <span className="text-xs">Spectral index map not generated for this run</span>
-            </div>
+              <Download size={14} />
+              Uncertainty GeoTIFF
+            </a>
           )}
-          <div className="px-4 py-3 text-xs flex items-center justify-between border-t border-[#dde3ed] bg-white/70">
-            <span>
-              <strong className="text-[#1a1f2e]">{INDEX_CONFIG[indexTab].label}</strong>:{" "}
-              {INDEX_CONFIG[indexTab].desc}
-            </span>
-            <span className="text-[11px] text-[#6b7a99]">{INDEX_CONFIG[indexTab].cmapNote}</span>
-          </div>
-        </Card3D>
+        </div>
       </section>
+
+      {/* ── Inspect Channel Modal ── */}
+      <AnimatePresence>
+        {activeInspectChannel && activeInspectChannel.src && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActiveInspectChannel(null)}
+            className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 cursor-pointer"
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-3xl w-full rounded-2xl glass-liquid-card overflow-hidden shadow-2xl flex flex-col cursor-default"
+            >
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/60 bg-white/60">
+                <div>
+                  <h3 className="text-sm font-bold text-[#1a1f2e]">
+                    {activeInspectChannel.title}
+                  </h3>
+                  <p className="text-[11px] text-[#6b7a99]">
+                    {activeInspectChannel.interpretation} · {activeInspectChannel.resolution}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveInspectChannel(null)}
+                  className="p-1.5 rounded-full hover:bg-black/5 text-[#6b7a99] transition-all cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="relative w-full aspect-square bg-[#0a0f1d] max-h-[70vh]">
+                <Image
+                  src={staticUrl(activeInspectChannel.src)}
+                  alt={activeInspectChannel.title}
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
+              <div className="p-3.5 glass-liquid-inner flex items-center justify-between text-xs">
+                {activeInspectChannel.formula && (
+                  <span className="font-mono text-[#6b7a99]">
+                    Formula: <strong className="text-[#1a1f2e]">{activeInspectChannel.formula}</strong>
+                  </span>
+                )}
+                {activeInspectChannel.colorScale && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-mono text-[#6b7a99]">
+                      {activeInspectChannel.colorScale.minLabel}
+                    </span>
+                    <div
+                      className="w-32 h-2 rounded-full"
+                      style={{ background: activeInspectChannel.colorScale.gradient }}
+                    />
+                    <span className="text-[11px] font-mono text-[#6b7a99]">
+                      {activeInspectChannel.colorScale.maxLabel}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Executive Report & STAC Export Modal ── */}
+      <ExecutiveReportModal
+        result={result}
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        scaleFactor={scaleFactor}
+      />
     </div>
   );
 }

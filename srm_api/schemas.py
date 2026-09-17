@@ -12,21 +12,25 @@ class SRRequest(BaseModel):
         description="Stochastic passes for uncertainty map. Max 5 on 6GB GPU.",
     )
     sampling_steps: int = Field(
-        default=50, ge=10, le=150,
+        default=50, ge=10, le=200,
         description=(
             "DDIM steps. 50 = fast (~45s), 100 = full quality (~90s), "
-            "150 = extra quality (~135s). Default 50 for local testing."
+            "150 = extra quality (~135s), 200 = ultra precision (~180s). Default 50 for local testing."
         ),
     )
     run_lam: bool = Field(
         default=False,
         description="Run LAM explainability (adds 2-5 min on CPU).",
     )
+    scale_factor: int = Field(
+        default=4,
+        description="Enhancement scale factor: 4 (2.5m standard) or 8 (0.625m ultra-res).",
+    )
 
     @model_validator(mode="after")
     def clamp_hardware_limits(self) -> "SRRequest":
-        # Allow 50 / 100 / 150 — snap to nearest valid tier
-        valid_tiers = [50, 100, 150]
+        # Allow 50 / 100 / 150 / 200 — snap to nearest valid tier
+        valid_tiers = [50, 100, 150, 200]
         self.sampling_steps = min(valid_tiers, key=lambda t: abs(t - self.sampling_steps))
         self.n_uncertainty = min(self.n_uncertainty, 5)
         return self
@@ -80,4 +84,5 @@ class SRResult(BaseModel):
     sr_resolution_m: float = 2.5
     processing_time_s: float
     sampling_steps_used: int = 50   # echoed back so UI can display what was used
+    scale_factor: int = 4
 

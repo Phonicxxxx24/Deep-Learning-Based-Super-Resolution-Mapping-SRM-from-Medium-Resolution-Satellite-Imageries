@@ -12,6 +12,7 @@ Run with:
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -36,6 +37,22 @@ logging.basicConfig(level=logging.INFO)
 OUTPUT_DIR = Path("outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    backfill_from_outputs(OUTPUT_DIR)
+    fix_legacy_location_names()
+    worker_task = asyncio.create_task(_gpu_worker())
+    logger.info("GPU worker started. One SR job runs at a time.")
+    yield
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
+
+
 app = FastAPI(
     title="SRM API",
     description=(
@@ -43,6 +60,7 @@ app = FastAPI(
         "Click a point on the map, fetch a 128×128 px patch, and super-resolve it to 2.5 m."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -101,6 +119,7 @@ async def _gpu_worker() -> None:
                         "status": "done",
                         "completed_at": now_iso,
                         "processing_time_s": result.processing_time_s,
+                        "scale_factor": req.scale_factor,
                         "psnr_db": result.metrics.psnr_db,
                         "ssim": result.metrics.ssim,
                         "sam_deg": result.metrics.sam_deg,
@@ -144,6 +163,7 @@ def _run_sr_blocking(job_id: str, req: SRRequest) -> SRResult:
         n_uncertainty=req.n_uncertainty,
         sampling_steps=req.sampling_steps,
         run_lam=req.run_lam,
+        scale_factor=req.scale_factor,
     )
 
     def _url(suffix: str) -> str:
@@ -167,17 +187,38 @@ def _run_sr_blocking(job_id: str, req: SRRequest) -> SRResult:
         ndbi_url=_url("ndbi.png"),
         metrics=BandMetrics(**flex.metrics),
         band_stats=band_stats_models,
+        patch_size_px=128,
+        output_size_px=flex.output_size_px,
+        lr_resolution_m=10.0,
+        sr_resolution_m=flex.sr_resolution_m,
         processing_time_s=flex.processing_time_s,
         sampling_steps_used=flex.sampling_steps_used,
+        scale_factor=flex.scale_factor,
     )
 
 
 def _recover_job_from_disk(job_id: str) -> Optional[SRResult]:
     """Recover or reconstruct job result from artifacts on disk if server restarted."""
-    sr_tif = OUTPUT_DIR / f"{job_id}_sr_10band_2.5m.tif"
+    matches = list(OUTPUT_DIR.glob(f"{job_id}_sr_10band*.tif"))
+    sr_tif = matches[0] if matches else OUTPUT_DIR / f"{job_id}_sr_10band_2.5m.tif"
     sr_png = OUTPUT_DIR / f"{job_id}_sr_rgb.png"
     if not (sr_tif.exists() or sr_png.exists()):
         return None
+
+    # Detect resolution & dimensions from artifacts
+    recovered_scale = 4
+    recovered_size = 512
+    recovered_res = 2.5
+    if sr_png.exists():
+        try:
+            from PIL import Image
+            with Image.open(sr_png) as img:
+                if img.width >= 2000:
+                    recovered_scale = 8
+                    recovered_size = 2048
+                    recovered_res = 0.625
+        except Exception:
+            pass
 
     stats_json = OUTPUT_DIR / f"{job_id}_band_stats.json"
     chart_png = OUTPUT_DIR / f"{job_id}_spectral_chart.png"
@@ -198,7 +239,8 @@ def _recover_job_from_disk(job_id: str) -> Optional[SRResult]:
             with rasterio.open(sr_tif) as src:
                 sr_data = src.read()
             c, h, w = sr_data.shape
-            lr_data = sr_data.reshape(c, h // 4, 4, w // 4, 4).mean(axis=(2, 4))
+            step = 16 if recovered_scale == 8 else 4
+            lr_data = sr_data.reshape(c, h // step, step, w // step, step).mean(axis=(2, 4))
             raw_stats = []
             for i, m in enumerate(BAND_METADATA_10B):
                 lr_m = float(lr_data[i].mean())
@@ -241,20 +283,15 @@ def _recover_job_from_disk(job_id: str) -> Optional[SRResult]:
         ndbi_url=_url("ndbi.png"),
         metrics=BandMetrics(),
         band_stats=band_stats,
+        patch_size_px=128,
+        output_size_px=recovered_size,
+        lr_resolution_m=10.0,
+        sr_resolution_m=recovered_res,
         processing_time_s=60.0,
+        scale_factor=recovered_scale,
     )
     _jobs[job_id] = {"status": "done", "result": result, "request": None}
     return result
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    init_db()
-    backfill_from_outputs(OUTPUT_DIR)
-    fix_legacy_location_names()
-    asyncio.create_task(_gpu_worker())
-    logger.info("GPU worker started. One SR job runs at a time.")
-
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
 

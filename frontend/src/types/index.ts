@@ -54,6 +54,7 @@ export interface SRResult {
   sr_resolution_m:     number;
   processing_time_s:   number;
   sampling_steps_used: number;
+  scale_factor?:       number;
 }
 
 export interface SubmitPayload {
@@ -62,6 +63,7 @@ export interface SubmitPayload {
   n_uncertainty?:   number;
   sampling_steps?:  number;
   run_lam?:         boolean;
+  scale_factor?:    number;
 }
 
 export interface ScanRecord {

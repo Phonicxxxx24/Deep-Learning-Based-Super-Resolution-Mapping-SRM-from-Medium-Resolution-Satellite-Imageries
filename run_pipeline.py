@@ -104,7 +104,7 @@ def process_single_aoi(
 
     # 4. Super-Resolution: Dual-path execution, fusion, and HardConstraint
     t_sr_start = time.time()
-    sr_dict = pipeline.run_inference(padded_lr, aoi_name=aoi_key)
+    sr_dict = pipeline.run_inference(padded_lr, aoi_name=aoi_key, scale_factor=getattr(args, "scale", 4))
     sr_time = time.time() - t_sr_start
 
     # 4b. Optional LAM explainability (--lam flag)
@@ -170,6 +170,7 @@ def process_single_aoi(
         output_dir=cfg.output.dir,
         aoi_name=aoi_key,
         band_names=cfg.bands.all_10,
+        scale_factor=getattr(args, "scale", 4),
     )
 
     # Verify written GeoTIFF using rasterio
@@ -288,7 +289,9 @@ def process_input_geotiff(
 
     # ── 4. Tile into 128×128 patches, SR each, assemble ──────────────────────
     # ── 4. Tiling with Hann window blending (max quality) ────────────────────
-    SCALE = 4
+    scale_opt = getattr(args, "scale", 4)
+    SCALE = 16 if scale_opt == 8 else 4
+    res_str = "0.625m" if scale_opt == 8 else "2.5m"
     patch_size = cfg.patch_size
     overlap = args.overlap if (args.overlap is not None) else getattr(cfg, "overlap", 32)
     use_tta = getattr(args, "tta", False) or getattr(args, "max_quality", False) or getattr(cfg, "use_tta", False)
@@ -307,8 +310,8 @@ def process_input_geotiff(
         x_starts = get_starts(W, patch_size, stride)
         total_tiles = len(y_starts) * len(x_starts)
         logging.info(
-            "Tiling %dx%d input with overlap=%dpx (stride=%dpx, TTA=%s) → %d tiles (%d×%d grid) with 2D Hann blending",
-            H, W, overlap, stride, use_tta, total_tiles, len(y_starts), len(x_starts)
+            "Tiling %dx%d input with overlap=%dpx (stride=%dpx, TTA=%s, scale=%dx) → %d tiles (%d×%d grid) with 2D Hann blending",
+            H, W, overlap, stride, use_tta, scale_opt, total_tiles, len(y_starts), len(x_starts)
         )
 
         # 2D Hann window for smooth boundary blending
@@ -331,7 +334,7 @@ def process_input_geotiff(
                 padded_tile, pad_info = preprocess_scene(tile, scale=1.0, patch_multiple=patch_size)
 
                 tile_label = f"{aoi_name}_t{yi}{xi}"
-                sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label, use_tta=use_tta)
+                sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label, use_tta=use_tta, scale_factor=scale_opt)
                 sr_tile = sr_dict["sr_final"].squeeze(0).cpu().numpy()
 
                 is_centre = (yi == len(y_starts) // 2) and (xi == len(x_starts) // 2)
@@ -345,6 +348,10 @@ def process_input_geotiff(
                         aoi_name=tile_label,
                     )
                     unc_np = unc_tile_result.squeeze(0).squeeze(0).cpu().numpy()
+                    if scale_opt == 8 and unc_np.shape[0] != patch_size * SCALE:
+                        import torch.nn.functional as F
+                        unc_t = torch.from_numpy(unc_np).unsqueeze(0).unsqueeze(0)
+                        unc_np = F.interpolate(unc_t, size=(patch_size * SCALE, patch_size * SCALE), mode="bilinear", align_corners=False).squeeze().numpy()
                 else:
                     unc_np = np.zeros((patch_size * SCALE, patch_size * SCALE), dtype=np.float32)
 
@@ -355,23 +362,20 @@ def process_input_geotiff(
 
         sr_time = time.time() - t_sr_start
         weight_accum = np.maximum(weight_accum, 1e-6)
-        sr_final = sr_accum / weight_accum
+        sr_final = (sr_accum / weight_accum).clip(0.0, 1.0)
         unc_final = unc_accum / weight_accum
     else:
-        # Standard non-overlapping grid for smaller images or overlap=0
-        n_ph = max(1, (H + patch_size - 1) // patch_size)
-        n_pw = max(1, (W + patch_size - 1) // patch_size)
-        logging.info(
-            "Tiling %dx%d input into %d×%d grid of %d×%dpx patches (TTA=%s) → %dx%d SR output",
-            H, W, n_ph, n_pw, patch_size, patch_size, use_tta, n_ph * patch_size * SCALE, n_pw * patch_size * SCALE,
-        )
-
+        # ── Non-overlapping tile grid fallback ──────────────────────────────
+        n_ph = (H + patch_size - 1) // patch_size
+        n_pw = (W + patch_size - 1) // patch_size
         pad_h = n_ph * patch_size - H
         pad_w = n_pw * patch_size - W
-        if pad_h > 0 or pad_w > 0:
-            remapped_pad = np.pad(remapped, ((0, 0), (0, pad_h), (0, pad_w)), mode="reflect")
-        else:
-            remapped_pad = remapped
+        remapped_pad = np.pad(remapped, ((0, 0), (0, pad_h), (0, pad_w)), mode="reflect")
+
+        logging.info(
+            "Tiling %dx%d input into %dx%d patches of size %dx%d (TTA=%s) → output %dx%d (%s GSD)",
+            H, W, n_ph, n_pw, patch_size, patch_size, use_tta, n_ph * patch_size * SCALE, n_pw * patch_size * SCALE, res_str
+        )
 
         Ph, Pw = n_ph * patch_size, n_pw * patch_size
         sr_full = np.zeros((10, Ph * SCALE, Pw * SCALE), dtype=np.float32)
@@ -388,7 +392,7 @@ def process_input_geotiff(
                 padded_tile, pad_info = preprocess_scene(tile, scale=1.0, patch_multiple=patch_size)
 
                 tile_label = f"{aoi_name}_t{ti}{tj}"
-                sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label, use_tta=use_tta)
+                sr_dict = pipeline.run_inference(padded_tile, aoi_name=tile_label, use_tta=use_tta, scale_factor=scale_opt)
                 sr_tile = sr_dict["sr_final"].squeeze(0).cpu().numpy()
 
                 centre_ti = n_ph // 2
@@ -403,6 +407,10 @@ def process_input_geotiff(
                         aoi_name=tile_label,
                     )
                     unc_np = unc_tile_result.squeeze(0).squeeze(0).cpu().numpy()
+                    if scale_opt == 8 and unc_np.shape[0] != patch_size * SCALE:
+                        import torch.nn.functional as F
+                        unc_t = torch.from_numpy(unc_np).unsqueeze(0).unsqueeze(0)
+                        unc_np = F.interpolate(unc_t, size=(patch_size * SCALE, patch_size * SCALE), mode="bilinear", align_corners=False).squeeze().numpy()
                 else:
                     unc_np = np.zeros((patch_size * SCALE, patch_size * SCALE), dtype=np.float32)
 
@@ -420,14 +428,14 @@ def process_input_geotiff(
     out_dir = Path(cfg.output.dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # SR transform: pixel size is 1/4 of LR
+    # SR transform: pixel size divided by SCALE
     sr_transform = Affine(
         file_transform.a / SCALE, file_transform.b, file_transform.c,
         file_transform.d, file_transform.e / SCALE, file_transform.f,
     )
     out_crs = file_crs or rasterio.crs.CRS.from_epsg(4326)
 
-    sr_tif_path = out_dir / f"{aoi_name}_sr_10band_2.5m.tif"
+    sr_tif_path = out_dir / f"{aoi_name}_sr_10band_{res_str}.tif"
     with rasterio.open(
         sr_tif_path, "w",
         driver="GTiff", height=sr_final.shape[1], width=sr_final.shape[2],
@@ -437,8 +445,16 @@ def process_input_geotiff(
         dst.write(sr_final)
         dst.update_tags(BAND_NAMES=",".join(TARGET_BANDS))
     logging.info("Saved SR GeoTIFF: %s", sr_tif_path.name)
+    if scale_opt == 8:
+        legacy_tif = out_dir / f"{aoi_name}_sr_10band_2.5m.tif"
+        if not legacy_tif.exists():
+            try:
+                import shutil
+                shutil.copyfile(sr_tif_path, legacy_tif)
+            except Exception:
+                pass
 
-    unc_tif_path = out_dir / f"{aoi_name}_uncertainty_2.5m.tif"
+    unc_tif_path = out_dir / f"{aoi_name}_uncertainty_{res_str}.tif"
     with rasterio.open(
         unc_tif_path, "w",
         driver="GTiff", height=unc_final.shape[0], width=unc_final.shape[1],
@@ -538,6 +554,13 @@ def main() -> None:
         type=int,
         default=None,
         help="Patch overlap in pixels for tiling (default: from config, e.g. 32).",
+    )
+    parser.add_argument(
+        "--scale",
+        type=int,
+        choices=[4, 8],
+        default=4,
+        help="Super-resolution scale factor: 4 (512px @ 2.5m) or 8 (2048px @ 0.625m from 128px original).",
     )
 
     args = parser.parse_args()

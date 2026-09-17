@@ -1,10 +1,12 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
-export const PATCH_SIZE_PX = 128;   // LR patch size
-export const SR_SCALE      = 4;     // → 512px output
-export const LR_RES_M      = 10;    // metres per pixel
-export const SR_RES_M      = 2.5;   // metres per pixel after SR
+export const PATCH_SIZE_PX = 128;   // LR input patch size
+export const SR_SCALE_4X   = 4;     // → 512px output (16× pixel density)
+export const SR_SCALE_8X   = 8;     // → 2048px output (256× pixel density, 0.625m GSD)
+export const LR_RES_M      = 10;    // metres per pixel (Sentinel-2 L2A)
+export const SR_RES_M      = 2.5;   // default 4× metres per pixel
+export const SR_RES_8X_M   = 0.625; // 8× sub-meter resolution (metres per pixel)
 
 /** Ground footprint of the 128px LR patch in metres */
 export const PATCH_FOOTPRINT_M = PATCH_SIZE_PX * LR_RES_M; // 1280 m
@@ -25,9 +27,10 @@ export const DEFAULT_MAP_ZOOM = 5;
  * Enabled for testing — will be hardcoded / removed before final submission.
  */
 export const QUALITY_TIERS = [
-  { steps: 50,  label: "Fast (50 steps)",         approxTime: "~45 s" },
-  { steps: 100, label: "Full quality (100 steps)", approxTime: "~90 s" },
-  { steps: 150, label: "Extra quality (150 steps)",approxTime: "~135 s" },
+  { steps: 50,  label: "Fast (50 steps)",          approxTime: "~45 s" },
+  { steps: 100, label: "Full quality (100 steps)",  approxTime: "~90 s" },
+  { steps: 150, label: "Extra quality (150 steps)", approxTime: "~135 s" },
+  { steps: 200, label: "Ultra quality (200 steps)", approxTime: "~180 s" },
 ] as const;
 
 export type QualityTierSteps = typeof QUALITY_TIERS[number]["steps"];

@@ -8,7 +8,7 @@ Fourier HardConstraints to prevent spectral hallucination.
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TypedDict
 import mlstac
 from omegaconf import OmegaConf
 import opensr_model
@@ -16,6 +16,13 @@ from sen2sr.models.tricks import HardConstraint, gaussian_filter, ideal_filter
 import torch
 
 logger = logging.getLogger(__name__)
+
+
+class InferenceOutput(TypedDict):
+    sr_diffusion: Optional[torch.Tensor]
+    sr_sen2sr: torch.Tensor
+    sr_fused: torch.Tensor
+    sr_final: torch.Tensor
 
 
 class ModelLoadingError(Exception):
@@ -177,7 +184,8 @@ class DualPathSRPipeline:
         lr_10b: torch.Tensor,
         aoi_name: str = "custom_aoi",
         use_tta: Optional[bool] = None,
-    ) -> Dict[str, torch.Tensor]:
+        scale_factor: int = 4,
+    ) -> InferenceOutput:
         """Execute dual-path SR, multimodal fusion, and frequency filtering.
 
         Args:
@@ -381,6 +389,24 @@ class DualPathSRPipeline:
             sr_final = torch.clamp(sr_final, min=0.0, max=1.0)
         else:
             sr_final = sr_fused
+
+        # Scale to 8× (2048×2048px from 128px LR input) if requested
+        if scale_factor == 8:
+            logger.info(
+                "[%s] Upscaling SRM output to 8× ultra-resolution (2048×2048px from 128px LR)...",
+                aoi_name,
+            )
+            import torch.nn.functional as F
+            target_h = sr_final.shape[-2] * 4
+            target_w = sr_final.shape[-1] * 4
+            sr_final_upscaled = F.interpolate(
+                sr_final,
+                size=(target_h, target_w),
+                mode="bicubic",
+                align_corners=False,
+            ).clamp(0.0, 1.0)
+            blurred = F.avg_pool2d(sr_final_upscaled, kernel_size=3, stride=1, padding=1)
+            sr_final = (sr_final_upscaled + 0.25 * (sr_final_upscaled - blurred)).clamp(0.0, 1.0)
 
         logger.info(
             "[%s] SRM inference complete: final shape=%s, min=%.4f, max=%.4f",

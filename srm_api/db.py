@@ -51,9 +51,19 @@ def init_db() -> None:
                 spectral_chart_url TEXT,
                 ndvi_url TEXT,
                 mndwi_url TEXT,
-                ndbi_url TEXT
+                ndbi_url TEXT,
+                scale_factor INTEGER DEFAULT 4
             )
         """)
+        # Migration: ensure scale_factor column exists in existing DB
+        try:
+            cursor = conn.execute("PRAGMA table_info(scans)")
+            cols = [row["name"] for row in cursor.fetchall()]
+            if "scale_factor" not in cols:
+                conn.execute("ALTER TABLE scans ADD COLUMN scale_factor INTEGER DEFAULT 4")
+        except Exception:
+            pass
+
         conn.execute("CREATE INDEX IF NOT EXISTS idx_scans_created_at ON scans (created_at DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_scans_category ON scans (event_category)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_scans_status ON scans (status)")

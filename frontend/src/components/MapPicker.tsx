@@ -173,17 +173,15 @@ export default function MapPicker({
         <button
           type="button"
           onClick={() => setShowLabels((prev) => !prev)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shadow-lg cursor-pointer"
-          style={{
-            background: showLabels ? "rgba(0, 102, 204, 0.9)" : "rgba(17, 24, 39, 0.85)",
-            border: showLabels ? "1px solid #0066cc" : "1px solid rgba(255, 255, 255, 0.15)",
-            color: "#ffffff",
-            backdropFilter: "blur(8px)",
-          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+            showLabels
+              ? "bg-white/90 text-[#0066cc] border border-[#0066cc]/30 backdrop-blur-md"
+              : "bg-white/60 text-[#6b7a99] border border-white/60 backdrop-blur-md"
+          }`}
           title={showLabels ? "Click to hide map labels" : "Click to show city & street labels"}
         >
           <Layers size={13} />
-          <span>{showLabels ? "Labels: ON" : "Labels: OFF"}</span>
+          <span>Labels {showLabels ? "On" : "Off"}</span>
         </button>
       </div>
     </div>
