@@ -7,22 +7,20 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Download,
-  BarChart2,
   Map,
   Layers,
   AlertCircle,
   Clock,
   Sparkles,
   FileDown,
-  Activity,
-  TrendingUp,
-  CheckCircle2,
-  ShieldCheck,
   ExternalLink,
+  Maximize2,
 } from "lucide-react";
 
 import LiquidBackdrop from "./LiquidBackdrop";
 import Card3D from "./Card3D";
+import SpectralFidelityGraphs from "./SpectralFidelityGraphs";
+import ImageMaximizeModal, { type MaximizeImageData } from "./ImageMaximizeModal";
 import {
   Satellite3DIcon,
   SpectralPrismIcon,
@@ -58,49 +56,26 @@ const INDEX_CONFIG: Record<
   },
 };
 
-function MetricCard({
-  label,
-  value,
-  unit,
-  description,
-}: {
-  label: string;
-  value: number | null;
-  unit: string;
-  description?: string;
-}) {
-  return (
-    <Card3D depth={6} className="p-3.5 glass-card bg-white/85 flex flex-col gap-1">
-      <span className="text-[11px] font-semibold text-[#6b7a99] uppercase tracking-wider">
-        {label}
-      </span>
-      <span className="text-xl font-bold font-mono text-[#1a1f2e]">
-        {value === null ? "—" : value.toFixed(2)}
-        {value !== null && unit ? ` ${unit}` : ""}
-      </span>
-      {description && (
-        <span className="text-[10px] text-[#6b7a99] mt-0.5">
-          {description}
-        </span>
-      )}
-    </Card3D>
-  );
-}
 
 function CompareImageCard({
   label,
   src,
   badge,
   subtext,
+  onMaximize,
 }: {
   label: string;
   src: string;
   badge: string;
   subtext?: string;
+  onMaximize?: () => void;
 }) {
   return (
     <Card3D depth={8} className="glass-card bg-white/90 flex flex-col overflow-hidden group">
-      <div className="relative w-full aspect-square bg-[#0e131d] overflow-hidden">
+      <div
+        className="relative w-full aspect-square bg-[#0e131d] overflow-hidden cursor-pointer"
+        onClick={onMaximize}
+      >
         <Image
           src={staticUrl(src)}
           alt={label}
@@ -112,10 +87,32 @@ function CompareImageCard({
         <div className="absolute bottom-2.5 left-2.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-black/75 backdrop-blur-md text-white border border-white/20 shadow-md">
           {badge}
         </div>
+
+        {/* Maximize Button Overlay */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onMaximize?.();
+          }}
+          title="Maximize in full lossless resolution"
+          className="absolute top-2.5 right-2.5 px-2.5 py-1.5 rounded-xl bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-lg opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer z-10"
+        >
+          <Maximize2 size={12} />
+          <span>Maximize</span>
+        </button>
       </div>
-      <div className="p-3.5 bg-white/80">
-        <h3 className="text-xs font-bold text-[#1a1f2e]">{label}</h3>
-        {subtext && <p className="text-[11px] text-[#6b7a99] mt-0.5">{subtext}</p>}
+      <div className="p-3.5 bg-white/80 flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-bold text-[#1a1f2e]">{label}</h3>
+          {subtext && <p className="text-[11px] text-[#6b7a99] mt-0.5">{subtext}</p>}
+        </div>
+        <button
+          onClick={onMaximize}
+          title="Maximize image in large full-resolution size"
+          className="p-1.5 rounded-lg hover:bg-black/5 text-[#6b7a99] hover:text-[#0066cc] transition-all cursor-pointer shrink-0"
+        >
+          <Maximize2 size={14} />
+        </button>
       </div>
     </Card3D>
   );
@@ -123,6 +120,7 @@ function CompareImageCard({
 
 export default function ResultsPanel({ result }: { result: SRResult }) {
   const [indexTab, setIndexTab] = useState<IndexTab>("ndvi");
+  const [maximizeImage, setMaximizeImage] = useState<MaximizeImageData | null>(null);
 
   const srTifUrl = staticUrl(`/static/${result.job_id}_sr_10band_2.5m.tif`);
   const uncTifUrl = staticUrl(`/static/${result.job_id}_uncertainty_2.5m.tif`);
@@ -199,12 +197,32 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
             src={result.lr_rgb_url}
             badge={`${result.patch_size_px}px @ ${result.lr_resolution_m}m`}
             subtext="B04-B03-B02 true color (bicubic 4× display)"
+            onMaximize={() =>
+              setMaximizeImage({
+                title: "Sentinel-2 L2A Input (10m Resolution)",
+                src: result.lr_rgb_url,
+                badge: "10m Baseline S2",
+                resolution: `Ground Sampling Distance: ${result.lr_resolution_m}m`,
+                dimensions: `${result.patch_size_px} × ${result.patch_size_px} px (Original BOA)`,
+                subtext: "Surface reflectance RGB composite (B04-Red, B03-Green, B02-Blue) directly from Copernicus Sentinel-2.",
+              })
+            }
           />
           <CompareImageCard
             label="Dual-Path Super-Resolved"
             src={result.sr_rgb_url}
             badge={`${result.output_size_px}px @ ${result.sr_resolution_m}m`}
             subtext="4× enhanced RGB composite via LDSR-S2"
+            onMaximize={() =>
+              setMaximizeImage({
+                title: "Dual-Path Super-Resolved SRM (2.5m Resolution)",
+                src: result.sr_rgb_url,
+                badge: "2.5m Super-Resolved",
+                resolution: `Ground Sampling Distance: ${result.sr_resolution_m}m (4× Super-Resolved)`,
+                dimensions: `${result.output_size_px} × ${result.output_size_px} px (Uncompressed)`,
+                subtext: "Diffusion-driven super-resolved BOA reflectance composite with Fourier low-pass phase invariance.",
+              })
+            }
           />
           {result.uncertainty_url ? (
             <CompareImageCard
@@ -212,6 +230,21 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
               src={result.uncertainty_url}
               badge="Std dev across passes"
               subtext="Plasma map (brighter = higher uncertainty)"
+              onMaximize={() =>
+                setMaximizeImage({
+                  title: "Per-Pixel Epistemic Uncertainty Map",
+                  src: result.uncertainty_url,
+                  badge: "Monte-Carlo Uncertainty",
+                  resolution: `Ground Sampling Distance: ${result.sr_resolution_m}m`,
+                  dimensions: `${result.output_size_px} × ${result.output_size_px} px`,
+                  subtext: "Stochastic standard deviation across diffusion reverse-process sampling steps.",
+                  colorScale: {
+                    gradient: "linear-gradient(to right, #0d0887, #6a00a8, #b12a90, #e16462, #fca636, #f0f921)",
+                    minLabel: "0.0 (High Confidence)",
+                    maxLabel: "Max (Epistemic Dispersion)",
+                  },
+                })
+              }
             />
           ) : (
             <div className="rounded-2xl glass-card flex items-center justify-center p-6 text-xs text-center text-[#6b7a99]">
@@ -221,104 +254,14 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
         </div>
       </section>
 
-      {/* ── 10-Band Radiometric Fidelity & Physical Preservation ── */}
-      <section className="rounded-2xl p-5 glass-card bg-white/85 space-y-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <Activity size={18} className="text-[#0066cc]" />
-            <div>
-              <h2 className="text-sm font-bold text-[#1a1f2e]">
-                Spectral Band Value Preservation & Radiometric Fidelity
-              </h2>
-              <p className="text-xs text-[#6b7a99]">
-                Proves physical surface reflectance (BOA) conservation from 10m input to 2.5m output across all 10 Sentinel-2 bands.
-              </p>
-            </div>
-          </div>
+      {/* ── 10-Band Radiometric Fidelity & Interactive Vector Graphs ── */}
+      <SpectralFidelityGraphs
+        bandStats={result.band_stats}
+        meanPreservation={meanPreservation}
+        srResolutionM={result.sr_resolution_m || 2.5}
+        outputSizePx={result.output_size_px || 512}
+      />
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#0066cc]/10 text-[#0066cc] border border-[#0066cc]/20">
-              <ShieldCheck size={13} />
-              <span>Fourier HardConstraint</span>
-            </span>
-
-            {meanPreservation && (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25">
-                <CheckCircle2 size={13} />
-                <span>{meanPreservation}% Mean Preservation</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Generated Dual-Panel Spectral Chart */}
-        {result.spectral_chart_url ? (
-          <div className="relative w-full rounded-xl overflow-hidden border border-[#dde3ed] aspect-[2.6/1] bg-[#0e131d] shadow-xs">
-            <Image
-              src={staticUrl(result.spectral_chart_url)}
-              alt="Spectral Reflectance Curve and 10-Band Radiometric Consistency Chart"
-              fill
-              priority
-              loading="eager"
-              className="object-contain"
-              unoptimized
-            />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center p-8 rounded-xl glass-panel text-xs text-[#6b7a99]">
-            Spectral chart generating…
-          </div>
-        )}
-
-        {/* Per-Band Metrics Strip */}
-        {result.band_stats && result.band_stats.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-[#6b7a99]">
-              <span className="font-bold uppercase tracking-wider">
-                Per-Band Reflectance Metrics (492 nm → 2190 nm)
-              </span>
-              <span>LR Input vs SR Output (BOA Reflectance)</span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-              {result.band_stats.map((s) => (
-                <div
-                  key={s.band}
-                  className="rounded-xl p-2.5 bg-white/70 border border-[#dde3ed] flex flex-col gap-1 text-xs shadow-2xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#1a1f2e]">{s.band}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                        s.preservation_pct >= 99.0
-                          ? "bg-emerald-500/10 text-emerald-700"
-                          : "bg-[#0066cc]/10 text-[#0066cc]"
-                      }`}
-                    >
-                      {s.preservation_pct.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-[#6b7a99]">
-                    {s.name} ({s.wavelength_nm} nm)
-                  </div>
-                  <div className="mt-1 pt-1 border-t border-[#dde3ed] flex justify-between text-[10px] font-mono">
-                    <span className="text-sky-600">LR: {s.lr_mean.toFixed(4)}</span>
-                    <span className="text-[#0066cc]">SR: {s.sr_mean.toFixed(4)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Explanatory Guarantee */}
-        <div className="rounded-xl p-3.5 bg-[#0066cc]/5 border border-[#0066cc]/20 text-xs leading-relaxed flex items-start gap-3">
-          <TrendingUp size={16} className="text-[#0066cc] shrink-0 mt-0.5" />
-          <p className="text-[#1a1f2e]">
-            <strong className="text-[#0066cc]">Physical Consistency Guarantee:</strong> Unlike generic AI upscalers that invent visual hallucinations, our model mathematically enforces low-frequency Fourier phase and spectral flux conservation against true Sentinel-2 observations, ensuring that downstream calculations (NDVI, biophysical canopy parameters) remain scientifically rigorous.
-          </p>
-        </div>
-      </section>
 
       {/* ── GeoTIFF Downloads ── */}
       <section className="rounded-2xl p-4.5 glass-card bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
@@ -350,47 +293,6 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
         </div>
       </section>
 
-      {/* ── Quality Metrics ── */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <BarChart2 size={15} className="text-[#0066cc]" />
-          <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
-            Empirical Validation Metrics
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <MetricCard
-            label="PSNR"
-            value={result.metrics.psnr_db}
-            unit="dB"
-            description="Reconstruction fidelity"
-          />
-          <MetricCard
-            label="SSIM"
-            value={result.metrics.ssim}
-            unit=""
-            description="Structural similarity"
-          />
-          <MetricCard
-            label="SAM"
-            value={result.metrics.sam_deg}
-            unit="°"
-            description="Spectral angle mapper"
-          />
-          <MetricCard
-            label="ERGAS"
-            value={result.metrics.ergas}
-            unit=""
-            description="Relative error ratio"
-          />
-          <MetricCard
-            label="LPIPS"
-            value={result.metrics.lpips}
-            unit=""
-            description="Perceptual similarity"
-          />
-        </div>
-      </section>
 
       {/* ── Spectral Indices ── */}
       <section className="space-y-3">
@@ -423,9 +325,27 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
         </div>
 
         {/* Index Viewer */}
-        <Card3D depth={6} className="glass-card bg-white/90 overflow-hidden flex flex-col">
+        <Card3D depth={6} className="glass-card bg-white/90 overflow-hidden flex flex-col group">
           {result[INDEX_CONFIG[indexTab].urlKey] ? (
-            <div className="relative w-full aspect-[2/1] sm:aspect-[21/9] bg-[#0e131d] overflow-hidden">
+            <div
+              className="relative w-full aspect-[2/1] sm:aspect-[21/9] bg-[#0e131d] overflow-hidden cursor-pointer"
+              onClick={() => {
+                const cfg = INDEX_CONFIG[indexTab];
+                setMaximizeImage({
+                  title: `${cfg.label} — ${cfg.desc}`,
+                  src: result[cfg.urlKey] as string,
+                  badge: "2.5m Super-Resolved Index",
+                  resolution: "Ground Sampling Distance: 2.5m",
+                  dimensions: `${result.output_size_px} × ${result.output_size_px} px`,
+                  subtext: cfg.cmapNote,
+                  colorScale: indexTab === "ndvi"
+                    ? { gradient: "linear-gradient(to right, #a50026, #ffffbf, #006837)", minLabel: "-0.3 (Non-Vegetated)", maxLabel: "+0.8 (Dense Canopy)" }
+                    : indexTab === "mndwi"
+                    ? { gradient: "linear-gradient(to right, #ffffd9, #41b6c4, #081d58)", minLabel: "-0.4 (Land)", maxLabel: "+0.6 (Open Water)" }
+                    : { gradient: "linear-gradient(to right, #0d0887, #cc4778, #f0f921)", minLabel: "-0.4 (Vegetation)", maxLabel: "+0.6 (Built-up)" },
+                });
+              }}
+            >
               <Image
                 src={staticUrl(result[INDEX_CONFIG[indexTab].urlKey] as string)}
                 alt={INDEX_CONFIG[indexTab].label}
@@ -433,6 +353,32 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
                 className="object-contain"
                 unoptimized
               />
+
+              {/* Maximize Button Overlay */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const cfg = INDEX_CONFIG[indexTab];
+                  setMaximizeImage({
+                    title: `${cfg.label} — ${cfg.desc}`,
+                    src: result[cfg.urlKey] as string,
+                    badge: "2.5m Super-Resolved Index",
+                    resolution: "Ground Sampling Distance: 2.5m",
+                    dimensions: `${result.output_size_px} × ${result.output_size_px} px`,
+                    subtext: cfg.cmapNote,
+                    colorScale: indexTab === "ndvi"
+                      ? { gradient: "linear-gradient(to right, #a50026, #ffffbf, #006837)", minLabel: "-0.3 (Non-Vegetated)", maxLabel: "+0.8 (Dense Canopy)" }
+                      : indexTab === "mndwi"
+                      ? { gradient: "linear-gradient(to right, #ffffd9, #41b6c4, #081d58)", minLabel: "-0.4 (Land)", maxLabel: "+0.6 (Open Water)" }
+                      : { gradient: "linear-gradient(to right, #0d0887, #cc4778, #f0f921)", minLabel: "-0.4 (Vegetation)", maxLabel: "+0.6 (Built-up)" },
+                  });
+                }}
+                title="Maximize spectral index in full resolution"
+                className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-lg opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer z-10"
+              >
+                <Maximize2 size={13} />
+                <span>Maximize</span>
+              </button>
             </div>
           ) : (
             <div className="flex items-center justify-center h-48 gap-2 text-[#6b7a99]">
@@ -449,6 +395,12 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
           </div>
         </Card3D>
       </section>
+
+      {/* ── High-Resolution Lossless Maximize Lightbox Modal ── */}
+      <ImageMaximizeModal
+        image={maximizeImage}
+        onClose={() => setMaximizeImage(null)}
+      />
     </div>
   );
 }

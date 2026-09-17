@@ -85,10 +85,7 @@ const GLOBAL_EVENT_PRESETS = [
 
 export default function HomePage() {
   const router = useRouter();
-  const [selectedLatLon, setSelectedLatLon] = useState<{ lat: number; lon: number } | null>({
-    lat: 19.0760,
-    lon: 72.8777,
-  });
+  const [selectedLatLon, setSelectedLatLon] = useState<{ lat: number; lon: number } | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);

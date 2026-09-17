@@ -143,3 +143,11 @@ body {
   background: var(--color-surface) !important;
 }
 
+.glass-liquid-inner {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(221, 227, 237, 0.8);
+}
+
+

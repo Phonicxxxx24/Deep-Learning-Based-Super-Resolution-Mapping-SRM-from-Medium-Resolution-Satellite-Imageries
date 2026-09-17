@@ -1,8 +1,8 @@
 # Codebase Architecture & Dependency Graph (Graphify)
 
 > **Repository:** Deep-Learning-Based-Super-Resolution-Mapping-SRM-from-Medium-Resolution-Satellite-Imageries  
-> **Total Indexed Nodes:** 861  
-> **Total Directed Edges:** 1512  
+> **Total Indexed Nodes:** 875  
+> **Total Directed Edges:** 1546  
 > **Interactive Graph:** [graph.html](file:///C:/DL SRM/graph.html)  
 > **Raw Graph Dataset:** [graph.json](file:///C:/DL SRM/graph.json)
 
@@ -87,6 +87,7 @@ graph TD
 | **Component** | `DatabaseArchiveIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
 | **Component** | `LiquidWaveIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
 | **Component** | `UrbanGridIcon` | [frontend/src/components/GlobalIcons.tsx](file:///C:/DL SRM/frontend/src/components/GlobalIcons.tsx) | React UI Component |
+| **Type** | `MaximizeImageData` | [frontend/src/components/ImageMaximizeModal.tsx](file:///C:/DL SRM/frontend/src/components/ImageMaximizeModal.tsx) | TypeScript Contract |
 | **Type** | `QualityTierSteps` | [frontend/src/lib/constants.ts](file:///C:/DL SRM/frontend/src/lib/constants.ts) | TypeScript Contract |
 | **Type** | `SubmitResponse` | [frontend/src/types/index.ts](file:///C:/DL SRM/frontend/src/types/index.ts) | TypeScript Contract |
 | **Type** | `StatusResponse` | [frontend/src/types/index.ts](file:///C:/DL SRM/frontend/src/types/index.ts) | TypeScript Contract |
