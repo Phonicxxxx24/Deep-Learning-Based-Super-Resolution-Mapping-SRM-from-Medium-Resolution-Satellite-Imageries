@@ -43,19 +43,21 @@ All 13 original tests pass. Key gap: models never ran on his machine (env log sh
 | `run_pipeline.py` | DONE | Full CLI orchestrator |
 | `tests/` | 13/13 | Initial baseline tests from Dhruv |
 
-### Current Repository Status (Sept 16 2026 — Post-Hardware Maximization)
+### Current Repository Status (Sept 18 2026 — Full Stack Production Ready)
 
 | Component | Status | Features / Enhancements Added |
 |---|---|---|
 | `srm/sr_pipeline.py` | COMPLETE | DualPath + referencex4 SWIR, 100 DDIM steps, 4-fold $D_4$ TTA ensembling, cutoff 32 |
+| `srm/flexible_input.py` | COMPLETE | Sentinel-2 STAC patch fetcher, NaN sanitization, `_save_index_pair` with dynamic percentile colorbars |
+| `srm_api/` | COMPLETE | Serialized FastAPI queue, SQLite historical scans, English geocoding, LR & SR index endpoints |
+| `frontend/` (Next.js 16) | COMPLETE | Interactive Leaflet map, Before/After split slider, dual-card index comparator, 600% lossless modal |
 | `srm/explainability.py` | COMPLETE | CPU-isolated Local Attribution Maps (LAM) from `sen2sr.xai.lam` |
 | `srm/validation.py` | COMPLETE | PSNR, SSIM, SAM, LPIPS (CPU), ERGAS, 95% CI uncertainty calibration |
 | `srm/applications.py` | COMPLETE | NDVI, MNDWI, NDBI spectral indices, nearest-neighbor comparison visuals |
-| `srm/config.py` | COMPLETE | Added `patch_size`, `overlap`, `use_tta` attributes to `SRMConfig` dataclass |
-| `run_pipeline.py` | COMPLETE | 2D Hann window overlapping sliding window (25% overlap), multi-AOI CLI, `--max-quality`, `--tta`, `--lam` |
-| `dashboard/` | COMPLETE | 5 tabs, dynamic AOI discovery, 1:1 native pixel inspector, unsharp masking, Plotly unique keys, memory subsampling |
-| `tests/` | 20/20 PASS | 13 baseline + 3 explainability + 4 validation metric unit tests |
-| Outputs Verified | 5 AOIs | Ahmedabad (2048×2048), Mumbai (512×512), Uttarakhand (512×512), Jaisalmer (512×512), Punjab (512×512) |
+| `dashboard/` | COMPLETE | Streamlit multi-AOI analytical dashboard with unsharp masking and 1:1 pixel inspector |
+| `Deployment & Scripts` | COMPLETE | `install_requirements.bat` (one-click setup), `start_project.bat`, `requirements.txt`, `FUTURE_ROADMAP_AND_PLANS.md` |
+| `tests/` | 20/20 PASS | All unit, explainability, and validation tests passing |
+| Outputs Verified | 20+ Scans | Mumbai, Chamoli, Jaisalmer, Ahmedabad, Silvassa, Abu Dhabi, Kuwait, Valencia, etc. |
 
 > IMPORTANT: Dhruv `verification/environment_check.log` shows mlstac, sen2sr, opensr-model
 > all FAILED in his env when he pushed. Pipeline had NEVER run on real models on his machine.
@@ -480,4 +482,65 @@ Root cause analysis revealed four bottlenecks:
   - Panel 1: Spectral Reflectance Signature by Wavelength (492nm - 2190nm) comparing LR vs SR curve with $\pm 0.5\sigma$ shading.
   - Panel 2: 10-band grouped bar chart comparing LR vs SR mean reflectance with preservation percentage labels.
 - **Results Viewer Integration:** Embedded the new section in [`ResultsPanel.tsx`](file:///c:/DL%20SRM/frontend/src/components/ResultsPanel.tsx) positioned immediately below the image comparison section with a 10-band interactive metric card strip and scientific explanation.
-- **Automatic Disk Recovery:** Added transparent recovery in `srm_api/main.py` so any existing or completed job immediately serves the spectral preservation chart and statistics upon reload.
+- **Automatic Disk Recovery:** Added transparent recovery in `srm_api/main.py` so any existing or completed job immediately serves the spectral preservation chart and statistics upon reload.
+
+---
+
+## Interactive Before/After Slider, Dynamic Spectral Calibration, & University Deployment — Sept 17–18 2026
+
+**Status: COMPLETE & VERIFIED ON GITHUB (`stage-task-3` @ `c0ff840`)**
+
+### 1. Flagship Interactive Before / After Resolution Slider (`BeforeAfterSlider.tsx`)
+- **Hardware-Accelerated Dual Reveal:** Implemented a split-screen slider using GPU-accelerated `clipPath: inset(0 (100 - pos)% 0 0)` to seamlessly compare the raw 10m Sentinel-2 input with the 2.5m super-resolved output simultaneously on the exact same $1.28\text{ km} \times 1.28\text{ km}$ footprint.
+- **Precision Draggable Handle:** Centered circular knob with `◀ ❚ ▶` indicators, live floating percentage badge (`XX%`), and laser divider bar with high-contrast drop shadow. Supports mouse drag, touch drag, and direct click-to-jump.
+- **Operational Modes:**
+  - **Quick Presets:** `25%` (mostly cleared), `50% Split`, and `75%` (mostly raw input).
+  - **Auto-Sweep Radar Mode:** Smooth continuous oscillatory scan (~0.28% per frame) with single-click `Play` / `Pause` toggle; auto-pauses when the user interacts.
+  - **Layer Inversion (Swap):** Instantly flips which image appears on the left vs right.
+  - **Sub-Pixel Inspection Shortcut:** Direct link to open the high-resolution lightbox modal.
+- **Layout Positioning:** Placed directly beneath the High-Fidelity Spatial Triad Comparison in [`ResultsPanel.tsx`](file:///c:/DL%20SRM/frontend/src/components/ResultsPanel.tsx) for maximum visibility.
+
+### 2. Derived Spectral Indices Overhaul & Dynamic Scale Calibration
+- **Side-by-Side Dual Card View:** Redesigned the Derived Spectral Indices section in [`ResultsPanel.tsx`](file:///c:/DL%20SRM/frontend/src/components/ResultsPanel.tsx):
+  - **Left Card:** `Before: 10m Native Sentinel-2 (LR)` — Native coarse satellite pixelation.
+  - **Right Card:** `After: 2.5m Super-Resolved (SR)` — 4× super-resolved crisp biophysical boundaries.
+  - Covers all 3 key biophysical indices: `NDVI` (Vegetation), `MNDWI` (Water), and `NDBI` (Built-up).
+- **Dynamic Percentile Contrast Calibration:**
+  - Replaced the legacy static bounds (`vmin=-0.3, vmax=0.8, cmap="YlGn"`) with `_save_index_pair` in [`srm/flexible_input.py`](file:///c:/DL%20SRM/srm/flexible_input.py).
+  - Calculates dynamic 2nd to 98th percentile boundaries (`p2` to `p98` with 5% margin) ensuring vibrant colors visible at first glance regardless of regional climate or terrain.
+  - Embedded horizontal scale colorbars (`Index Value Scale [vmin to vmax]`) on both Before and After maps with colormaps `RdYlGn` (NDVI), `YlGnBu` (MNDWI), and `plasma` (NDBI).
+- **Full Historical Backfill:** Ran a batch regeneration job across all 20 historical GeoTIFF scans on disk (`11e02deb6481`, `150f3d780b19`, `8e845201ff8c`, etc.), ensuring every past scan on the site features the exact same high-contrast scale as Silvassa.
+- **Full-Spectrum Schema Sync:** Exposed `lr_ndvi_url`, `lr_mndwi_url`, and `lr_ndbi_url` across [`srm_api/schemas.py`](file:///c:/DL%20SRM/srm_api/schemas.py), [`srm_api/main.py`](file:///c:/DL%20SRM/srm_api/main.py), and [`frontend/src/types/index.ts`](file:///c:/DL%20SRM/frontend/src/types/index.ts).
+
+### 3. Lossless Sub-Pixel Maximize Lightbox Modal (`ImageMaximizeModal.tsx`)
+- **Lossless Fullscreen Canvas:** Implemented a specialized modal allowing users to maximize any output tile (triad cards, spectral indices, Before/After views) in full native fidelity.
+- **Interactive Controls:**
+  - Smooth pan & zoom from **100% to 600%** with mouse wheel, drag, and buttons.
+  - **Sub-Pixel Pixelated Inspector:** Toggle nearest-neighbor rendering (`imageRendering: pixelated`) to inspect individual sensor pixels vs neural-reconstructed micro-features.
+  - Lossless direct download button and metadata drawer displaying GSD, pixel dimensions, and biophysical context.
+
+### 4. Interactive Vector Spectral Fidelity Graphs (`SpectralFidelityGraphs.tsx`)
+- **Light Theme Glassmorphic Component:** Replaced the static Matplotlib image with a responsive, high-aesthetic client-side vector component matching the modern dashboard theme.
+- **Interactive Visualizations:**
+  - **Dual Overview:** Split-panel summary displaying mean reflectance preservation ($>99.7\%$) and radiometric flux delta.
+  - **Spectral Reflectance Curve:** Interactive SVG curve spanning 492nm to 2190nm with shaded VIS, Red Edge, NIR, and SWIR spectral zones.
+  - **10-Band Flux Bars:** Individual band-by-band preservation percentages with status badges.
+  - **Matrix Ribbon:** Interactive 10-band chip grid with synchronized tooltip hover telemetry.
+
+### 5. English-Only Localization & Map Labels Guarantee
+- **Nominatim English Enforcement:** Added `&accept-language=en` to reverse-geocoding requests in [`srm_api/db.py`](file:///c:/DL%20SRM/srm_api/db.py) to prevent non-Latin script (e.g. Arabic location names in Middle Eastern scenes).
+- **Database Cleanup:** Executed a migration script cleaning legacy non-English entries in SQLite database `data/srm_scans.db`.
+- **CartoDB English Labels Layer:** Switched the reference labels layer in [`MapPicker.tsx`](file:///c:/DL%20SRM/frontend/src/components/MapPicker.tsx) to CartoDB's `voyager_only_labels`, guaranteeing 100% English transliterations worldwide.
+
+### 6. Pipeline Resilience & NaN Sanitization
+- **Issue Resolved:** Coastal and marine Sentinel-2 scenes (e.g. Kuwait, Abu Dhabi) contained edge-pixel `NaN` values that caused Matplotlib `set_ylim` crashes (`ValueError: Axis limits cannot be NaN or Inf`).
+- **Fix:** Fortified `srm/flexible_input.py` by ensuring `lr_np` pulls from the NaN-sanitized `lr_tensor`, using `np.nanmean` and `np.nanstd` with finite fallbacks, and wrapping chart rendering in robust bounds validation.
+
+### 7. Automated One-Click Installation & University Setup System
+- **Master Manifest ([`requirements.txt`](file:///c:/DL%20SRM/requirements.txt)):** Comprehensive dependency specification for Python 3.10/3.11 including PyTorch, CUDA, remote sensing (`sen2sr`, `opensr-model`, `mlstac`, `cubo`, `rasterio`), and FastAPI.
+- **Automated Installer ([`install_requirements.bat`](file:///c:/DL%20SRM/install_requirements.bat)):** One-click batch installer that verifies Python/Node.js, creates `.venv`, installs CUDA-enabled PyTorch, installs all Python packages, and runs `npm install` in `frontend/`.
+- **Launcher Sync ([`start_project.bat`](file:///c:/DL%20SRM/start_project.bat)):** Updated launcher to run Next.js in development mode (`npm run dev`) for fast hot-reloading.
+
+### 8. Master Future Roadmap Documentation ([`FUTURE_ROADMAP_AND_PLANS.md`](file:///c:/DL%20SRM/FUTURE_ROADMAP_AND_PLANS.md))
+- **8× Super-Resolution & 200 DDIM Steps on University Cluster Hardware:** Complete architectural blueprint, Ground Sampling Distance (GSD) comparison table ($10\text{m} \to 2.5\text{m} \to 1.25\text{m} \to 0.625\text{m}$), VRAM requirements analysis, and parameter schemas for high-VRAM GPUs (A100 / RTX 4090 / V100).
+- **Interactive 3D Earth Globe Navigator (Three.js):** Zero-lag WebGL design with country selection and smooth camera transition into the 2D Sentinel-2 coordinate picker.

@@ -44,8 +44,11 @@ export interface SRResult {
   spectral_chart_url?: string | null;
   lam_url:             string | null;
   ndvi_url:            string | null;
+  lr_ndvi_url?:        string | null;
   mndwi_url:           string | null;
+  lr_mndwi_url?:       string | null;
   ndbi_url:            string | null;
+  lr_ndbi_url?:        string | null;
   metrics:             BandMetrics;
   band_stats?:         BandPreservationStat[] | null;
   patch_size_px:       number;

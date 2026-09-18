@@ -1,134 +1,176 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
   Download,
+  Map,
   Layers,
+  AlertCircle,
+  Clock,
   Sparkles,
   FileDown,
   FileText,
-  Clock,
+  ExternalLink,
   Maximize2,
-  X,
-  Eye,
-  Info,
+  Sliders,
 } from "lucide-react";
 
 import LiquidBackdrop from "./LiquidBackdrop";
-import ImageSwipeComparator from "./ImageSwipeComparator";
-import ExecutiveReportModal from "./ExecutiveReportModal";
+import Card3D from "./Card3D";
+import BeforeAfterSlider from "./BeforeAfterSlider";
 import SpectralFidelityGraphs from "./SpectralFidelityGraphs";
+import ImageMaximizeModal, { type MaximizeImageData } from "./ImageMaximizeModal";
+import ExecutiveReportModal from "./ExecutiveReportModal";
+import {
+  Satellite3DIcon,
+  SpectralPrismIcon,
+  RadarReticleIcon,
+  LiquidWaveIcon,
+} from "./GlobalIcons";
 import type { SRResult } from "@/types";
 import { staticUrl } from "@/utils/api";
 
-interface ChannelConfig {
-  id: string;
-  title: string;
-  badge: string;
-  badgeColor: string;
-  src?: string | null;
-  resolution: string;
-  formula?: string;
-  interpretation: string;
-  colorScale?: { minLabel: string; maxLabel: string; gradient: string };
-}
+type IndexTab = "ndvi" | "mndwi" | "ndbi";
 
-function SpectralChannelCard({
-  channel,
-  onInspect,
+const INDEX_CONFIG: Record<
+  IndexTab,
+  {
+    label: string;
+    fullName: string;
+    desc: string;
+    srKey: keyof SRResult;
+    lrKey: keyof SRResult;
+    cmapNote: string;
+    cmapName: string;
+    gradientClass: string;
+    colorScaleGradient: string;
+    lowLabel: string;
+    midLabel: string;
+    highLabel: string;
+    biophysicalRole: string;
+  }
+> = {
+  ndvi: {
+    label: "NDVI",
+    fullName: "Normalized Difference Vegetation Index",
+    desc: "(NIR - Red) / (NIR + Red)",
+    srKey: "ndvi_url",
+    lrKey: "lr_ndvi_url",
+    cmapNote: "Green = dense vegetation canopy, Yellow = sparse scrub, Red = bare soil / urban",
+    cmapName: "RdYlGn (Calibrated Dynamic Range)",
+    gradientClass: "bg-gradient-to-r from-[#a50026] via-[#ffffbf] to-[#006837]",
+    colorScaleGradient: "linear-gradient(to right, #a50026, #ffffbf, #006837)",
+    lowLabel: "Low [-0.2 to 0.1] Soil/Pavement",
+    midLabel: "Moderate [0.2 to 0.4] Grassland",
+    highLabel: "Dense Canopy [> 0.5] Forest",
+    biophysicalRole: "Isolates photosynthetic chlorophyll activity and differentiates vegetative vigor from barren terrain.",
+  },
+  mndwi: {
+    label: "MNDWI",
+    fullName: "Modified Normalized Difference Water Index",
+    desc: "(Green - SWIR1) / (Green + SWIR1)",
+    srKey: "mndwi_url",
+    lrKey: "lr_mndwi_url",
+    cmapNote: "Deep Blue = open water bodies / reservoirs, Light Green/White = non-water",
+    cmapName: "YlGnBu (Water Surface High-Pass)",
+    gradientClass: "bg-gradient-to-r from-[#ffffd9] via-[#41b6c4] to-[#081d58]",
+    colorScaleGradient: "linear-gradient(to right, #ffffd9, #41b6c4, #081d58)",
+    lowLabel: "Dry Land [-0.4] Non-Water",
+    midLabel: "Moist Soil / Wetland [0.0]",
+    highLabel: "Open Deep Water [+0.6]",
+    biophysicalRole: "Enhances surface water features while effectively suppressing false positive built-up noise.",
+  },
+  ndbi: {
+    label: "NDBI",
+    fullName: "Normalized Difference Built-up Index",
+    desc: "(SWIR1 - NIR) / (SWIR1 + NIR)",
+    srKey: "ndbi_url",
+    lrKey: "lr_ndbi_url",
+    cmapNote: "Yellow/Bright = dense urban & impervious roofs, Dark/Violet = non-urban",
+    cmapName: "Plasma (Urban Built-up High-Contrast)",
+    gradientClass: "bg-gradient-to-r from-[#0d0887] via-[#cc4778] to-[#f0f921]",
+    colorScaleGradient: "linear-gradient(to right, #0d0887, #cc4778, #f0f921)",
+    lowLabel: "Vegetation/Water [-0.4]",
+    midLabel: "Mixed Transition [0.0]",
+    highLabel: "Impervious Built-up [+0.6]",
+    biophysicalRole: "Delineates urban density, concrete structures, road networks, and artificial surfaces.",
+  },
+};
+
+
+function CompareImageCard({
+  label,
+  src,
+  badge,
+  subtext,
+  onMaximize,
 }: {
-  channel: ChannelConfig;
-  onInspect: (ch: ChannelConfig) => void;
+  label: string;
+  src: string;
+  badge: string;
+  subtext?: string;
+  onMaximize?: () => void;
 }) {
   return (
-    <div className="rounded-2xl glass-liquid-card flex flex-col overflow-hidden group shadow-sm transition-all hover:shadow-md hover:border-[#0066cc]/40">
-      {/* Top Header Strip */}
-      <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-white/60 bg-white/40">
-        <div>
-          <span className="text-[9.5px] uppercase font-bold text-[#6b7a99] tracking-wider block">
-            {channel.resolution}
-          </span>
-          <h3 className="text-xs font-bold text-[#1a1f2e] truncate">{channel.title}</h3>
-        </div>
-        <span
-          className="text-[9.5px] font-bold px-2 py-0.5 rounded-full border"
-          style={{
-            backgroundColor: `${channel.badgeColor}15`,
-            color: channel.badgeColor,
-            borderColor: `${channel.badgeColor}30`,
-          }}
-        >
-          {channel.badge}
-        </span>
-      </div>
-
-      {/* Image Container - Square Aspect Ratio without letterbox */}
+    <Card3D depth={8} className="glass-card bg-white/90 flex flex-col overflow-hidden group">
       <div
-        onClick={() => channel.src && onInspect(channel)}
-        className="relative w-full aspect-square bg-[#0f172a] overflow-hidden cursor-pointer"
+        className="relative w-full aspect-square bg-[#0e131d] overflow-hidden cursor-pointer"
+        onClick={onMaximize}
       >
-        {channel.src ? (
-          <>
-            <Image
-              src={staticUrl(channel.src)}
-              alt={channel.title}
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-              unoptimized
-            />
-            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-2xs">
-              <Maximize2 size={14} />
-              <span>Inspect</span>
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center h-full text-xs text-[#6b7a99]">
-            Channel unavailable
-          </div>
-        )}
-      </div>
-
-      {/* Footer Info & Physics Legend */}
-      <div className="p-3 glass-liquid-inner flex flex-col gap-1.5 mt-auto">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-[#1a1f2e] font-semibold">{channel.interpretation}</span>
-          {channel.formula && (
-            <span className="text-[9.5px] font-mono text-[#6b7a99]">{channel.formula}</span>
-          )}
+        <Image
+          src={staticUrl(src)}
+          alt={label}
+          fill
+          sizes="(max-width: 768px) 100vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+          unoptimized
+        />
+        <div className="absolute bottom-2.5 left-2.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-black/75 backdrop-blur-md text-white border border-white/20 shadow-md">
+          {badge}
         </div>
-        {channel.colorScale ? (
-          <div className="flex flex-col gap-0.5 pt-1 border-t border-white/50">
-            <div
-              className="w-full h-1.5 rounded-full"
-              style={{ background: channel.colorScale.gradient }}
-            />
-            <div className="text-[9px] font-mono text-[#6b7a99] flex justify-between">
-              <span>{channel.colorScale.minLabel}</span>
-              <span>{channel.colorScale.maxLabel}</span>
-            </div>
-          </div>
-        ) : (
-          <div className="pt-1 border-t border-white/50 text-[9px] text-[#6b7a99] font-mono">
-            True Color RGB Composite (B04-B03-B02)
-          </div>
-        )}
+
+        {/* Maximize Button Overlay */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onMaximize?.();
+          }}
+          title="Maximize in full lossless resolution"
+          className="absolute top-2.5 right-2.5 px-2.5 py-1.5 rounded-xl bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-lg opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer z-10"
+        >
+          <Maximize2 size={12} />
+          <span>Maximize</span>
+        </button>
       </div>
-    </div>
+      <div className="p-3.5 bg-white/80 flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-bold text-[#1a1f2e]">{label}</h3>
+          {subtext && <p className="text-[11px] text-[#6b7a99] mt-0.5">{subtext}</p>}
+        </div>
+        <button
+          onClick={onMaximize}
+          title="Maximize image in large full-resolution size"
+          className="p-1.5 rounded-lg hover:bg-black/5 text-[#6b7a99] hover:text-[#0066cc] transition-all cursor-pointer shrink-0"
+        >
+          <Maximize2 size={14} />
+        </button>
+      </div>
+    </Card3D>
   );
 }
 
 export default function ResultsPanel({ result }: { result: SRResult }) {
   const [reportOpen, setReportOpen] = useState<boolean>(false);
-  const [activeInspectChannel, setActiveInspectChannel] = useState<ChannelConfig | null>(null);
-  const [scaleFactor, setScaleFactor] = useState<number>(result.scale_factor ?? 4);
+  const [indexTab, setIndexTab] = useState<IndexTab>("ndvi");
+  const [viewMode, setViewMode] = useState<"split" | "before" | "after">("split");
+  const [maximizeImage, setMaximizeImage] = useState<MaximizeImageData | null>(null);
 
+  const scaleFactor = result.scale_factor ?? 4;
   const resStr = result.sr_resolution_m ? `${result.sr_resolution_m}m` : (scaleFactor === 8 ? "0.625m" : "2.5m");
-  const sizePx = result.output_size_px ?? (scaleFactor === 8 ? 2048 : 512);
 
   const srTifUrl = staticUrl(`/static/${result.job_id}_sr_10band_${resStr}.tif`);
   const uncTifUrl = staticUrl(`/static/${result.job_id}_uncertainty_${resStr}.tif`);
@@ -141,113 +183,46 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
         ).toFixed(1)
       : null;
 
-  // 5-Channel Spectral Suite Definitions
-  const channels: ChannelConfig[] = [
-    {
-      id: "lr",
-      title: "Normal Sentinel-2",
-      badge: "10m L2A",
-      badgeColor: "#0066cc",
-      src: result.lr_rgb_url,
-      resolution: "Input Optical",
-      interpretation: "Native Optical S2",
-      formula: "B04 + B03 + B02",
-    },
-    {
-      id: "sr",
-      title: "New Processed Event",
-      badge: `${scaleFactor}× Super-Res`,
-      badgeColor: scaleFactor === 8 ? "#059669" : "#0284c7",
-      src: result.sr_rgb_url,
-      resolution: `${resStr} Sub-Meter`,
-      interpretation: "Dual-Path Enhanced",
-      formula: "LDSR-S2 + SEN2SR",
-    },
-    {
-      id: "ndvi",
-      title: "NDVI Vegetation Filter",
-      badge: "Canopy Index",
-      badgeColor: "#16a34a",
-      src: result.ndvi_url,
-      resolution: `${resStr} Resolution`,
-      interpretation: "Biomass & Chlorophyll",
-      formula: "(B08-B04)/(B08+B04)",
-      colorScale: {
-        minLabel: "Sparse [-0.2]",
-        maxLabel: "Dense [+0.8]",
-        gradient: "linear-gradient(to right, #a16207, #ca8a04, #84cc16, #15803d)",
-      },
-    },
-    {
-      id: "mndwi",
-      title: "MNDWI Hydrology Filter",
-      badge: "Water Index",
-      badgeColor: "#0284c7",
-      src: result.mndwi_url,
-      resolution: `${resStr} Resolution`,
-      interpretation: "Water & Moisture",
-      formula: "(B03-B11)/(B03+B11)",
-      colorScale: {
-        minLabel: "Non-Water [-0.4]",
-        maxLabel: "Deep Water [+0.6]",
-        gradient: "linear-gradient(to right, #f8fafc, #93c5fd, #3b82f6, #1d4ed8)",
-      },
-    },
-    {
-      id: "ndbi",
-      title: "NDBI Urban Filter",
-      badge: "Built-up Index",
-      badgeColor: "#ea580c",
-      src: result.ndbi_url,
-      resolution: `${resStr} Resolution`,
-      interpretation: "Impervious Concrete",
-      formula: "(B11-B08)/(B11+B08)",
-      colorScale: {
-        minLabel: "Natural [-0.4]",
-        maxLabel: "Urban Built-up [+0.6]",
-        gradient: "linear-gradient(to right, #22c55e, #facc15, #f97316, #b91c1c)",
-      },
-    },
-  ];
-
   return (
-    <div className="relative min-h-screen w-full max-w-[100vw] px-4 sm:px-8 lg:px-12 py-5 flex flex-col gap-5 text-[#1a1f2e]">
+    <div className="relative min-h-screen p-5 sm:p-8 flex flex-col gap-6 max-w-6xl mx-auto text-[#1a1f2e]">
       {/* Liquid Organic Mesh Background */}
       <LiquidBackdrop />
 
       {/* ── Top Command Bar ── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl glass-liquid-card shadow-sm">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl glass-panel shadow-sm">
+        <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl glass-liquid-inner hover:bg-white text-[#1a1f2e] border border-white/60 shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-white hover:bg-[#f7f8fa] text-[#1a1f2e] border border-[#dde3ed] shadow-2xs transition-all cursor-pointer"
           >
-            <ArrowLeft size={14} /> Command Map
+            <ArrowLeft size={14} /> Back to Command Map
           </Link>
-          <div className="w-px h-6 bg-[#dde3ed]/60" />
+          <div className="w-px h-6 bg-[#dde3ed]" />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-bold text-[#1a1f2e]">
-                {scaleFactor === 8 ? "8× Ultra-Resolution (2048px · 0.625m)" : "4× Super-Resolution (512px · 2.5m)"} Telemetry
+              <h1 className="text-base font-bold text-[#1a1f2e]">
+                {scaleFactor === 8 ? "8× Ultra-Resolution Telemetry" : "4× Super-Resolution Telemetry"}
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-                ✓ Complete
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25">
+                ✓ Inference Complete
               </span>
             </div>
-            <p className="text-[11px] text-[#6b7a99] font-mono mt-0.5">
-              Lat {result.lat.toFixed(4)}°, Lon {result.lon.toFixed(4)}° · Job{" "}
-              <strong className="text-[#0066cc] font-mono">{result.job_id}</strong>
+            <p className="text-xs text-[#6b7a99] font-mono mt-0.5">
+              Lat {result.lat.toFixed(5)}°, Lon {result.lon.toFixed(5)}° · Job ID:{" "}
+              <strong className="text-[#0066cc]">{result.job_id}</strong>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-xs">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-liquid-inner text-[11px] font-mono text-[#1a1f2e]">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill font-mono text-[#1a1f2e]">
+            <Clock size={12} className="text-[#0066cc]" />
             <span>{result.processing_time_s.toFixed(1)}s Runtime</span>
-            <span className="opacity-30">|</span>
-            <span className="text-[#0066cc] font-semibold">{result.sampling_steps_used ?? 50} DDIM</span>
-            <span className="opacity-30">|</span>
-            <span className="text-emerald-700 font-semibold">{scaleFactor}× Scale</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill font-mono text-[#0066cc] font-semibold">
+            <Sparkles size={12} />
+            <span>{result.sampling_steps_used ?? 50} DDIM Steps</span>
           </div>
 
           <button
@@ -260,72 +235,127 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
         </div>
       </header>
 
-      {/* ── Interactive Split-Screen Swipe Visual Comparator ── */}
-      <section className="space-y-2.5">
+      {/* ── Before / After / Uncertainty Comparison ── */}
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-[#0066cc]" />
+            <Map size={15} className="text-[#0066cc]" />
             <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
-              Interactive Split-Screen Visual Comparator
+              High-Fidelity Spatial Triad Comparison
             </h2>
           </div>
           <span className="text-xs text-[#6b7a99] font-mono">
-            Drag divider to inspect resolution leap · Scroll to zoom · Drag to pan
+            Ground Footprint: 1.28 km × 1.28 km
           </span>
         </div>
 
-        <ImageSwipeComparator
-          lrUrl={result.lr_rgb_url}
-          srUrl={result.sr_rgb_url}
-          ndviUrl={result.ndvi_url}
-          mndwiUrl={result.mndwi_url}
-          ndbiUrl={result.ndbi_url}
-          uncertaintyUrl={result.uncertainty_url}
-          initialScale={result.scale_factor ?? 4}
-          aoiLabel={`Lat ${result.lat.toFixed(4)}, Lon ${result.lon.toFixed(4)}`}
-        />
-      </section>
-
-      {/* ── Derived Spectral Indices & Multi-Band Suite (Normal S2, Processed Event, and All 3 Filters) ── */}
-      <section className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Layers size={16} className="text-[#0066cc]" />
-            <div>
-              <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
-                Derived Spectral Indices & Physical Channel Suite
-              </h2>
-              <p className="text-xs text-[#6b7a99]">
-                Normal Sentinel-2 input, new super-resolved event, and derived spectral filters (NDVI, MNDWI, NDBI).
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-mono text-[#0066cc] bg-[#0066cc]/10 px-3 py-1 rounded-full font-semibold shrink-0">
-            {resStr} Resolution · {sizePx}×{sizePx}px Full-Bleed
-          </span>
-        </div>
-
-        {/* 5-Card Synchronized Multi-Channel Gallery */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
-          {channels.map((ch) => (
-            <SpectralChannelCard
-              key={ch.id}
-              channel={ch}
-              onInspect={(channel) => setActiveInspectChannel(channel)}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CompareImageCard
+            label="Sentinel-2 L2A Input"
+            src={result.lr_rgb_url}
+            badge={`${result.patch_size_px}px @ ${result.lr_resolution_m}m`}
+            subtext="B04-B03-B02 true color (bicubic 4× display)"
+            onMaximize={() =>
+              setMaximizeImage({
+                title: "Sentinel-2 L2A Input (10m Resolution)",
+                src: result.lr_rgb_url,
+                badge: "10m Baseline S2",
+                resolution: `Ground Sampling Distance: ${result.lr_resolution_m}m`,
+                dimensions: `${result.patch_size_px} × ${result.patch_size_px} px (Original BOA)`,
+                subtext: "Surface reflectance RGB composite (B04-Red, B03-Green, B02-Blue) directly from Copernicus Sentinel-2.",
+              })
+            }
+          />
+          <CompareImageCard
+            label="Dual-Path Super-Resolved"
+            src={result.sr_rgb_url}
+            badge={`${result.output_size_px}px @ ${result.sr_resolution_m}m`}
+            subtext="4× enhanced RGB composite via LDSR-S2"
+            onMaximize={() =>
+              setMaximizeImage({
+                title: "Dual-Path Super-Resolved SRM (2.5m Resolution)",
+                src: result.sr_rgb_url,
+                badge: "2.5m Super-Resolved",
+                resolution: `Ground Sampling Distance: ${result.sr_resolution_m}m (4× Super-Resolved)`,
+                dimensions: `${result.output_size_px} × ${result.output_size_px} px (Uncompressed)`,
+                subtext: "Diffusion-driven super-resolved BOA reflectance composite with Fourier low-pass phase invariance.",
+              })
+            }
+          />
+          {result.uncertainty_url ? (
+            <CompareImageCard
+              label="Per-Pixel Epistemic Uncertainty"
+              src={result.uncertainty_url}
+              badge="Std dev across passes"
+              subtext="Plasma map (brighter = higher uncertainty)"
+              onMaximize={() =>
+                setMaximizeImage({
+                  title: "Per-Pixel Epistemic Uncertainty Map",
+                  src: result.uncertainty_url,
+                  badge: "Monte-Carlo Uncertainty",
+                  resolution: `Ground Sampling Distance: ${result.sr_resolution_m}m`,
+                  dimensions: `${result.output_size_px} × ${result.output_size_px} px`,
+                  subtext: "Stochastic standard deviation across diffusion reverse-process sampling steps.",
+                  colorScale: {
+                    gradient: "linear-gradient(to right, #0d0887, #6a00a8, #b12a90, #e16462, #fca636, #f0f921)",
+                    minLabel: "0.0 (High Confidence)",
+                    maxLabel: "Max (Epistemic Dispersion)",
+                  },
+                })
+              }
             />
-          ))}
+          ) : (
+            <div className="rounded-2xl glass-card flex items-center justify-center p-6 text-xs text-center text-[#6b7a99]">
+              Uncertainty map not generated for this run
+            </div>
+          )}
         </div>
       </section>
+
+      {/* ── Interactive Before/After Resolution Slider ── */}
+      <BeforeAfterSlider
+        beforeSrc={result.lr_rgb_url}
+        afterSrc={result.sr_rgb_url}
+        beforeLabel="Sentinel-2 L2A Input"
+        afterLabel="Dual-Path Super-Resolved"
+        beforeBadge={`${result.patch_size_px}px @ ${result.lr_resolution_m}m`}
+        afterBadge={`${result.output_size_px}px @ ${result.sr_resolution_m}m`}
+        beforeResolution={`Ground Sampling Distance: ${result.lr_resolution_m}m Baseline`}
+        afterResolution={`Ground Sampling Distance: ${result.sr_resolution_m}m (4× Cleared SRM)`}
+        footprint="1.28 km × 1.28 km Ground Footprint"
+        onMaximizeBefore={() =>
+          setMaximizeImage({
+            title: "Sentinel-2 L2A Input (10m Resolution)",
+            src: result.lr_rgb_url,
+            badge: "10m Baseline S2",
+            resolution: `Ground Sampling Distance: ${result.lr_resolution_m}m`,
+            dimensions: `${result.patch_size_px} × ${result.patch_size_px} px (Original BOA)`,
+            subtext: "Surface reflectance RGB composite (B04-Red, B03-Green, B02-Blue) directly from Copernicus Sentinel-2.",
+          })
+        }
+        onMaximizeAfter={() =>
+          setMaximizeImage({
+            title: "Dual-Path Super-Resolved SRM (2.5m Resolution)",
+            src: result.sr_rgb_url,
+            badge: "2.5m Super-Resolved",
+            resolution: `Ground Sampling Distance: ${result.sr_resolution_m}m (4× Super-Resolved)`,
+            dimensions: `${result.output_size_px} × ${result.output_size_px} px (Uncompressed)`,
+            subtext: "Diffusion-driven super-resolved BOA reflectance composite with Fourier low-pass phase invariance.",
+          })
+        }
+      />
 
       {/* ── 10-Band Radiometric Fidelity & Interactive Vector Graphs ── */}
       <SpectralFidelityGraphs
         bandStats={result.band_stats}
         meanPreservation={meanPreservation}
-        scaleFactor={scaleFactor}
+        srResolutionM={result.sr_resolution_m || 2.5}
+        outputSizePx={result.output_size_px || 512}
       />
 
+
       {/* ── GeoTIFF Downloads ── */}
-      <section className="rounded-2xl p-4 glass-liquid-card flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-sm">
+      <section className="rounded-2xl p-4.5 glass-card bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
             Enterprise GeoTIFF Deliverables
@@ -343,86 +373,314 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
             <FileDown size={14} />
             10-Band SR GeoTIFF ({resStr})
           </a>
-          {uncTifUrl && (
-            <a
-              href={uncTifUrl}
-              download
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold glass-liquid-inner hover:bg-white text-[#1a1f2e] border border-white/60 shadow-2xs transition-all cursor-pointer"
-            >
-              <Download size={14} />
-              Uncertainty GeoTIFF
-            </a>
-          )}
+          <a
+            href={uncTifUrl}
+            download
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-[#f7f8fa] text-[#1a1f2e] border border-[#dde3ed] shadow-2xs transition-all cursor-pointer"
+          >
+            <Download size={14} />
+            Uncertainty GeoTIFF
+          </a>
         </div>
       </section>
 
-      {/* ── Inspect Channel Modal ── */}
-      <AnimatePresence>
-        {activeInspectChannel && activeInspectChannel.src && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setActiveInspectChannel(null)}
-            className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 cursor-pointer"
-          >
-            <motion.div
-              initial={{ scale: 0.94, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.94, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative max-w-3xl w-full rounded-2xl glass-liquid-card overflow-hidden shadow-2xl flex flex-col cursor-default"
+
+      {/* ── Spectral Indices ── */}
+      <section className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Layers size={15} className="text-[#0066cc]" />
+            <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
+              Derived Spectral Indices (Before 10m & After {resStr})
+            </h2>
+          </div>
+          <span className="text-xs text-[#6b7a99]">
+            Calibrated biophysical indices computed directly on 10m LR and 2.5m SR bands
+          </span>
+        </div>
+
+        {/* Tab & View Mode Switcher Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
+          {/* Index Tabs */}
+          <div className="flex gap-2 flex-wrap">
+            {(Object.keys(INDEX_CONFIG) as IndexTab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setIndexTab(tab)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  indexTab === tab
+                    ? "bg-[#0066cc] text-white shadow-xs"
+                    : "bg-white/80 hover:bg-white text-[#6b7a99] border border-[#dde3ed]"
+                }`}
+              >
+                {INDEX_CONFIG[tab].label}
+                <span className="ml-1.5 opacity-80 font-normal">— {INDEX_CONFIG[tab].desc}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* View Mode Switcher */}
+          <div className="flex items-center rounded-xl bg-white border border-[#dde3ed] p-0.5 shadow-2xs self-start sm:self-auto">
+            <button
+              onClick={() => setViewMode("split")}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === "split"
+                  ? "bg-[#0066cc] text-white shadow-xs"
+                  : "text-[#6b7a99] hover:text-[#1a1f2e]"
+              }`}
             >
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/60 bg-white/60">
-                <div>
-                  <h3 className="text-sm font-bold text-[#1a1f2e]">
-                    {activeInspectChannel.title}
+              Side-by-Side (Before & After)
+            </button>
+            <button
+              onClick={() => setViewMode("before")}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === "before"
+                  ? "bg-[#0066cc] text-white shadow-xs"
+                  : "text-[#6b7a99] hover:text-[#1a1f2e]"
+              }`}
+            >
+              Before (10m)
+            </button>
+            <button
+              onClick={() => setViewMode("after")}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === "after"
+                  ? "bg-[#0066cc] text-white shadow-xs"
+                  : "text-[#6b7a99] hover:text-[#1a1f2e]"
+              }`}
+            >
+              After ({resStr})
+            </button>
+          </div>
+        </div>
+
+        {/* Index Viewer Cards */}
+        {viewMode === "split" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Left Card: Before (10m Native Sentinel-2) */}
+            <Card3D depth={6} className="glass-card bg-white/90 overflow-hidden flex flex-col group">
+              <div className="p-3 bg-white/90 border-b border-[#dde3ed] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                  <h3 className="text-xs font-bold text-[#1a1f2e]">
+                    Before: {INDEX_CONFIG[indexTab].label} @ 10m Ground Resolution
                   </h3>
-                  <p className="text-[11px] text-[#6b7a99]">
-                    {activeInspectChannel.interpretation} · {activeInspectChannel.resolution}
-                  </p>
                 </div>
-                <button
-                  onClick={() => setActiveInspectChannel(null)}
-                  className="p-1.5 rounded-full hover:bg-black/5 text-[#6b7a99] transition-all cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 font-semibold border border-amber-500/20">
+                  Native Sentinel-2 (LR)
+                </span>
               </div>
-              <div className="relative w-full aspect-square bg-[#0a0f1d] max-h-[70vh]">
-                <Image
-                  src={staticUrl(activeInspectChannel.src)}
-                  alt={activeInspectChannel.title}
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
-              </div>
-              <div className="p-3.5 glass-liquid-inner flex items-center justify-between text-xs">
-                {activeInspectChannel.formula && (
-                  <span className="font-mono text-[#6b7a99]">
-                    Formula: <strong className="text-[#1a1f2e]">{activeInspectChannel.formula}</strong>
-                  </span>
-                )}
-                {activeInspectChannel.colorScale && (
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-mono text-[#6b7a99]">
-                      {activeInspectChannel.colorScale.minLabel}
-                    </span>
-                    <div
-                      className="w-32 h-2 rounded-full"
-                      style={{ background: activeInspectChannel.colorScale.gradient }}
+              <div className="relative w-full aspect-square bg-[#0e131d] overflow-hidden">
+                {result[INDEX_CONFIG[indexTab].lrKey] || result[INDEX_CONFIG[indexTab].srKey] ? (
+                  <>
+                    <Image
+                      src={staticUrl((result[INDEX_CONFIG[indexTab].lrKey] || result[INDEX_CONFIG[indexTab].srKey]) as string)}
+                      alt={`${INDEX_CONFIG[indexTab].label} 10m LR`}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-contain"
+                      unoptimized
                     />
-                    <span className="text-[11px] font-mono text-[#6b7a99]">
-                      {activeInspectChannel.colorScale.maxLabel}
-                    </span>
+                    <button
+                      onClick={() => {
+                        const cfg = INDEX_CONFIG[indexTab];
+                        setMaximizeImage({
+                          title: `Before: ${cfg.label} @ 10m Ground Resolution — ${cfg.fullName}`,
+                          src: (result[cfg.lrKey] || result[cfg.srKey]) as string,
+                          badge: "10m Native Baseline",
+                          resolution: "Ground Sampling Distance: 10m (Sentinel-2 L2A)",
+                          dimensions: `${result.patch_size_px} × ${result.patch_size_px} px`,
+                          subtext: `Coarse 10m native spatial pixelation. Calibrated dynamic scale identical to 2.5m SR.`,
+                          colorScale: {
+                            gradient: cfg.colorScaleGradient,
+                            minLabel: cfg.lowLabel,
+                            maxLabel: cfg.highLabel,
+                          },
+                        });
+                      }}
+                      title="Maximize Before index map in full resolution"
+                      className="absolute top-3 right-3 px-2.5 py-1.5 rounded-xl bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-lg opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer z-10"
+                    >
+                      <Maximize2 size={12} />
+                      <span>Maximize</span>
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-xs text-[#6b7a99]">
+                    10m index map loading…
                   </div>
                 )}
               </div>
-            </motion.div>
-          </motion.div>
+              <div className="p-2.5 bg-white/70 border-t border-[#dde3ed] text-[11px] text-[#6b7a99]">
+                Coarse 10m grid showing native satellite spatial pixelation.
+              </div>
+            </Card3D>
+
+            {/* Right Card: After (2.5m Super-Resolved SRM) */}
+            <Card3D depth={6} className="glass-card bg-white/90 overflow-hidden flex flex-col group">
+              <div className="p-3 bg-white/90 border-b border-[#dde3ed] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <h3 className="text-xs font-bold text-[#1a1f2e]">
+                    After: {INDEX_CONFIG[indexTab].label} @ 2.5m Super-Resolved
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-bold border border-emerald-500/20">
+                  4× DualPath Enhanced (SR)
+                </span>
+              </div>
+              <div className="relative w-full aspect-square bg-[#0e131d] overflow-hidden">
+                {result[INDEX_CONFIG[indexTab].srKey] ? (
+                  <>
+                    <Image
+                      src={staticUrl(result[INDEX_CONFIG[indexTab].srKey] as string)}
+                      alt={`${INDEX_CONFIG[indexTab].label} 2.5m SR`}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-contain"
+                      unoptimized
+                    />
+                    <button
+                      onClick={() => {
+                        const cfg = INDEX_CONFIG[indexTab];
+                        setMaximizeImage({
+                          title: `After: ${cfg.label} @ 2.5m Super-Resolved — ${cfg.fullName}`,
+                          src: result[cfg.srKey] as string,
+                          badge: "2.5m Super-Resolved",
+                          resolution: "Ground Sampling Distance: 2.5m (4× Super-Resolved)",
+                          dimensions: `${result.output_size_px} × ${result.output_size_px} px`,
+                          subtext: `Sharp, continuous biophysical boundaries resolved without pixelation.`,
+                          colorScale: {
+                            gradient: cfg.colorScaleGradient,
+                            minLabel: cfg.lowLabel,
+                            maxLabel: cfg.highLabel,
+                          },
+                        });
+                      }}
+                      title="Maximize After index map in full resolution"
+                      className="absolute top-3 right-3 px-2.5 py-1.5 rounded-xl bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-lg opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer z-10"
+                    >
+                      <Maximize2 size={12} />
+                      <span>Maximize</span>
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-xs text-[#6b7a99]">
+                    2.5m index map loading…
+                  </div>
+                )}
+              </div>
+              <div className="p-2.5 bg-white/70 border-t border-[#dde3ed] text-[11px] text-[#0066cc] font-medium">
+                Sharp, continuous biophysical boundaries resolved without pixelation.
+              </div>
+            </Card3D>
+          </div>
+        ) : (
+          /* Single View (Either Before or After) */
+          <Card3D depth={6} className="glass-card bg-white/90 overflow-hidden flex flex-col group">
+            <div className="p-3.5 bg-white/90 border-b border-[#dde3ed] flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold text-[#1a1f2e]">
+                  {viewMode === "before" ? "Before: Native 10m Input" : "After: 4× Super-Resolved 2.5m"} — {INDEX_CONFIG[indexTab].fullName}
+                </h3>
+                <p className="text-[11px] text-[#6b7a99] mt-0.5">{INDEX_CONFIG[indexTab].desc}</p>
+              </div>
+              <span
+                className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold border ${
+                  viewMode === "before"
+                    ? "bg-amber-500/10 text-amber-700 border-amber-500/20"
+                    : "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
+                }`}
+              >
+                {viewMode === "before" ? "10m Resolution (Native LR)" : "2.5m Resolution (Enhanced SR)"}
+              </span>
+            </div>
+            <div className="relative w-full aspect-[2/1] sm:aspect-[21/9] bg-[#0e131d] overflow-hidden">
+              <Image
+                src={staticUrl(
+                  (viewMode === "before"
+                    ? result[INDEX_CONFIG[indexTab].lrKey] || result[INDEX_CONFIG[indexTab].srKey]
+                    : result[INDEX_CONFIG[indexTab].srKey]) as string
+                )}
+                alt={INDEX_CONFIG[indexTab].label}
+                fill
+                className="object-contain"
+                unoptimized
+              />
+              <button
+                onClick={() => {
+                  const cfg = INDEX_CONFIG[indexTab];
+                  setMaximizeImage({
+                    title: `${viewMode === "before" ? "Before (10m)" : "After (2.5m)"}: ${cfg.label} — ${cfg.fullName}`,
+                    src: (viewMode === "before"
+                      ? result[cfg.lrKey] || result[cfg.srKey]
+                      : result[cfg.srKey]) as string,
+                    badge: viewMode === "before" ? "10m Native Baseline" : "2.5m Super-Resolved",
+                    resolution: viewMode === "before" ? "Ground Sampling Distance: 10m" : "Ground Sampling Distance: 2.5m",
+                    dimensions: `${result.output_size_px} × ${result.output_size_px} px`,
+                    subtext: cfg.cmapNote,
+                    colorScale: {
+                      gradient: cfg.colorScaleGradient,
+                      minLabel: cfg.lowLabel,
+                      maxLabel: cfg.highLabel,
+                    },
+                  });
+                }}
+                title="Maximize in full resolution"
+                className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-lg opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer z-10"
+              >
+                <Maximize2 size={13} />
+                <span>Maximize</span>
+              </button>
+            </div>
+            <div className="px-4 py-3 text-xs flex items-center justify-between border-t border-[#dde3ed] bg-white/70">
+              <span>
+                <strong className="text-[#1a1f2e]">{INDEX_CONFIG[indexTab].label}</strong>: {INDEX_CONFIG[indexTab].desc}
+              </span>
+              <span className="text-[11px] text-[#6b7a99]">{INDEX_CONFIG[indexTab].cmapNote}</span>
+            </div>
+          </Card3D>
         )}
-      </AnimatePresence>
+
+        {/* ── High-Visibility Scale Legend Bar ── */}
+        <div className="p-4 rounded-2xl glass-card bg-white/95 border border-[#dde3ed] space-y-2.5 shadow-2xs">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-[#1a1f2e] flex items-center gap-1.5">
+              <Sliders size={13} className="text-[#0066cc]" />
+              <span>Radiometric Color Scale & Class Legend ({INDEX_CONFIG[indexTab].cmapName})</span>
+            </span>
+            <span className="text-[11px] text-[#6b7a99] font-mono">
+              High-Contrast Dynamic Range (Embedded Scale Bar on Images)
+            </span>
+          </div>
+
+          {/* Continuous Gradient Bar */}
+          <div className="space-y-1">
+            <div className={`h-3.5 w-full rounded-full ${INDEX_CONFIG[indexTab].gradientClass} shadow-inner border border-black/10`} />
+            <div className="flex justify-between text-[11px] text-[#4a5568] font-medium px-0.5">
+              <span>◀ {INDEX_CONFIG[indexTab].lowLabel}</span>
+              <span className="text-center font-semibold text-[#1a1f2e]">{INDEX_CONFIG[indexTab].midLabel}</span>
+              <span className="text-right">{INDEX_CONFIG[indexTab].highLabel} ▶</span>
+            </div>
+          </div>
+
+          {/* Biophysical context note */}
+          <div className="pt-2 border-t border-[#dde3ed] flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-[#6b7a99] gap-1">
+            <span>
+              <strong className="text-[#1a1f2e]">Biophysical Function:</strong> {INDEX_CONFIG[indexTab].biophysicalRole}
+            </span>
+            <span className="font-mono text-[#0066cc] font-semibold">
+              Both LR & SR calibrated to identical dynamic range
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── High-Resolution Lossless Maximize Lightbox Modal ── */}
+      <ImageMaximizeModal
+        image={maximizeImage}
+        onClose={() => setMaximizeImage(null)}
+      />
 
       {/* ── Executive Report & STAC Export Modal ── */}
       <ExecutiveReportModal

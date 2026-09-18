@@ -168,12 +168,18 @@ def resolve_location_name(lat: float, lon: float) -> str:
         if abs(lat - p["lat"]) < 0.15 and abs(lon - p["lon"]) < 0.15:
             return p["name"]
 
-    # 2. Try fast OpenStreetMap reverse geocode (1.5s timeout)
+    # 2. Try fast OpenStreetMap reverse geocode (1.5s timeout, strictly in English)
     try:
         import urllib.request, json
-        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat:.5f}&lon={lon:.5f}&format=json"
-        req = urllib.request.Request(url, headers={"User-Agent": "SRM-Planetary-Command/1.0"})
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat:.5f}&lon={lon:.5f}&format=json&accept-language=en"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "SRM-Planetary-Command/1.0",
+                "Accept-Language": "en",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             addr = data.get("address", {})
             city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("suburb") or addr.get("county")
@@ -181,10 +187,15 @@ def resolve_location_name(lat: float, lon: float) -> str:
             country = addr.get("country")
             parts = [p for p in [city, state, country] if p]
             if parts:
-                return ", ".join(parts)
+                res = ", ".join(parts)
+                # Ensure result is readable in English
+                if res.isascii():
+                    return res
             display = data.get("display_name", "")
             if display:
-                return ", ".join([p.strip() for p in display.split(",")[:3]])
+                disp_parts = ", ".join([p.strip() for p in display.split(",")[:3]])
+                if disp_parts.isascii():
+                    return disp_parts
     except Exception as e:
         logger.debug("Online reverse geocoding skipped: %s", e)
 
@@ -210,12 +221,12 @@ def resolve_location_name(lat: float, lon: float) -> str:
 
 
 def fix_legacy_location_names() -> None:
-    """Update legacy 'Scan (22.24...)' names in SQLite with real area names."""
+    """Update legacy 'Scan (22.24...)' or non-English/Arabic names in SQLite with clean English names."""
     with get_connection() as conn:
         rows = conn.execute("SELECT job_id, lat, lon, location_name FROM scans").fetchall()
         for r in rows:
             job_id, lat, lon, loc = r["job_id"], r["lat"], r["lon"], r["location_name"]
-            if not loc or loc.startswith("Scan (") or "Scan" in loc and ("°" in loc or "?" in loc or "" in loc):
+            if not loc or not loc.isascii() or loc.startswith("Scan (") or ("Scan" in loc and ("°" in loc or "?" in loc)):
                 resolved = resolve_location_name(lat, lon)
                 conn.execute("UPDATE scans SET location_name = ? WHERE job_id = ?", (resolved, job_id))
         conn.commit()

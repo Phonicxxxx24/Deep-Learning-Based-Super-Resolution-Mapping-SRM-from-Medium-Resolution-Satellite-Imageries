@@ -80,10 +80,16 @@ outputs/*_lr_rgb.png
 outputs/*_sr_rgb.png
 outputs/*_uncertainty.png
 outputs/*_ndvi.png
+outputs/*_lr_ndvi.png
 outputs/*_mndwi.png
+outputs/*_lr_mndwi.png
 outputs/*_ndbi.png
+outputs/*_lr_ndbi.png
 outputs/*_spectral_chart.png
 outputs/*_band_stats.json
+
+# Scratch and temporary scripts
+scratch/
 
 # IDEs & developer tools
 .vscode/

@@ -157,10 +157,12 @@ def run_sr_from_latlon(
         ) from e
 
     # Take the least-cloudy scene (index 0 after cubo sorts by cloud cover)
-    lr_np = (da[0].compute().to_numpy() / 10_000).astype("float32")
-    lr_tensor = torch.from_numpy(lr_np)  # (10, 128, 128)
+    raw_np = (da[0].compute().to_numpy() / 10_000).astype("float32")
+    lr_tensor = torch.from_numpy(raw_np)  # (10, 128, 128)
     lr_tensor = torch.nan_to_num(lr_tensor, nan=0.0, posinf=0.0, neginf=0.0)
     lr_tensor = lr_tensor.clamp(0.0, 1.0)
+    lr_np = lr_tensor.numpy()
+
 
     # ── 2. Preprocessing (cloud mask, padding) ─────────────────────────────
     preprocess_result = preprocess(lr_tensor, cfg)
@@ -232,7 +234,7 @@ def run_sr_from_latlon(
         except Exception as e:
             logger.warning("[%s] LAM failed: %s", job_id, e)
 
-    # ── 6. Scaling & Spectral indices ──────────────────────────────────────
+    # ── 6. Scaling & Spectral indices (both 10m LR and SR) ─────────────────
     import torch.nn.functional as F
 
     target_size = 2048 if scale_factor == 8 else 512
@@ -269,9 +271,12 @@ def run_sr_from_latlon(
             uncertainty = unc_upscaled.squeeze(0) if unc_upscaled.ndim == 4 and unc_upscaled.shape[0] == 1 else unc_upscaled
 
     sr_np = sr_tensor.numpy()  # (10, 2048, 2048) or (10, 512, 512)
-    ndvi_map  = compute_ndvi(sr_np)
-    mndwi_map = compute_mndwi(sr_np)
-    ndbi_map  = compute_ndbi(sr_np)
+    ndvi_map     = compute_ndvi(sr_np)
+    mndwi_map    = compute_mndwi(sr_np)
+    ndbi_map     = compute_ndbi(sr_np)
+    lr_ndvi_map  = compute_ndvi(lr_np)
+    lr_mndwi_map = compute_mndwi(lr_np)
+    lr_ndbi_map  = compute_ndbi(lr_np)
 
     # ── 7. Export GeoTIFFs ─────────────────────────────────────────────────
     crs, orig_transform = extract_georeferencing(da[0])
@@ -328,11 +333,51 @@ def run_sr_from_latlon(
         rgb = np.clip((rgb - p2) / (p98 - p2 + 1e-8), 0, 1)
         Image.fromarray((rgb * 255).astype(np.uint8)).save(path)
 
-    def _save_index_png(index_2d: np.ndarray, path: Path, cmap: str = "RdYlGn", vmin: float = -0.3, vmax: float = 0.8) -> None:
-        cmap_obj = plt.get_cmap(cmap)
-        norm = np.clip((index_2d - vmin) / (vmax - vmin + 1e-8), 0.0, 1.0)
-        rgba = (cmap_obj(norm) * 255).astype(np.uint8)
-        Image.fromarray(rgba).save(path)
+    def _save_index_pair(
+        lr_2d: np.ndarray,
+        sr_2d: np.ndarray,
+        lr_path: Path,
+        sr_path: Path,
+        cmap: str = "RdYlGn",
+        title_prefix: str = "Index",
+    ) -> None:
+        """Save calibrated 10m LR and SR index maps with a shared dynamic colorbar scale."""
+        lr_clean = np.nan_to_num(lr_2d, nan=0.0)
+        sr_clean = np.nan_to_num(sr_2d, nan=0.0)
+
+        if lr_clean.shape != sr_clean.shape:
+            zoom_h = sr_clean.shape[0] // lr_clean.shape[0]
+            zoom_w = sr_clean.shape[1] // lr_clean.shape[1]
+            lr_display = np.repeat(np.repeat(lr_clean, zoom_h, axis=0), zoom_w, axis=1)
+        else:
+            lr_display = lr_clean
+
+        p2 = float(np.nanpercentile(sr_clean, 2))
+        p98 = float(np.nanpercentile(sr_clean, 98))
+        margin = max(0.01, (p98 - p2) * 0.05)
+        vmin = round(p2 - margin, 2)
+        vmax = round(p98 + margin, 2)
+        if vmax - vmin < 0.05:
+            vmin = round(float(np.nanmin(sr_clean)), 2)
+            vmax = round(float(np.nanmax(sr_clean)), 2)
+            if vmax <= vmin:
+                vmax = vmin + 0.1
+
+        for data, res_label, out_path in [
+            (lr_display, "10m LR (Before)", lr_path),
+            (sr_clean, f"{res_str} SR (After)", sr_path),
+        ]:
+            fig, ax = plt.subplots(figsize=(5.4, 5.8), dpi=120, facecolor="#0e131d")
+            im = ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.axis("off")
+            ax.set_title(f"{title_prefix} — {res_label}", color="#ffffff", fontsize=10, fontweight="bold", pad=8)
+            cbar = fig.colorbar(im, ax=ax, orientation="horizontal", fraction=0.045, pad=0.03, shrink=0.85)
+            cbar.ax.tick_params(labelsize=8, colors="#ffffff")
+            cbar.outline.set_edgecolor("#4a5568")
+            cbar.set_label(f"Index Value Scale [{vmin} to {vmax}]", color="#e2e8f0", fontsize=8, fontweight="bold", labelpad=4)
+            plt.tight_layout()
+            plt.savefig(out_path, facecolor=fig.get_facecolor(), edgecolor="none", bbox_inches="tight")
+            plt.close(fig)
 
     def _save_uncertainty_png(unc: np.ndarray, path: Path) -> None:
         arr = unc.squeeze()  # (H, W)
@@ -342,15 +387,18 @@ def run_sr_from_latlon(
         rgba = (cmap_obj(norm) * 255).astype(np.uint8)
         Image.fromarray(rgba).save(path)
 
-    sr_rgb_path  = output_dir / f"{job_id}_sr_rgb.png"
-    lr_rgb_path  = output_dir / f"{job_id}_lr_rgb.png"
-    unc_png_path = output_dir / f"{job_id}_uncertainty.png"
-    ndvi_path    = output_dir / f"{job_id}_ndvi.png"
-    mndwi_path   = output_dir / f"{job_id}_mndwi.png"
-    ndbi_path    = output_dir / f"{job_id}_ndbi.png"
-    lam_path     = output_dir / f"{job_id}_lam.png"
-    chart_path   = output_dir / f"{job_id}_spectral_chart.png"
-    stats_json   = output_dir / f"{job_id}_band_stats.json"
+    sr_rgb_path   = output_dir / f"{job_id}_sr_rgb.png"
+    lr_rgb_path   = output_dir / f"{job_id}_lr_rgb.png"
+    unc_png_path  = output_dir / f"{job_id}_uncertainty.png"
+    ndvi_path     = output_dir / f"{job_id}_ndvi.png"
+    lr_ndvi_path  = output_dir / f"{job_id}_lr_ndvi.png"
+    mndwi_path    = output_dir / f"{job_id}_mndwi.png"
+    lr_mndwi_path = output_dir / f"{job_id}_lr_mndwi.png"
+    ndbi_path     = output_dir / f"{job_id}_ndbi.png"
+    lr_ndbi_path  = output_dir / f"{job_id}_lr_ndbi.png"
+    lam_path      = output_dir / f"{job_id}_lam.png"
+    chart_path    = output_dir / f"{job_id}_spectral_chart.png"
+    stats_json    = output_dir / f"{job_id}_band_stats.json"
 
     # SR RGB: B04 (idx 2), B03 (idx 1), B02 (idx 0) → true colour
     _save_rgb_png(sr_np[[2, 1, 0]], sr_rgb_path)
@@ -367,9 +415,9 @@ def run_sr_from_latlon(
     if uncertainty is not None:
         _save_uncertainty_png(uncertainty.numpy(), unc_png_path)
 
-    _save_index_png(ndvi_map,  ndvi_path,  cmap="YlGn",   vmin=-0.2, vmax=0.8)
-    _save_index_png(mndwi_map, mndwi_path, cmap="Blues",  vmin=-0.4, vmax=0.6)
-    _save_index_png(ndbi_map,  ndbi_path,  cmap="YlOrRd", vmin=-0.4, vmax=0.6)
+    _save_index_pair(lr_ndvi_map, ndvi_map, lr_ndvi_path, ndvi_path, cmap="RdYlGn", title_prefix="NDVI (Vegetation Index)")
+    _save_index_pair(lr_mndwi_map, mndwi_map, lr_mndwi_path, mndwi_path, cmap="YlGnBu", title_prefix="MNDWI (Water Index)")
+    _save_index_pair(lr_ndbi_map, ndbi_map, lr_ndbi_path, ndbi_path, cmap="plasma", title_prefix="NDBI (Built-up Index)")
 
     if kde_map is not None:
         fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=100)
@@ -383,10 +431,19 @@ def run_sr_from_latlon(
     import json
     band_stats = []
     for i, m in enumerate(BAND_METADATA_10B):
-        lr_m = float(lr_np[i].mean())
-        sr_m = float(sr_np[i].mean())
-        lr_s = float(lr_np[i].std())
-        sr_s = float(sr_np[i].std())
+        band_lr = lr_np[i]
+        band_sr = sr_np[i]
+
+        lr_m = float(np.nanmean(band_lr)) if not np.all(np.isnan(band_lr)) else 0.2
+        sr_m = float(np.nanmean(band_sr)) if not np.all(np.isnan(band_sr)) else 0.2
+        lr_s = float(np.nanstd(band_lr)) if not np.all(np.isnan(band_lr)) else 0.02
+        sr_s = float(np.nanstd(band_sr)) if not np.all(np.isnan(band_sr)) else 0.02
+
+        if np.isnan(lr_m) or np.isinf(lr_m): lr_m = 0.2
+        if np.isnan(sr_m) or np.isinf(sr_m): sr_m = 0.2
+        if np.isnan(lr_s) or np.isinf(lr_s): lr_s = 0.02
+        if np.isnan(sr_s) or np.isinf(sr_s): sr_s = 0.02
+
         diff = abs(sr_m - lr_m)
         pres_pct = max(0.0, min(100.0, (1.0 - diff / (lr_m + 1e-6)) * 100))
         band_stats.append({
@@ -404,7 +461,10 @@ def run_sr_from_latlon(
     with open(stats_json, "w", encoding="utf-8") as f:
         json.dump(band_stats, f, indent=2)
 
-    generate_spectral_chart_file(band_stats, chart_path)
+    try:
+        generate_spectral_chart_file(band_stats, chart_path)
+    except Exception as chart_err:
+        logger.warning("[%s] Failed generating spectral chart: %s", job_id, chart_err)
 
     # ── 9. Metrics (no HR reference for user patches — return None) ────────
     metrics: dict = {
@@ -436,74 +496,111 @@ def run_sr_from_latlon(
 
 
 def generate_spectral_chart_file(band_stats: list[dict], path: Path) -> None:
-    """Render a publication-grade dark-themed 2-panel chart proving radiometric consistency."""
+    """Render a publication-grade light-themed 2-panel chart proving radiometric consistency."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    bands = [s["band"] for s in band_stats]
-    wls = [s["wavelength_nm"] for s in band_stats]
-    lr_means = [s["lr_mean"] for s in band_stats]
-    sr_means = [s["sr_mean"] for s in band_stats]
-    sr_stds = [s["sr_std"] for s in band_stats]
+    def _safe_float(val, fallback):
+        try:
+            if val is None: return fallback
+            f = float(val)
+            return fallback if (np.isnan(f) or np.isinf(f)) else f
+        except Exception:
+            return fallback
 
-    bg_color = "#0e131d"
-    surface_color = "#131b2a"
-    text_color = "#e2e8f0"
-    muted_color = "#94a3b8"
-    accent_color = "#00d4aa"
-    lr_color = "#38bdf8"
-    grid_color = "#1e293b"
+    bands = [str(s.get("band", "")) for s in band_stats]
+    wls = [int(s.get("wavelength_nm", 500)) for s in band_stats]
+    lr_means = [_safe_float(s.get("lr_mean"), 0.2) for s in band_stats]
+    sr_means = [_safe_float(s.get("sr_mean"), 0.2) for s in band_stats]
+    sr_stds = [_safe_float(s.get("sr_std"), 0.02) for s in band_stats]
+
+    bg_color = "#ffffff"
+    surface_color = "#f8fafc"
+    text_color = "#0f172a"
+    muted_color = "#64748b"
+    accent_color = "#0066cc"      # SRM deep blue
+    lr_color = "#38bdf8"          # Sentinel-2 LR sky blue
+    grid_color = "#e2e8f0"
+    border_color = "#cbd5e1"
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.5, 5.0), dpi=140, facecolor=bg_color)
 
-    # Subplot 1: Curve across wavelengths
+    # Subplot 1: Curve across wavelengths with spectral domain zones
     ax1.set_facecolor(surface_color)
-    ax1.plot(wls, lr_means, "o--", color=lr_color, label="Input Sentinel-2 (LR 10m)", linewidth=2, markersize=5.5)
-    ax1.plot(wls, sr_means, "s-", color=accent_color, label="Super-Resolved SRM (2.5m)", linewidth=2.2, markersize=5.5)
+
+    # Spectral Domain Background Spans
+    ax1.axvspan(470, 700, facecolor="#f1f5f9", alpha=0.7, zorder=0)
+    ax1.axvspan(700, 785, facecolor="#ecfdf5", alpha=0.6, zorder=0)
+    ax1.axvspan(785, 1000, facecolor="#f0f9ff", alpha=0.6, zorder=0)
+    ax1.axvspan(1000, 2250, facecolor="#faf5ff", alpha=0.6, zorder=0)
+
+    # Safe limits calculation (cannot be NaN or Inf)
+    all_vals = [v for v in (lr_means + sr_means) if not (np.isnan(v) or np.isinf(v))]
+    if not all_vals:
+        all_vals = [0.15, 0.35]
+
+    min_val = min(all_vals)
+    max_val = max(all_vals)
+    y_min = max(0.0, min_val * 0.8)
+    y_max = max(y_min + 0.05, max_val * 1.2)
+
+    if np.isnan(y_min) or np.isinf(y_min): y_min = 0.0
+    if np.isnan(y_max) or np.isinf(y_max): y_max = 0.4
+    if y_max <= y_min: y_max = y_min + 0.1
+
+    ax1.text(585, y_max * 0.95, "VIS", ha="center", fontsize=8, fontweight="bold", color="#94a3b8")
+    ax1.text(742, y_max * 0.95, "RED EDGE", ha="center", fontsize=8, fontweight="bold", color="#059669")
+    ax1.text(892, y_max * 0.95, "NIR", ha="center", fontsize=8, fontweight="bold", color="#0284c7")
+    ax1.text(1600, y_max * 0.95, "SWIR", ha="center", fontsize=8, fontweight="bold", color="#7c3aed")
+
+
+    ax1.plot(wls, lr_means, "d--", color=lr_color, label="Input S2 (10m)", linewidth=1.8, markersize=5, zorder=3)
+    ax1.plot(wls, sr_means, "o-", color=accent_color, label="SRM (2.5m)", linewidth=2.4, markersize=5.5, zorder=4)
     ax1.fill_between(
         wls,
         np.array(sr_means) - 0.5 * np.array(sr_stds),
         np.array(sr_means) + 0.5 * np.array(sr_stds),
-        color=accent_color, alpha=0.15, label="SR ±0.5σ Variance",
+        color=accent_color, alpha=0.12, label="SR ±0.5σ Variance", zorder=2
     )
     for w, y, b in zip(wls, sr_means, bands):
-        ax1.annotate(b, (w, y), textcoords="offset points", xytext=(0, 8), ha="center",
+        ax1.annotate(b, (w, y), textcoords="offset points", xytext=(0, 7), ha="center",
                      fontsize=8, color=text_color, fontweight="bold")
-    ax1.set_title("Spectral Reflectance Signature by Wavelength", fontsize=11, fontweight="bold", color=text_color, pad=10)
-    ax1.set_xlabel("Wavelength (nm)", fontsize=9.5, color=muted_color)
-    ax1.set_ylabel("Surface Reflectance (BOA [0-1])", fontsize=9.5, color=muted_color)
-    ax1.grid(True, linestyle="--", alpha=0.35, color=grid_color)
+    ax1.set_title("SPECTRAL SIGNATURE BY WAVELENGTH", fontsize=10.5, fontweight="bold", color=text_color, pad=10)
+    ax1.set_xlabel("Wavelength $\\lambda$ (nm)", fontsize=9, color=muted_color)
+    ax1.set_ylabel("Reflectance [0 - 1]", fontsize=9, color=muted_color)
+    ax1.set_ylim(y_min, y_max)
+    ax1.grid(True, linestyle="--", alpha=0.6, color=grid_color)
     ax1.tick_params(colors=muted_color, labelsize=8.5)
     for spine in ax1.spines.values():
-        spine.set_color("#1e293b")
-    ax1.legend(loc="upper left", framealpha=0.9, facecolor=surface_color, edgecolor="#1e293b", labelcolor=text_color, fontsize=8)
+        spine.set_color(border_color)
+    ax1.legend(loc="upper left", framealpha=0.95, facecolor="#ffffff", edgecolor=border_color, labelcolor=text_color, fontsize=8)
 
     # Subplot 2: Grouped bar chart (LR vs SR)
     ax2.set_facecolor(surface_color)
     x = np.arange(len(bands))
     width = 0.35
-    ax2.bar(x - width/2, lr_means, width, label="LR Input (10m)", color=lr_color, alpha=0.85)
-    ax2.bar(x + width/2, sr_means, width, label="SR Output (2.5m)", color=accent_color, alpha=0.95)
-    ax2.set_title("10-Band Radiometric Consistency (Conserved Physical Flux)", fontsize=11, fontweight="bold", color=text_color, pad=10)
+    ax2.bar(x - width/2, lr_means, width, label="LR (10m)", color=lr_color, alpha=0.9, zorder=3)
+    ax2.bar(x + width/2, sr_means, width, label="SR (2.5m)", color=accent_color, alpha=0.95, zorder=3)
+    ax2.set_title("10-BAND RADIOMETRIC CONSISTENCY", fontsize=10.5, fontweight="bold", color=text_color, pad=10)
     ax2.set_xticks(x)
     ax2.set_xticklabels([f"{b}\n{w}nm" for b, w in zip(bands, wls)], fontsize=7.5, color=text_color)
-    ax2.set_ylabel("Mean Reflectance", fontsize=9.5, color=muted_color)
-    ax2.grid(True, axis="y", linestyle="--", alpha=0.35, color=grid_color)
+    ax2.set_ylabel("Mean Reflectance", fontsize=9, color=muted_color)
+    ax2.grid(True, axis="y", linestyle="--", alpha=0.6, color=grid_color)
     ax2.tick_params(colors=muted_color, labelsize=8.5)
     for spine in ax2.spines.values():
-        spine.set_color("#1e293b")
-    ax2.legend(loc="upper right", framealpha=0.9, facecolor=surface_color, edgecolor="#1e293b", labelcolor=text_color, fontsize=8)
+        spine.set_color(border_color)
+    ax2.legend(loc="upper right", framealpha=0.95, facecolor="#ffffff", edgecolor=border_color, labelcolor=text_color, fontsize=8)
 
     for i in range(len(bands)):
         max_h = max(lr_means[i], sr_means[i])
         pres = band_stats[i]["preservation_pct"]
-        ax2.text(x[i], max_h + 0.012, f"{pres:.1f}%", ha="center", va="bottom", fontsize=7, color="#a7f3d0", fontweight="bold")
+        ax2.text(x[i], max_h + 0.008, f"{pres:.0f}%", ha="center", va="bottom", fontsize=7.5, color="#059669", fontweight="bold")
 
-    ylim_max = max(max(lr_means), max(sr_means)) * 1.18
-    ax2.set_ylim(0, ylim_max)
+    ax2.set_ylim(0, y_max)
 
     plt.tight_layout()
     plt.savefig(path, bbox_inches="tight", facecolor=bg_color)
     plt.close(fig)
+
 

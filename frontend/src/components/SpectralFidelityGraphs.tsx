@@ -1,15 +1,10 @@
 "use client";
 
-import { useState, useId } from "react";
+import { useState, useId, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
   ShieldCheck,
-  CheckCircle2,
-  TrendingUp,
-  Info,
-  Maximize2,
-  Sparkles,
   BarChart2,
   LineChart,
   Layers,
@@ -19,52 +14,76 @@ import type { BandPreservationStat } from "@/types";
 interface SpectralFidelityGraphsProps {
   bandStats?: BandPreservationStat[] | null;
   meanPreservation?: string | null;
+  srResolutionM?: number;
+  outputSizePx?: number;
   scaleFactor?: number;
 }
 
-// Default benchmark Sentinel-2 band telemetry if backend hasn't generated them
-const DEFAULT_BAND_STATS: BandPreservationStat[] = [
-  { band: "B02", name: "Blue", wavelength_nm: 492, lr_mean: 0.2078, sr_mean: 0.2078, lr_std: 0.024, sr_std: 0.024, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B03", name: "Green", wavelength_nm: 560, lr_mean: 0.2333, sr_mean: 0.2333, lr_std: 0.027, sr_std: 0.027, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B04", name: "Red", wavelength_nm: 665, lr_mean: 0.2635, sr_mean: 0.2635, lr_std: 0.031, sr_std: 0.031, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B05", name: "Red Edge 1", wavelength_nm: 704, lr_mean: 0.2801, sr_mean: 0.2801, lr_std: 0.033, sr_std: 0.033, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B06", name: "Red Edge 2", wavelength_nm: 740, lr_mean: 0.2828, sr_mean: 0.2828, lr_std: 0.034, sr_std: 0.034, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B07", name: "Red Edge 3", wavelength_nm: 783, lr_mean: 0.2892, sr_mean: 0.2892, lr_std: 0.035, sr_std: 0.035, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B08", name: "NIR", wavelength_nm: 842, lr_mean: 0.2920, sr_mean: 0.2920, lr_std: 0.036, sr_std: 0.036, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B8A", name: "Narrow NIR", wavelength_nm: 865, lr_mean: 0.2920, sr_mean: 0.2920, lr_std: 0.036, sr_std: 0.036, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B11", name: "SWIR 1", wavelength_nm: 1610, lr_mean: 0.3197, sr_mean: 0.3197, lr_std: 0.039, sr_std: 0.039, abs_diff: 0.0000, preservation_pct: 100.0 },
-  { band: "B12", name: "SWIR 2", wavelength_nm: 2190, lr_mean: 0.2973, sr_mean: 0.2973, lr_std: 0.037, sr_std: 0.037, abs_diff: 0.0000, preservation_pct: 100.0 },
-];
-
 export default function SpectralFidelityGraphs({
   bandStats,
-  meanPreservation = "100.0",
+  meanPreservation,
+  srResolutionM: propResolutionM,
+  outputSizePx: propOutputSizePx,
   scaleFactor = 4,
 }: SpectralFidelityGraphsProps) {
-  const stats = bandStats && bandStats.length > 0 ? bandStats : DEFAULT_BAND_STATS;
+  const srResolutionM = propResolutionM ?? (scaleFactor === 8 ? 0.625 : 2.5);
+  const outputSizePx = propOutputSizePx ?? (scaleFactor === 8 ? 2048 : 512);
   const [hoveredBand, setHoveredBand] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"dual" | "curve" | "bars">("dual");
 
   const gradientId = useId();
   const glowFilterId = useId();
 
-  // Determine bounds for charts
-  const maxReflectance = Math.max(0.38, ...stats.map((s) => Math.max(s.lr_mean, s.sr_mean) * 1.15));
-  const minReflectance = 0.15;
+  // If bandStats is not provided or empty
+  const hasStats = Boolean(bandStats && bandStats.length > 0);
+  const stats = useMemo(() => (hasStats ? (bandStats as BandPreservationStat[]) : []), [hasStats, bandStats]);
 
-  // Chart coordinates mapping (SVG dimensions: 540 x 300)
-  const curveW = 520;
-  const curveH = 260;
+  // Compute mean preservation dynamically if not provided
+  const computedMeanPreservation = useMemo(() => {
+    if (meanPreservation) return meanPreservation;
+    if (stats.length === 0) return "100.0";
+    const sum = stats.reduce((acc, s) => acc + s.preservation_pct, 0);
+    return (sum / stats.length).toFixed(1);
+  }, [meanPreservation, stats]);
+
+  // Dynamically compute bounds strictly from the real band data (not hardcoded)
+  const { minReflectance, maxReflectance, yTicks } = useMemo(() => {
+    if (stats.length === 0) {
+      return { minReflectance: 0.15, maxReflectance: 0.35, yTicks: [0.15, 0.2, 0.25, 0.3, 0.35] };
+    }
+    const allMeans = stats.flatMap((s) => [s.lr_mean, s.sr_mean]);
+    const rawMin = Math.min(...allMeans);
+    const rawMax = Math.max(...allMeans);
+    const span = Math.max(0.04, rawMax - rawMin);
+    const pad = span * 0.18;
+
+    const minR = Math.max(0.0, Math.floor((rawMin - pad) * 20) / 20);
+    const maxR = Math.min(1.0, Math.ceil((rawMax + pad) * 20) / 20);
+    const step = (maxR - minR) / 4;
+
+    const ticks = [
+      minR,
+      minR + step,
+      minR + step * 2,
+      minR + step * 3,
+      maxR,
+    ];
+
+    return { minReflectance: minR, maxReflectance: maxR, yTicks: ticks };
+  }, [stats]);
+
+  // SVG Chart dimensions (540 x 270)
+  const curveW = 540;
+  const curveH = 270;
   const padL = 48;
   const padR = 24;
   const padT = 24;
-  const padB = 42;
+  const padB = 40;
 
   const innerW = curveW - padL - padR;
   const innerH = curveH - padT - padB;
 
   // Non-linear perceptual X-spacing so dense bands (492-865nm) have breathing room
-  // We allocate 65% width to VIS/NIR (492-865) and 35% to SWIR (1610-2190)
   const getX = (wl: number) => {
     if (wl <= 865) {
       const t = (wl - 492) / (865 - 492);
@@ -77,21 +96,24 @@ export default function SpectralFidelityGraphs({
 
   const getY = (val: number) => {
     const clamped = Math.max(minReflectance, Math.min(maxReflectance, val));
-    const t = (clamped - minReflectance) / (maxReflectance - minReflectance);
+    const range = Math.max(0.001, maxReflectance - minReflectance);
+    const t = (clamped - minReflectance) / range;
     return padT + (1 - t) * innerH;
   };
 
-  // Generate SVG path for curve
-  const points = stats.map((s) => ({
-    x: getX(s.wavelength_nm),
-    yLr: getY(s.lr_mean),
-    ySr: getY(s.sr_mean),
-    yUpper: getY(s.sr_mean + (s.sr_std ?? 0.025)),
-    yLower: getY(s.sr_mean - (s.sr_std ?? 0.025)),
-    stat: s,
-  }));
+  // Generate SVG path for smooth bezier curve
+  const points = useMemo(() => {
+    return stats.map((s) => ({
+      x: getX(s.wavelength_nm),
+      yLr: getY(s.lr_mean),
+      ySr: getY(s.sr_mean),
+      yUpper: getY(s.sr_mean + (s.sr_std ?? 0.02)),
+      yLower: getY(s.sr_mean - (s.sr_std ?? 0.02)),
+      stat: s,
+    }));
+  }, [stats, minReflectance, maxReflectance]);
 
-  const buildPath = (pts: { x: number; y: number }[]) => {
+  const buildSmoothPath = (pts: { x: number; y: number }[]) => {
     if (pts.length === 0) return "";
     let d = `M ${pts[0].x} ${pts[0].y}`;
     for (let i = 0; i < pts.length - 1; i++) {
@@ -103,20 +125,41 @@ export default function SpectralFidelityGraphs({
     return d;
   };
 
-  const srPath = buildPath(points.map((p) => ({ x: p.x, y: p.ySr })));
-  const lrPath = buildPath(points.map((p) => ({ x: p.x, y: p.yLr })));
+  const srPath = useMemo(() => buildSmoothPath(points.map((p) => ({ x: p.x, y: p.ySr }))), [points]);
+  const lrPath = useMemo(() => buildSmoothPath(points.map((p) => ({ x: p.x, y: p.yLr }))), [points]);
 
-  // Upper & Lower envelope for confidence area
-  const envelopePath =
-    buildPath(points.map((p) => ({ x: p.x, y: p.yUpper }))) +
-    ` L ${points[points.length - 1].x} ${points[points.length - 1].yLower} ` +
-    buildPath([...points].reverse().map((p) => ({ x: p.x, y: p.yLower }))).replace("M", "L") +
-    " Z";
-
-  // Y-axis tick marks
-  const yTicks = [0.15, 0.20, 0.25, 0.30, 0.35];
+  // Confidence envelope area between upper and lower variance bounds
+  const envelopePath = useMemo(() => {
+    if (points.length === 0) return "";
+    return (
+      buildSmoothPath(points.map((p) => ({ x: p.x, y: p.yUpper }))) +
+      ` L ${points[points.length - 1].x} ${points[points.length - 1].yLower} ` +
+      buildSmoothPath([...points].reverse().map((p) => ({ x: p.x, y: p.yLower }))).replace("M", "L") +
+      " Z"
+    );
+  }, [points]);
 
   const activeHoverStat = stats.find((s) => s.band === hoveredBand);
+
+  if (!hasStats || stats.length === 0) {
+    return (
+      <section className="rounded-2xl p-6 glass-card bg-white/90 space-y-4 shadow-xs border border-[#dde3ed]">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-[#0066cc]/10 text-[#0066cc]">
+            <Activity size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-[#1a1f2e]">
+              Spectral Band Value Preservation & Radiometric Fidelity
+            </h2>
+            <p className="text-xs text-[#6b7a99]">
+              Radiometric flux telemetry is analyzing input and super-resolved bands...
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-2xl p-5 sm:p-7 glass-card bg-white/90 space-y-5 shadow-xs border border-[#dde3ed]">
@@ -132,12 +175,12 @@ export default function SpectralFidelityGraphs({
                 Spectral Band Value Preservation & Radiometric Fidelity
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25">
-                ✓ 100% Invariant
+                ✓ {computedMeanPreservation}% Invariant
               </span>
             </div>
             <p className="text-xs text-[#6b7a99] mt-0.5">
               Proves physical surface reflectance (BOA) conservation from 10m Sentinel-2 input to{" "}
-              {scaleFactor === 8 ? "0.625m (2048×2048px)" : "2.5m (512×512px)"} super-resolved output across all 10 bands.
+              {srResolutionM}m ({outputSizePx}×{outputSizePx}px) super-resolved output across all 10 bands.
             </p>
           </div>
         </div>
@@ -187,7 +230,7 @@ export default function SpectralFidelityGraphs({
         </div>
       </div>
 
-      {/* ── Proper Vector Interactive Graphs ── */}
+      {/* ── Vector Dynamic Interactive Graphs ── */}
       <div
         className={`grid gap-5 ${
           viewMode === "dual"
@@ -218,13 +261,13 @@ export default function SpectralFidelityGraphs({
                 </span>
                 <span className="flex items-center gap-1.5 text-[#0066cc] font-bold">
                   <span className="w-3 h-1 bg-[#0066cc] rounded-full inline-block" />
-                  <span>SRM ({scaleFactor === 8 ? "0.625m" : "2.5m"})</span>
+                  <span>SRM ({srResolutionM}m)</span>
                 </span>
               </div>
             </div>
 
             {/* SVG Chart Viewport */}
-            <div className="relative w-full aspect-[2/1] sm:aspect-[2.2/1] min-h-[220px]">
+            <div className="relative w-full aspect-[2/1] sm:aspect-[2.2/1] min-h-[230px]">
               <svg
                 viewBox={`0 0 ${curveW} ${curveH}`}
                 className="w-full h-full overflow-visible select-none"
@@ -236,17 +279,17 @@ export default function SpectralFidelityGraphs({
                     <stop offset="100%" stopColor="#0066cc" stopOpacity="0.01" />
                   </linearGradient>
 
-                  {/* Soft Glow */}
+                  {/* Soft Glow for SR line */}
                   <filter id={glowFilterId} x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0066cc" floodOpacity="0.35" />
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#0066cc" floodOpacity="0.3" />
                   </filter>
                 </defs>
 
                 {/* Spectral Domain Background Bands */}
                 <rect x={getX(490)} y={padT} width={getX(700) - getX(490)} height={innerH} fill="#f1f5f9" opacity="0.6" />
-                <rect x={getX(700)} y={padT} width={getX(785) - getX(700)} height={innerH} fill="#ecfdf5" opacity="0.4" />
+                <rect x={getX(700)} y={padT} width={getX(785) - getX(700)} height={innerH} fill="#ecfdf5" opacity="0.5" />
                 <rect x={getX(785)} y={padT} width={getX(1000) - getX(785)} height={innerH} fill="#f0f9ff" opacity="0.5" />
-                <rect x={getX(1000)} y={padT} width={getX(2190) - getX(1000)} height={innerH} fill="#faf5ff" opacity="0.4" />
+                <rect x={getX(1000)} y={padT} width={getX(2190) - getX(1000)} height={innerH} fill="#faf5ff" opacity="0.5" />
 
                 {/* Spectral Region Domain Labels */}
                 <text x={(getX(490) + getX(700)) / 2} y={padT + 12} textAnchor="middle" fill="#94a3b8" fontSize="9" fontWeight="700" letterSpacing="0.08em">VIS</text>
@@ -254,7 +297,7 @@ export default function SpectralFidelityGraphs({
                 <text x={(getX(785) + getX(1000)) / 2} y={padT + 12} textAnchor="middle" fill="#0284c7" fontSize="9" fontWeight="700" letterSpacing="0.08em">NIR</text>
                 <text x={(getX(1000) + getX(2190)) / 2} y={padT + 12} textAnchor="middle" fill="#8b5cf6" fontSize="9" fontWeight="700" letterSpacing="0.08em">SWIR</text>
 
-                {/* Horizontal Gridlines & Y-Axis Labels */}
+                {/* Horizontal Gridlines & Dynamic Y-Axis Labels */}
                 {yTicks.map((val) => {
                   const y = getY(val);
                   return (
@@ -280,11 +323,11 @@ export default function SpectralFidelityGraphs({
                   Reflectance [0 - 1]
                 </text>
 
-                {/* Confidence Envelope Area */}
+                {/* Dynamic Confidence Envelope Area */}
                 <path d={envelopePath} fill={`url(#${gradientId})`} />
 
                 {/* Baseline LR Curve (dashed line) */}
-                <path d={lrPath} fill="none" stroke="#0284c7" strokeWidth="2" strokeDasharray="4 3" opacity="0.8" />
+                <path d={lrPath} fill="none" stroke="#0284c7" strokeWidth="2" strokeDasharray="4 3" opacity="0.85" />
 
                 {/* Super-Resolved Curve (smooth solid with glow) */}
                 <path d={srPath} fill="none" stroke="#0066cc" strokeWidth="2.75" filter={`url(#${glowFilterId})`} />
@@ -335,7 +378,7 @@ export default function SpectralFidelityGraphs({
                         className="transition-all duration-200"
                       />
 
-                      {/* Band Tag */}
+                      {/* Band Tag above point */}
                       <text
                         x={p.x}
                         y={p.ySr - 9}
@@ -365,7 +408,7 @@ export default function SpectralFidelityGraphs({
                 })}
 
                 {/* X-axis title */}
-                <text x={padL + innerW / 2} y={curveH - 0} textAnchor="middle" fill="#64748b" fontSize="9.5" fontWeight="600">
+                <text x={padL + innerW / 2} y={curveH} textAnchor="middle" fill="#64748b" fontSize="9.5" fontWeight="600">
                   Wavelength λ (nm)
                 </text>
               </svg>
@@ -394,7 +437,7 @@ export default function SpectralFidelityGraphs({
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">SR Output ({scaleFactor === 8 ? "0.625m" : "2.5m"}):</span>
+                      <span className="text-slate-500">SR Output ({srResolutionM}m):</span>
                       <span className="font-mono font-bold text-[#0066cc]">
                         {activeHoverStat.sr_mean.toFixed(4)}
                       </span>
@@ -412,7 +455,7 @@ export default function SpectralFidelityGraphs({
           </div>
         )}
 
-        {/* GRAPH 2: 10-Band Conserved Radiometric Flux (Interactive Bars) */}
+        {/* GRAPH 2: 10-Band Conserved Radiometric Flux (Interactive Dynamic Bars) */}
         {(viewMode === "dual" || viewMode === "bars") && (
           <div className="flex flex-col rounded-2xl p-4 sm:p-5 bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9]/70 border border-[#e2e8f0] shadow-xs relative overflow-hidden group">
             {/* Header / Legend */}
@@ -435,16 +478,16 @@ export default function SpectralFidelityGraphs({
                 </span>
                 <span className="flex items-center gap-1.5 text-[#0066cc] font-bold">
                   <span className="w-2.5 h-2.5 rounded-xs bg-[#0066cc] inline-block" />
-                  <span>SR ({scaleFactor === 8 ? "0.625m" : "2.5m"})</span>
+                  <span>SR ({srResolutionM}m)</span>
                 </span>
               </div>
             </div>
 
             {/* Bars Layout */}
-            <div className="relative w-full aspect-[2/1] sm:aspect-[2.2/1] min-h-[220px] flex flex-col justify-end pb-7 pt-5 px-2">
-              {/* Background Reference Lines */}
+            <div className="relative w-full aspect-[2/1] sm:aspect-[2.2/1] min-h-[230px] flex flex-col justify-end pb-7 pt-5 px-2">
+              {/* Dynamic Background Reference Lines */}
               <div className="absolute inset-x-0 bottom-7 top-5 flex flex-col justify-between pointer-events-none border-b border-slate-300">
-                {[0.35, 0.25, 0.15].map((level) => (
+                {yTicks.slice(1, -1).reverse().map((level) => (
                   <div key={level} className="w-full flex items-center gap-2 border-t border-slate-200/80">
                     <span className="text-[9px] font-mono text-slate-400 pl-1">{level.toFixed(2)}</span>
                   </div>
@@ -455,8 +498,9 @@ export default function SpectralFidelityGraphs({
               <div className="relative z-10 w-full h-full flex items-end justify-between gap-1 sm:gap-2">
                 {stats.map((s) => {
                   const isHovered = hoveredBand === s.band;
-                  const barH_lr = Math.min(100, Math.max(15, (s.lr_mean / maxReflectance) * 100));
-                  const barH_sr = Math.min(100, Math.max(15, (s.sr_mean / maxReflectance) * 100));
+                  const range = Math.max(0.01, maxReflectance - minReflectance);
+                  const barH_lr = Math.min(100, Math.max(12, ((s.lr_mean - minReflectance) / range) * 100));
+                  const barH_sr = Math.min(100, Math.max(12, ((s.sr_mean - minReflectance) / range) * 100));
 
                   return (
                     <div
@@ -504,7 +548,7 @@ export default function SpectralFidelityGraphs({
                           {s.band}
                         </span>
                         <span className="text-[8.5px] font-mono text-slate-400 hidden sm:inline">
-                          {s.wavelength_nm}m
+                          {s.wavelength_nm}
                         </span>
                       </div>
                     </div>
@@ -516,7 +560,6 @@ export default function SpectralFidelityGraphs({
         )}
       </div>
 
-      {/* ── Per-Band Reflectance Metrics Cards Strip ── */}
       {/* ── Per-Band Reflectance Metrics Ribbon ── */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-[#64748b]">

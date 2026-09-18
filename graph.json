@@ -2,21 +2,21 @@
   "version": "1.0.0",
   "project": "Sentinel-2 Dual-Path Super-Resolution Mapping (SRM)",
   "summary": {
-    "total_nodes": 861,
-    "total_edges": 1512,
+    "total_nodes": 889,
+    "total_edges": 1583,
     "node_types": {
-      "file_python": 60,
+      "file_python": 61,
       "package": 118,
       "imported_symbol": 172,
       "class": 90,
-      "function": 272,
-      "file_frontend": 16,
-      "ts_symbol": 73,
-      "component": 19,
+      "function": 275,
+      "file_frontend": 19,
+      "ts_symbol": 88,
+      "component": 22,
       "constant": 19,
-      "module": 12,
-      "type": 2,
-      "interface": 8
+      "module": 14,
+      "interface": 9,
+      "type": 2
     }
   },
   "nodes": [
@@ -1220,6 +1220,85 @@
       "file": "frontend/src/app/results/[jobId]/page.tsx"
     },
     {
+      "id": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "type": "file_frontend",
+      "label": "BeforeAfterSlider.tsx",
+      "file": "frontend/src/components/BeforeAfterSlider.tsx",
+      "category": "frontend"
+    },
+    {
+      "id": "import:next/image",
+      "type": "package",
+      "label": "next/image",
+      "file": ""
+    },
+    {
+      "id": "symbol:next/image.Image",
+      "type": "ts_symbol",
+      "label": "Image",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.SlidersHorizontal",
+      "type": "ts_symbol",
+      "label": "SlidersHorizontal",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Play",
+      "type": "ts_symbol",
+      "label": "Play",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Pause",
+      "type": "ts_symbol",
+      "label": "Pause",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.ArrowLeftRight",
+      "type": "ts_symbol",
+      "label": "ArrowLeftRight",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Maximize2",
+      "type": "ts_symbol",
+      "label": "Maximize2",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.CheckCircle2",
+      "type": "ts_symbol",
+      "label": "CheckCircle2",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Eye",
+      "type": "ts_symbol",
+      "label": "Eye",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.RotateCcw",
+      "type": "ts_symbol",
+      "label": "RotateCcw",
+      "file": ""
+    },
+    {
+      "id": "symbol:@/utils/api.staticUrl",
+      "type": "ts_symbol",
+      "label": "staticUrl",
+      "file": ""
+    },
+    {
+      "id": "component:frontend/src/components/BeforeAfterSlider.tsx:BeforeAfterSlider",
+      "type": "component",
+      "label": "BeforeAfterSlider",
+      "file": "frontend/src/components/BeforeAfterSlider.tsx"
+    },
+    {
       "id": "file:frontend/src/components/Card3D.tsx",
       "type": "file_frontend",
       "label": "Card3D.tsx",
@@ -1355,6 +1434,61 @@
       "file": "frontend/src/components/GlobalIcons.tsx"
     },
     {
+      "id": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "type": "file_frontend",
+      "label": "ImageMaximizeModal.tsx",
+      "file": "frontend/src/components/ImageMaximizeModal.tsx",
+      "category": "frontend"
+    },
+    {
+      "id": "symbol:react.useRef",
+      "type": "ts_symbol",
+      "label": "useRef",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.X",
+      "type": "ts_symbol",
+      "label": "X",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.ZoomIn",
+      "type": "ts_symbol",
+      "label": "ZoomIn",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.ZoomOut",
+      "type": "ts_symbol",
+      "label": "ZoomOut",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Download",
+      "type": "ts_symbol",
+      "label": "Download",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Grid",
+      "type": "ts_symbol",
+      "label": "Grid",
+      "file": ""
+    },
+    {
+      "id": "type:frontend/src/components/ImageMaximizeModal.tsx:MaximizeImageData",
+      "type": "interface",
+      "label": "MaximizeImageData",
+      "file": "frontend/src/components/ImageMaximizeModal.tsx"
+    },
+    {
+      "id": "component:frontend/src/components/ImageMaximizeModal.tsx:ImageMaximizeModal",
+      "type": "component",
+      "label": "ImageMaximizeModal",
+      "file": "frontend/src/components/ImageMaximizeModal.tsx"
+    },
+    {
       "id": "file:frontend/src/components/JobStatusBadge.tsx",
       "type": "file_frontend",
       "label": "JobStatusBadge.tsx",
@@ -1386,12 +1520,6 @@
       "label": "MapPicker.tsx",
       "file": "frontend/src/components/MapPicker.tsx",
       "category": "frontend"
-    },
-    {
-      "id": "symbol:react.useRef",
-      "type": "ts_symbol",
-      "label": "useRef",
-      "file": ""
     },
     {
       "id": "import:react-leaflet",
@@ -1449,30 +1577,6 @@
       "category": "frontend"
     },
     {
-      "id": "import:next/image",
-      "type": "package",
-      "label": "next/image",
-      "file": ""
-    },
-    {
-      "id": "symbol:next/image.Image",
-      "type": "ts_symbol",
-      "label": "Image",
-      "file": ""
-    },
-    {
-      "id": "symbol:lucide-react.Download",
-      "type": "ts_symbol",
-      "label": "Download",
-      "file": ""
-    },
-    {
-      "id": "symbol:lucide-react.BarChart2",
-      "type": "ts_symbol",
-      "label": "BarChart2",
-      "file": ""
-    },
-    {
       "id": "symbol:lucide-react.Map",
       "type": "ts_symbol",
       "label": "Map",
@@ -1497,21 +1601,15 @@
       "file": ""
     },
     {
-      "id": "symbol:lucide-react.TrendingUp",
-      "type": "ts_symbol",
-      "label": "TrendingUp",
-      "file": ""
-    },
-    {
-      "id": "symbol:lucide-react.CheckCircle2",
-      "type": "ts_symbol",
-      "label": "CheckCircle2",
-      "file": ""
-    },
-    {
       "id": "symbol:lucide-react.ExternalLink",
       "type": "ts_symbol",
       "label": "ExternalLink",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.Sliders",
+      "type": "ts_symbol",
+      "label": "Sliders",
       "file": ""
     },
     {
@@ -1539,6 +1637,30 @@
       "file": ""
     },
     {
+      "id": "import:./BeforeAfterSlider",
+      "type": "module",
+      "label": "./BeforeAfterSlider",
+      "file": ""
+    },
+    {
+      "id": "symbol:./BeforeAfterSlider.BeforeAfterSlider",
+      "type": "ts_symbol",
+      "label": "BeforeAfterSlider",
+      "file": ""
+    },
+    {
+      "id": "import:./SpectralFidelityGraphs",
+      "type": "module",
+      "label": "./SpectralFidelityGraphs",
+      "file": ""
+    },
+    {
+      "id": "symbol:./SpectralFidelityGraphs.SpectralFidelityGraphs",
+      "type": "ts_symbol",
+      "label": "SpectralFidelityGraphs",
+      "file": ""
+    },
+    {
       "id": "symbol:./GlobalIcons.SpectralPrismIcon",
       "type": "ts_symbol",
       "label": "SpectralPrismIcon",
@@ -1557,12 +1679,6 @@
       "file": ""
     },
     {
-      "id": "symbol:@/utils/api.staticUrl",
-      "type": "ts_symbol",
-      "label": "staticUrl",
-      "file": ""
-    },
-    {
       "id": "component:frontend/src/components/ResultsPanel.tsx:ResultsPanel",
       "type": "component",
       "label": "ResultsPanel",
@@ -1576,16 +1692,47 @@
       "category": "frontend"
     },
     {
-      "id": "symbol:lucide-react.X",
-      "type": "ts_symbol",
-      "label": "X",
-      "file": ""
-    },
-    {
       "id": "component:frontend/src/components/ScansArchiveDrawer.tsx:ScansArchiveDrawer",
       "type": "component",
       "label": "ScansArchiveDrawer",
       "file": "frontend/src/components/ScansArchiveDrawer.tsx"
+    },
+    {
+      "id": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "type": "file_frontend",
+      "label": "SpectralFidelityGraphs.tsx",
+      "file": "frontend/src/components/SpectralFidelityGraphs.tsx",
+      "category": "frontend"
+    },
+    {
+      "id": "symbol:react.useId",
+      "type": "ts_symbol",
+      "label": "useId",
+      "file": ""
+    },
+    {
+      "id": "symbol:react.useMemo",
+      "type": "ts_symbol",
+      "label": "useMemo",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.BarChart2",
+      "type": "ts_symbol",
+      "label": "BarChart2",
+      "file": ""
+    },
+    {
+      "id": "symbol:lucide-react.LineChart",
+      "type": "ts_symbol",
+      "label": "LineChart",
+      "file": ""
+    },
+    {
+      "id": "component:frontend/src/components/SpectralFidelityGraphs.tsx:SpectralFidelityGraphs",
+      "type": "component",
+      "label": "SpectralFidelityGraphs",
+      "file": "frontend/src/components/SpectralFidelityGraphs.tsx"
     },
     {
       "id": "file:frontend/src/lib/constants.ts",
@@ -2017,6 +2164,56 @@
       "doc": ""
     },
     {
+      "id": "file:scratch/regenerate_indices.py",
+      "type": "file_python",
+      "label": "regenerate_indices.py",
+      "file": "scratch/regenerate_indices.py",
+      "category": "root"
+    },
+    {
+      "id": "import:matplotlib",
+      "type": "package",
+      "label": "matplotlib",
+      "file": ""
+    },
+    {
+      "id": "import:PIL",
+      "type": "package",
+      "label": "PIL",
+      "file": ""
+    },
+    {
+      "id": "symbol:PIL.Image",
+      "type": "imported_symbol",
+      "label": "Image",
+      "file": ""
+    },
+    {
+      "id": "func:scratch/regenerate_indices.py:_save_index_pair",
+      "type": "function",
+      "label": "_save_index_pair",
+      "file": "scratch/regenerate_indices.py",
+      "args": [
+        "lr_2d",
+        "sr_2d",
+        "lr_path",
+        "sr_path",
+        "cmap",
+        "title_prefix"
+      ],
+      "is_async": false,
+      "doc": ""
+    },
+    {
+      "id": "func:scratch/regenerate_indices.py:main",
+      "type": "function",
+      "label": "main",
+      "file": "scratch/regenerate_indices.py",
+      "args": [],
+      "is_async": false,
+      "doc": ""
+    },
+    {
       "id": "file:scripts/run_env_check.py",
       "type": "file_python",
       "label": "run_env_check.py",
@@ -2370,7 +2567,7 @@
         "path"
       ],
       "is_async": false,
-      "doc": "Render a publication-grade dark-themed 2-panel chart proving radiometric consistency."
+      "doc": "Render a publication-grade light-themed 2-panel chart proving radiometric consistency."
     },
     {
       "id": "symbol:srm.preprocessing.preprocess",
@@ -2403,24 +2600,6 @@
       "file": ""
     },
     {
-      "id": "import:matplotlib",
-      "type": "package",
-      "label": "matplotlib",
-      "file": ""
-    },
-    {
-      "id": "import:PIL",
-      "type": "package",
-      "label": "PIL",
-      "file": ""
-    },
-    {
-      "id": "symbol:PIL.Image",
-      "type": "imported_symbol",
-      "label": "Image",
-      "file": ""
-    },
-    {
       "id": "import:torch.nn.functional",
       "type": "package",
       "label": "torch.nn.functional",
@@ -2440,17 +2619,20 @@
       "doc": "Save a 3-band (C, H, W) float32 array as a display-ready PNG."
     },
     {
-      "id": "func:srm/flexible_input.py:_save_index_png",
+      "id": "func:srm/flexible_input.py:_save_index_pair",
       "type": "function",
-      "label": "_save_index_png",
+      "label": "_save_index_pair",
       "file": "srm/flexible_input.py",
       "args": [
-        "index_2d",
-        "path",
-        "cmap"
+        "lr_2d",
+        "sr_2d",
+        "lr_path",
+        "sr_path",
+        "cmap",
+        "title_prefix"
       ],
       "is_async": false,
-      "doc": ""
+      "doc": "Save calibrated 10m LR and 2.5m SR index maps with a shared dynamic colorbar scale."
     },
     {
       "id": "func:srm/flexible_input.py:_save_uncertainty_png",
@@ -2460,6 +2642,18 @@
       "args": [
         "unc",
         "path"
+      ],
+      "is_async": false,
+      "doc": ""
+    },
+    {
+      "id": "func:srm/flexible_input.py:_safe_float",
+      "type": "function",
+      "label": "_safe_float",
+      "file": "srm/flexible_input.py",
+      "args": [
+        "val",
+        "fallback"
       ],
       "is_async": false,
       "doc": ""
@@ -3145,7 +3339,7 @@
       "file": "srm_api/db.py",
       "args": [],
       "is_async": false,
-      "doc": "Update legacy 'Scan (22.24...)' names in SQLite with real area names."
+      "doc": "Update legacy 'Scan (22.24...)' or non-English/Arabic names in SQLite with clean English names."
     },
     {
       "id": "func:srm_api/db.py:backfill_from_outputs",
@@ -8422,6 +8616,96 @@
       "relationship": "defines_component"
     },
     {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:next/image",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:next/image.Image",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:framer-motion",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:framer-motion.motion",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:lucide-react",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.SlidersHorizontal",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Play",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Pause",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.ArrowLeftRight",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Maximize2",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Sparkles",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Layers",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.CheckCircle2",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.Eye",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:lucide-react.RotateCcw",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "import:@/utils/api",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "symbol:@/utils/api.staticUrl",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/BeforeAfterSlider.tsx",
+      "target": "component:frontend/src/components/BeforeAfterSlider.tsx:BeforeAfterSlider",
+      "relationship": "defines_component"
+    },
+    {
       "source": "file:frontend/src/components/Card3D.tsx",
       "target": "import:react",
       "relationship": "imports"
@@ -8544,6 +8828,111 @@
     {
       "source": "file:frontend/src/components/GlobalIcons.tsx",
       "target": "component:frontend/src/components/GlobalIcons.tsx:AgricultureLeafIcon",
+      "relationship": "defines_component"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "import:react",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:react.useState",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:react.useEffect",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:react.useRef",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:react.useCallback",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "import:framer-motion",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:framer-motion.motion",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:framer-motion.AnimatePresence",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "import:lucide-react",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.X",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.ZoomIn",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.ZoomOut",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.RotateCcw",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.Download",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.Grid",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.Sparkles",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:lucide-react.Maximize2",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "import:@/utils/api",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "symbol:@/utils/api.staticUrl",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "type:frontend/src/components/ImageMaximizeModal.tsx:MaximizeImageData",
+      "relationship": "defines_interface"
+    },
+    {
+      "source": "file:frontend/src/components/ImageMaximizeModal.tsx",
+      "target": "component:frontend/src/components/ImageMaximizeModal.tsx:ImageMaximizeModal",
       "relationship": "defines_component"
     },
     {
@@ -8713,11 +9102,6 @@
     },
     {
       "source": "file:frontend/src/components/ResultsPanel.tsx",
-      "target": "symbol:lucide-react.BarChart2",
-      "relationship": "imports_symbol"
-    },
-    {
-      "source": "file:frontend/src/components/ResultsPanel.tsx",
       "target": "symbol:lucide-react.Map",
       "relationship": "imports_symbol"
     },
@@ -8748,27 +9132,17 @@
     },
     {
       "source": "file:frontend/src/components/ResultsPanel.tsx",
-      "target": "symbol:lucide-react.Activity",
-      "relationship": "imports_symbol"
-    },
-    {
-      "source": "file:frontend/src/components/ResultsPanel.tsx",
-      "target": "symbol:lucide-react.TrendingUp",
-      "relationship": "imports_symbol"
-    },
-    {
-      "source": "file:frontend/src/components/ResultsPanel.tsx",
-      "target": "symbol:lucide-react.CheckCircle2",
-      "relationship": "imports_symbol"
-    },
-    {
-      "source": "file:frontend/src/components/ResultsPanel.tsx",
-      "target": "symbol:lucide-react.ShieldCheck",
-      "relationship": "imports_symbol"
-    },
-    {
-      "source": "file:frontend/src/components/ResultsPanel.tsx",
       "target": "symbol:lucide-react.ExternalLink",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "symbol:lucide-react.Maximize2",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "symbol:lucide-react.Sliders",
       "relationship": "imports_symbol"
     },
     {
@@ -8789,6 +9163,26 @@
     {
       "source": "file:frontend/src/components/ResultsPanel.tsx",
       "target": "symbol:./Card3D.Card3D",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "import:./BeforeAfterSlider",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "symbol:./BeforeAfterSlider.BeforeAfterSlider",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "import:./SpectralFidelityGraphs",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/ResultsPanel.tsx",
+      "target": "symbol:./SpectralFidelityGraphs.SpectralFidelityGraphs",
       "relationship": "imports_symbol"
     },
     {
@@ -8924,6 +9318,76 @@
     {
       "source": "file:frontend/src/components/ScansArchiveDrawer.tsx",
       "target": "component:frontend/src/components/ScansArchiveDrawer.tsx:ScansArchiveDrawer",
+      "relationship": "defines_component"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "import:react",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:react.useState",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:react.useId",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:react.useMemo",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "import:framer-motion",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:framer-motion.motion",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:framer-motion.AnimatePresence",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "import:lucide-react",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:lucide-react.Activity",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:lucide-react.ShieldCheck",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:lucide-react.BarChart2",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:lucide-react.LineChart",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "symbol:lucide-react.Layers",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:frontend/src/components/SpectralFidelityGraphs.tsx",
+      "target": "component:frontend/src/components/SpectralFidelityGraphs.tsx:SpectralFidelityGraphs",
       "relationship": "defines_component"
     },
     {
@@ -9294,6 +9758,86 @@
     {
       "source": "file:model/SEN2SRLite_RGBN/load.py",
       "target": "func:model/SEN2SRLite_RGBN/load.py:display_results",
+      "relationship": "defines_function"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:os",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:re",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:pathlib",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:pathlib.Path",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:numpy",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:rasterio",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:matplotlib",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:matplotlib.pyplot",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:PIL",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:PIL.Image",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "import:srm.applications",
+      "relationship": "imports"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:srm.applications.compute_ndvi",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:srm.applications.compute_mndwi",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "symbol:srm.applications.compute_ndbi",
+      "relationship": "imports_symbol"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "func:scratch/regenerate_indices.py:_save_index_pair",
+      "relationship": "defines_function"
+    },
+    {
+      "source": "file:scratch/regenerate_indices.py",
+      "target": "func:scratch/regenerate_indices.py:main",
       "relationship": "defines_function"
     },
     {
@@ -9798,7 +10342,7 @@
     },
     {
       "source": "file:srm/flexible_input.py",
-      "target": "func:srm/flexible_input.py:_save_index_png",
+      "target": "func:srm/flexible_input.py:_save_index_pair",
       "relationship": "defines_function"
     },
     {
@@ -9820,6 +10364,11 @@
       "source": "file:srm/flexible_input.py",
       "target": "import:matplotlib.pyplot",
       "relationship": "imports"
+    },
+    {
+      "source": "file:srm/flexible_input.py",
+      "target": "func:srm/flexible_input.py:_safe_float",
+      "relationship": "defines_function"
     },
     {
       "source": "file:srm/flexible_input.py",
