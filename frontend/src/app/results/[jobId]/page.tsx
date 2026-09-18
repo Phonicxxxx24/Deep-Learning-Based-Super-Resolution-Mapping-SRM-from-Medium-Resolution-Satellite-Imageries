@@ -8,6 +8,7 @@ import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { getJobStatus, getJobResult } from "@/utils/api";
 import ResultsPanel from "@/components/ResultsPanel";
 import JobStatusBadge from "@/components/JobStatusBadge";
+import ExecutionProgressBar from "@/components/ExecutionProgressBar";
 import LiquidBackdrop from "@/components/LiquidBackdrop";
 import type { SRResult, JobStatus } from "@/types";
 import { POLL_INTERVAL_MS } from "@/lib/constants";
@@ -18,6 +19,10 @@ export default function ResultsPage() {
   
   const [status, setStatus] = useState<JobStatus>("queued");
   const [msg, setMsg] = useState<string | null>("Connecting to pipeline…");
+  const [progressPct, setProgressPct] = useState<number | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
+  const [queuePos, setQueuePos] = useState<number | null>(null);
   const [result, setResult] = useState<SRResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +37,10 @@ export default function ResultsPage() {
         if (!isMounted) return;
         setStatus(s.status);
         setMsg(s.progress_msg);
+        if (typeof s.progress_pct === "number") setProgressPct(s.progress_pct);
+        if (s.stage) setStage(s.stage);
+        if (typeof s.elapsed_s === "number") setElapsedSeconds(s.elapsed_s);
+        setQueuePos(s.queue_position);
 
         if (s.status === "done") {
           const r = await getJobResult(jobId);
@@ -53,6 +62,10 @@ export default function ResultsPage() {
         if (!isMounted) return;
         setStatus(s.status);
         setMsg(s.progress_msg);
+        if (typeof s.progress_pct === "number") setProgressPct(s.progress_pct);
+        if (s.stage) setStage(s.stage);
+        if (typeof s.elapsed_s === "number") setElapsedSeconds(s.elapsed_s);
+        setQueuePos(s.queue_position);
 
         if (s.status === "done") {
           clearInterval(interval);
@@ -83,37 +96,40 @@ export default function ResultsPage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center gap-5 text-center max-w-md p-8 rounded-2xl glass-card bg-white/90 shadow-xl"
+        className="flex flex-col items-center gap-5 text-center max-w-lg w-full p-6 sm:p-8 rounded-2xl glass-card bg-white/95 shadow-xl border border-slate-200"
       >
-        <JobStatusBadge status={status} msg={msg} />
+        <ExecutionProgressBar
+          status={status}
+          msg={msg}
+          pct={progressPct}
+          stage={stage}
+          elapsedSeconds={elapsedSeconds}
+          queuePos={queuePos}
+          className="w-full text-left"
+        />
 
         {error ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500/10 text-red-400">
+          <div className="flex flex-col items-center gap-3 mt-2">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500/10 text-red-500">
               <AlertTriangle size={20} />
             </div>
-            <p className="text-sm" style={{ color: "var(--color-danger)" }}>
+            <p className="text-sm font-medium text-red-600">
               {error}
             </p>
             <Link
               href="/"
-              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold"
-              style={{
-                background: "var(--color-surface-2)",
-                border: "1px solid var(--color-border)",
-                color: "var(--color-text)",
-              }}
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-slate-200"
             >
               <ArrowLeft size={14} /> Return to map
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
-            <p className="text-xs leading-relaxed" style={{ color: "var(--color-muted)" }}>
-              The SR pipeline is running on the GPU. This page updates automatically.
+          <div className="space-y-1.5 pt-1 text-center">
+            <p className="text-xs text-slate-500">
+              Super-resolution mapping inference is actively processing on the GPU.
             </p>
-            <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-              Job ID: <code className="font-mono text-[var(--color-accent)]">{jobId}</code>
+            <p className="text-[11px] font-mono text-slate-400">
+              Job ID: <span className="text-[#0066cc] font-semibold">{jobId}</span>
             </p>
           </div>
         )}

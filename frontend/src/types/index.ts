@@ -5,6 +5,9 @@ export interface SubmitResponse {
   status: JobStatus;
   queue_position: number | null;
   progress_msg: string | null;
+  progress_pct?: number | null;
+  stage?: string | null;
+  elapsed_s?: number | null;
 }
 
 export interface StatusResponse {
@@ -12,6 +15,9 @@ export interface StatusResponse {
   status: JobStatus;
   queue_position: number | null;
   progress_msg: string | null;
+  progress_pct?: number | null;
+  stage?: string | null;
+  elapsed_s?: number | null;
 }
 
 export interface BandMetrics {

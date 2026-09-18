@@ -48,11 +48,11 @@ function SelectionController({
         } else {
           circleRef.current = L.circle([lat, lng], {
             radius: PATCH_FOOTPRINT_M / 2,
-            color: "#00d4aa",
-            fillColor: "#00d4aa",
-            fillOpacity: 0.18,
+            color: "#0066cc",
+            fillColor: "#0066cc",
+            fillOpacity: 0.14,
             weight: 2,
-            dashArray: "6 4",
+            dashArray: "4 4",
           }).addTo(map);
         }
 
@@ -61,11 +61,11 @@ function SelectionController({
           markerRef.current.setLatLng([lat, lng]);
         } else {
           markerRef.current = L.circleMarker([lat, lng], {
-            radius: 5,
-            color: "#00d4aa",
-            fillColor: "#00d4aa",
+            radius: 4,
+            color: "#ffffff",
+            fillColor: "#0066cc",
             fillOpacity: 1,
-            weight: 0,
+            weight: 2,
           }).addTo(map);
         }
       });
@@ -169,20 +169,36 @@ export default function MapPicker({
         />
       </MapContainer>
 
+      {/* Floating Map HUD Information Badge */}
+      <div className="absolute bottom-4 left-4 z-[900] pointer-events-none">
+        <div className="px-3 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md text-white border border-white/15 text-[11px] font-mono shadow-md flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#0066cc] animate-pulse inline-block" />
+          {selectedPoint ? (
+            <span>
+              Locked AOI: <strong className="text-white font-bold">{selectedPoint.lat.toFixed(4)}°N, {selectedPoint.lon.toFixed(4)}°E</strong> (1.28 × 1.28 km)
+            </span>
+          ) : (
+            <span className="text-slate-300">
+              Click anywhere on the map to define a 1.28 km Area of Interest
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Layer Toggle Floating Button */}
       <div className="absolute top-4 right-4 z-[900]">
         <button
           type="button"
           onClick={() => setShowLabels((prev) => !prev)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm cursor-pointer active:scale-98 ${
             showLabels
-              ? "bg-white/90 text-[#0066cc] border border-[#0066cc]/30 backdrop-blur-md"
-              : "bg-white/60 text-[#6b7a99] border border-white/60 backdrop-blur-md"
+              ? "bg-white/95 text-slate-800 border border-slate-200 backdrop-blur-md hover:bg-white"
+              : "bg-white/70 text-slate-500 border border-slate-200 backdrop-blur-md hover:bg-white"
           }`}
           title={showLabels ? "Click to hide map labels" : "Click to show city & street labels"}
         >
-          <Layers size={13} />
-          <span>Labels {showLabels ? "On" : "Off"}</span>
+          <Layers size={13} className="text-[#0066cc]" />
+          <span>Labels: {showLabels ? "On" : "Off"}</span>
         </button>
       </div>
     </div>

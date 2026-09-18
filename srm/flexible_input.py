@@ -26,7 +26,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 import numpy as np
 import torch
@@ -85,6 +85,7 @@ def run_sr_from_latlon(
     scale_factor: int = 4,
     date_range: tuple[str, str] = ("2024-01-01", "2025-12-31"),
     config_path: str = "configs/srm_config.yaml",
+    progress_callback: Optional[Callable[[int, str, str], None]] = None,
 ) -> FlexibleSRResult:
     """
     Fetch Sentinel-2 data centred on (lat, lon) and run the full SR pipeline.
@@ -132,10 +133,19 @@ def run_sr_from_latlon(
     t_start = time.time()
     cfg = SRMConfig.from_yaml(config_path)
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    def _report(pct: int, msg: str, stage_name: str = "processing"):
+        if progress_callback is not None:
+            try:
+                progress_callback(pct, msg, stage_name)
+            except Exception as cb_err:
+                logger.debug("[%s] Progress callback error: %s", job_id, cb_err)
+
     logger.info(
         "[%s] SR job started — lat=%.5f lon=%.5f device=%s steps=%d",
         job_id, lat, lon, device, sampling_steps,
     )
+    _report(12, "Querying Microsoft Planetary Computer STAC catalog...", "acquisition")
 
     # ── 1. Fetch 128×128 Sentinel-2 patch centred on lat/lon ──────────────
     start_date, end_date = date_range
@@ -157,6 +167,7 @@ def run_sr_from_latlon(
         ) from e
 
     # Take the least-cloudy scene (index 0 after cubo sorts by cloud cover)
+    _report(25, "Extracting calibrated 10-band BOA Sentinel-2 L2A tile...", "acquisition")
     raw_np = (da[0].compute().to_numpy() / 10_000).astype("float32")
     lr_tensor = torch.from_numpy(raw_np)  # (10, 128, 128)
     lr_tensor = torch.nan_to_num(lr_tensor, nan=0.0, posinf=0.0, neginf=0.0)
@@ -165,6 +176,7 @@ def run_sr_from_latlon(
 
 
     # ── 2. Preprocessing (cloud mask, padding) ─────────────────────────────
+    _report(38, "Applying cloud masking, atmospheric alignment & edge padding...", "preprocessing")
     preprocess_result = preprocess(lr_tensor, cfg)
 
     # preprocess() returns (tensor, pad_tuple) — always unpack defensively
@@ -179,6 +191,7 @@ def run_sr_from_latlon(
         f"preprocess() must return a Tensor, got {type(lr_padded)}"
 
     # ── 3. Run dual-path SR ────────────────────────────────────────────────
+    _report(48, f"Executing Dual-Path Latent Diffusion SR ({sampling_steps} DDIM steps)...", "diffusion")
     pipeline = DualPathSRPipeline(
         device=device,
         sampling_steps=sampling_steps,
@@ -193,11 +206,13 @@ def run_sr_from_latlon(
     sr_final_out = sr_dict["sr_final"]
     assert sr_final_out is not None, f"[{job_id}] Pipeline produced None for sr_final"
     sr_tensor = sr_final_out.squeeze(0).cpu()  # (10, 2048, 2048) if 8x, else (10, 512, 512)
+    _report(74, "Dual-path SR synthesis completed. Clearing GPU caches...", "diffusion")
 
     if device != "cpu":
         torch.cuda.empty_cache()
 
     # ── 4. Uncertainty map ─────────────────────────────────────────────────
+    _report(80, f"Computing Monte Carlo epistemic uncertainty ({n_uncertainty} passes)...", "uncertainty")
     uncertainty = None
     try:
         uncertainty = compute_uncertainty(
@@ -271,6 +286,7 @@ def run_sr_from_latlon(
             uncertainty = unc_upscaled.squeeze(0) if unc_upscaled.ndim == 4 and unc_upscaled.shape[0] == 1 else unc_upscaled
 
     sr_np = sr_tensor.numpy()  # (10, 2048, 2048) or (10, 512, 512)
+    _report(86, "Calculating spectral bio-geophysical indices (NDVI, MNDWI, NDBI)...", "indices")
     ndvi_map     = compute_ndvi(sr_np)
     mndwi_map    = compute_mndwi(sr_np)
     ndbi_map     = compute_ndbi(sr_np)
@@ -279,6 +295,7 @@ def run_sr_from_latlon(
     lr_ndbi_map  = compute_ndbi(lr_np)
 
     # ── 7. Export GeoTIFFs ─────────────────────────────────────────────────
+    _report(91, f"Exporting georeferenced {res_str} multi-spectral GeoTIFF deliverables...", "export")
     crs, orig_transform = extract_georeferencing(da[0])
     sr_transform = compute_scaled_transform(orig_transform, scale_factor=effective_scale)
 
@@ -320,6 +337,7 @@ def run_sr_from_latlon(
                     logger.warning("[%s] Could not copy legacy uncertainty GeoTIFF: %s", job_id, e)
 
     # ── 8. Export PNGs for the web API ────────────────────────────────────
+    _report(94, "Rendering display-calibrated RGB & false-color spectral maps...", "export")
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -462,6 +480,7 @@ def run_sr_from_latlon(
         json.dump(band_stats, f, indent=2)
 
     try:
+        _report(97, "Synthesizing radiometric consistency & spectral verification charts...", "export")
         generate_spectral_chart_file(band_stats, chart_path)
     except Exception as chart_err:
         logger.warning("[%s] Failed generating spectral chart: %s", job_id, chart_err)
@@ -474,6 +493,7 @@ def run_sr_from_latlon(
 
     t_end = time.time()
     logger.info("[%s] SR job complete in %.1fs (scale=%dx, size=%dpx)", job_id, t_end - t_start, scale_factor, target_size)
+    _report(100, "Super-Resolution Mapping pipeline completed successfully.", "done")
 
     return FlexibleSRResult(
         job_id=job_id,

@@ -6,9 +6,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SRM — Sentinel-2 Super-Resolution",
+  title: "Avlok — Sentinel-2 Super-Resolution Platform",
   description:
-    "Deep learning based 4× super-resolution mapping from 10 m to 2.5 m using LDSR-S2 diffusion + SEN2SRLite",
+    "Avlok: Deep learning based 4×/8× super-resolution mapping for Sentinel-2 satellite imagery using LDSR-S2 diffusion + SEN2SRLite",
 };
 
 export default function RootLayout({

@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Satellite3DIcon, DatabaseArchiveIcon, EarthGlobeIcon } from "./GlobalIcons";
-import { Search, Radio, ShieldCheck } from "lucide-react";
+import React, { useState } from "react";
+import { DatabaseArchiveIcon, RadarReticleIcon } from "./GlobalIcons";
+import { Satellite } from "lucide-react";
 
 interface CommandHeaderProps {
   totalScans: number;
@@ -28,60 +27,87 @@ export default function CommandHeader({
   };
 
   return (
-    <header className="w-full z-40 px-5 py-3 glass-liquid-card border-b border-white/60 shadow-xs flex items-center justify-between gap-4">
-      {/* Brand & Mission Identification */}
-      <div className="flex items-center gap-3">
-        <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-[#0066cc] to-[#0052a3] flex items-center justify-center text-white shadow-sm">
-          <Satellite3DIcon size={19} className="text-white" />
-        </div>
-        <div>
-          <h1 className="text-sm font-bold tracking-tight text-[#1a1f2e] leading-tight">
-            SRM Global Crisis Watch
-          </h1>
-          <p className="text-[11px] text-[#6b7a99] font-medium leading-tight">
-            Planetary Super-Resolution & Radiometric Mapping
-          </p>
-        </div>
-      </div>
+    <header className="relative w-full z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-[0_1px_3px_0_rgba(15,23,42,0.03)]">
+      {/* Top Aerospace Optical Accent Strip */}
+      <div className="h-[2px] w-full bg-linear-to-r from-[#0052cc] via-[#0284c7] via-60% to-[#10b981]" />
 
-      {/* Center Search & Coordinates Jump */}
-      <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md hidden md:flex items-center">
-        <div className="relative w-full">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6b7a99]" />
-          <input
-            type="text"
-            placeholder="Jump to coordinates (e.g. 19.0760, 72.8777)..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-14 py-1.5 rounded-xl text-xs glass-liquid-inner text-[#1a1f2e] placeholder-[#6b7a99] focus:outline-none focus:ring-1 focus:ring-[#0066cc]/40 focus:border-[#0066cc] transition-all"
-          />
+      <div className="w-full px-5 py-2.5 flex items-center justify-between gap-4">
+        {/* Brand & Mission Identification */}
+        <div className="flex items-center gap-3">
+          {/* Custom Avlok Aerospace Mission Emblem */}
+          <div className="relative w-9 h-9 rounded-xl bg-linear-to-br from-[#07101e] to-[#004b99] flex items-center justify-center text-white shadow-sm ring-1 ring-sky-400/20 shrink-0">
+            <Satellite size={19} className="text-sky-300 transform -rotate-12" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white" />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-black tracking-tight text-slate-900 leading-none">
+                Avlok
+              </span>
+              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider bg-[#0066cc]/10 text-[#0066cc] border border-[#0066cc]/20">
+                v2.4 · SRM
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
+              Sentinel-2 Super-Resolution Mapping · 10m → 2.5m
+            </p>
+          </div>
+        </div>
+
+        {/* Center Precision Search & Coordinate Navigator */}
+        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-lg hidden md:flex items-center">
+          <div className="relative w-full group">
+            <RadarReticleIcon
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#0066cc] transition-colors"
+            />
+            <input
+              type="text"
+              placeholder="Jump to coordinates (lat, lon) e.g. 28.6139, 77.2090..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-20 py-1.5 rounded-xl text-xs bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 placeholder-slate-400 border border-slate-200/90 focus:border-[#0066cc] focus:ring-2 focus:ring-[#0066cc]/15 transition-all font-mono tabular-nums outline-none"
+            />
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <button
+                type="submit"
+                className="px-2 py-0.5 rounded-lg text-[10px] font-bold text-[#0066cc] hover:bg-[#0066cc]/10 transition-all cursor-pointer"
+              >
+                Locate
+              </button>
+              <kbd className="hidden lg:inline-block text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 border border-slate-200/80">
+                ↵
+              </kbd>
+            </div>
+          </div>
+        </form>
+
+        {/* Telemetry & Scans Vault Action Cluster */}
+        <div className="flex items-center gap-2.5">
+          {/* Live Copernicus STAC Stream Status */}
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-emerald-50/70 border border-emerald-200/70 text-[11px] font-medium text-emerald-800 shadow-2xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span className="hidden sm:inline font-semibold">ESA Copernicus Hub</span>
+            <span className="text-[9px] font-mono font-bold uppercase px-1 py-0.2 rounded bg-emerald-600/10 text-emerald-700">
+              Online
+            </span>
+          </div>
+
+          {/* Scans Archive Trigger */}
           <button
-            type="submit"
-            className="absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg text-[10px] font-semibold text-[#0066cc] hover:bg-[#0066cc]/10 transition-all cursor-pointer"
+            onClick={onOpenArchive}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs transition-all cursor-pointer active:scale-98"
           >
-            Locate
+            <DatabaseArchiveIcon size={14} className="text-[#0066cc]" />
+            <span>Archive</span>
+            <span className="px-1.5 py-0.2 rounded-md text-[10px] font-bold font-mono bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
+              {totalScans}
+            </span>
           </button>
-        </div>
-      </form>
-
-      {/* Telemetry, Archive Drawer Trigger, & Live Status */}
-      <div className="flex items-center gap-2.5">
-        {/* Global Scans Archive Trigger */}
-        <button
-          onClick={onOpenArchive}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold glass-liquid-inner hover:bg-white text-[#1a1f2e] border border-white/60 shadow-2xs transition-all cursor-pointer"
-        >
-          <DatabaseArchiveIcon size={14} className="text-[#0066cc]" />
-          <span>Archive</span>
-          <span className="px-1.5 py-0.2 rounded-md text-[10px] font-bold bg-[#0066cc] text-white">
-            {totalScans}
-          </span>
-        </button>
-
-        {/* Status Indicator */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl glass-liquid-inner text-[11px] font-medium text-emerald-700">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="hidden sm:inline">Cluster Ready</span>
         </div>
       </div>
     </header>

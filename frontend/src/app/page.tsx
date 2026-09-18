@@ -15,6 +15,7 @@ import CommandHeader from "@/components/CommandHeader";
 import ScansArchiveDrawer from "@/components/ScansArchiveDrawer";
 import LiquidBackdrop from "@/components/LiquidBackdrop";
 import JobStatusBadge from "@/components/JobStatusBadge";
+import ExecutionProgressBar from "@/components/ExecutionProgressBar";
 import { RadarReticleIcon } from "@/components/GlobalIcons";
 import { submitSRJob, getJobStatus, getPastScans } from "@/utils/api";
 import {
@@ -43,6 +44,9 @@ export default function HomePage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [progressPct, setProgressPct] = useState<number | null>(null);
+  const [currentStage, setCurrentStage] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
   const [queuePos, setQueuePos] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +79,9 @@ export default function HomePage() {
     if (!selectedLatLon) return;
     setSubmitting(true);
     setError(null);
+    setProgressPct(0);
+    setCurrentStage("queued");
+    setElapsedSeconds(0);
     try {
       const res = await submitSRJob({
         lat: selectedLatLon.lat,
@@ -87,6 +94,9 @@ export default function HomePage() {
       setJobStatus(res.status);
       setStatusMsg(res.progress_msg);
       setQueuePos(res.queue_position);
+      if (typeof res.progress_pct === "number") setProgressPct(res.progress_pct);
+      if (res.stage) setCurrentStage(res.stage);
+      if (typeof res.elapsed_s === "number") setElapsedSeconds(res.elapsed_s);
 
       // Re-fetch scans to update counter
       getPastScans({ limit: 50 }).then((r) => r && setPastScans(r.scans));
@@ -106,6 +116,10 @@ export default function HomePage() {
         setJobStatus(s.status);
         setStatusMsg(s.progress_msg);
         setQueuePos(s.queue_position);
+        if (typeof s.progress_pct === "number") setProgressPct(s.progress_pct);
+        if (s.stage) setCurrentStage(s.stage);
+        if (typeof s.elapsed_s === "number") setElapsedSeconds(s.elapsed_s);
+
         if (s.status === "done") {
           clearInterval(interval);
           router.push(`/results/${jobId}`);
@@ -149,56 +163,66 @@ export default function HomePage() {
 
         </section>
 
-        {/* Right: Floating Glass 3D Command Deck (HUD) */}
+        {/* Right: Precision Spatial Control HUD */}
         <aside className="w-full lg:w-[420px] flex flex-col gap-3.5 overflow-y-auto pr-1 shrink-0">
           {/* Card 1: Target Coordinates & Resolution Scale */}
-          <div className="p-4 rounded-2xl glass-liquid-card flex flex-col gap-3.5 shadow-sm">
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col gap-3.5">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <RadarReticleIcon size={15} className="text-[#0066cc]" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
-                  Target Coordinates
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Target Coordinates & AOI
                 </h2>
               </div>
-              <span className="text-[11px] font-mono text-[#6b7a99]">1.28 km AOI</span>
+              <span className="text-[11px] font-mono text-slate-500 tabular-nums">1.28 km Tile</span>
             </div>
 
             {/* Coordinates Strip */}
             {selectedLatLon ? (
-              <div className="flex items-center justify-between p-2.5 rounded-xl glass-liquid-inner">
-                <div>
-                  <span className="text-[9.5px] uppercase font-bold text-[#6b7a99] tracking-wider block">
-                    Center Point
-                  </span>
-                  <div className="font-mono font-bold text-sm text-[#1a1f2e] mt-0.5">
-                    {selectedLatLon.lat.toFixed(4)}° N, {selectedLatLon.lon.toFixed(4)}° E
+              <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[9.5px] uppercase font-bold text-slate-500 tracking-wider block">
+                      Target Center
+                    </span>
+                    <div className="font-mono tabular-nums font-bold text-sm text-slate-900 mt-0.5">
+                      {selectedLatLon.lat.toFixed(5)}° N, {selectedLatLon.lon.toFixed(5)}° E
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9.5px] uppercase font-bold text-slate-500 tracking-wider block">
+                      Instrument
+                    </span>
+                    <span className="text-xs font-semibold text-[#0066cc] block mt-0.5">
+                      Sentinel-2 MSI
+                    </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[9.5px] uppercase font-bold text-[#6b7a99] tracking-wider block">
-                    Sensor
-                  </span>
-                  <span className="text-xs font-semibold text-[#0066cc] block mt-0.5">
-                    Sentinel-2 L2A
-                  </span>
+
+                {/* Sub-pixel metadata grid */}
+                <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-200/80 text-[10px] text-slate-500 font-mono">
+                  <div>Tile Footprint: <span className="text-slate-800 font-medium">1.28 × 1.28 km</span></div>
+                  <div>Native GSD: <span className="text-slate-800 font-medium">10.0 m/px</span></div>
+                  <div>Spectral Bands: <span className="text-slate-800 font-medium">10 Bands (L2A)</span></div>
+                  <div>Output Res: <span className="text-[#0066cc] font-semibold">{scaleFactor === 8 ? "0.625m" : "2.5m"}</span></div>
                 </div>
               </div>
             ) : (
-              <div className="p-3 text-center text-xs text-[#6b7a99] glass-liquid-inner rounded-xl">
-                Click anywhere on the satellite map to lock target coordinates.
+              <div className="p-3 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
+                Click anywhere on the map or select a reference site below.
               </div>
             )}
 
             {/* Super-Resolution Scale Mode */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="font-bold uppercase tracking-wider text-[#6b7a99] flex items-center gap-1.5">
+                <span className="font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                   <SlidersHorizontal size={12} className="text-[#0066cc]" />
-                  <span>Resolution Scale</span>
+                  <span>Super-Resolution Scale</span>
                 </span>
-                <span className="text-[11px] text-[#6b7a99] font-mono">
-                  {scaleFactor === 8 ? "2048px output" : "512px output"}
+                <span className="text-[11px] text-slate-500 font-mono tabular-nums">
+                  {scaleFactor === 8 ? "2048 × 2048 px" : "512 × 512 px"}
                 </span>
               </div>
 
@@ -210,24 +234,24 @@ export default function HomePage() {
                   disabled={isRunning}
                   className={`p-3 rounded-xl text-left transition-all cursor-pointer border ${
                     scaleFactor === 4
-                      ? "bg-white border-[#0066cc] shadow-sm ring-1 ring-[#0066cc]/25"
-                      : "glass-liquid-inner hover:bg-white/80 border-white/60 text-[#6b7a99]"
+                      ? "bg-white border-[#0066cc] shadow-xs ring-1 ring-[#0066cc]/30"
+                      : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-600"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-[#1a1f2e] flex items-center gap-1.5">
+                    <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
                       <span
                         className={`w-2.5 h-2.5 rounded-full ${
-                          scaleFactor === 4 ? "bg-[#0066cc]" : "bg-transparent border border-[#6b7a99]"
+                          scaleFactor === 4 ? "bg-[#0066cc]" : "bg-transparent border border-slate-400"
                         }`}
                       />
                       4× Standard
                     </span>
-                    <span className="text-[11px] font-mono text-[#0066cc] font-semibold">
+                    <span className="text-[11px] font-mono text-[#0066cc] font-semibold tabular-nums">
                       2.5m
                     </span>
                   </div>
-                  <p className="text-[10px] text-[#6b7a99]">
+                  <p className="text-[10.5px] text-slate-500">
                     512 × 512 px · 16× Density
                   </p>
                 </button>
@@ -239,25 +263,25 @@ export default function HomePage() {
                   disabled={isRunning}
                   className={`p-3 rounded-xl text-left transition-all cursor-pointer border ${
                     scaleFactor === 8
-                      ? "bg-white border-emerald-600 shadow-sm ring-1 ring-emerald-600/25"
-                      : "glass-liquid-inner hover:bg-white/80 border-white/60 text-[#6b7a99]"
+                      ? "bg-white border-emerald-600 shadow-xs ring-1 ring-emerald-600/30"
+                      : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-600"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-[#1a1f2e] flex items-center gap-1.5">
+                    <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
                       <span
                         className={`w-2.5 h-2.5 rounded-full ${
-                          scaleFactor === 8 ? "bg-emerald-600" : "bg-transparent border border-[#6b7a99]"
+                          scaleFactor === 8 ? "bg-emerald-600" : "bg-transparent border border-slate-400"
                         }`}
                       />
-                      8× Ultra
+                      8× Sub-Meter
                     </span>
-                    <span className="text-[11px] font-mono text-emerald-700 font-semibold">
+                    <span className="text-[11px] font-mono text-emerald-700 font-semibold tabular-nums">
                       0.625m
                     </span>
                   </div>
-                  <p className="text-[10px] text-[#6b7a99]">
-                    2048 × 2048 px · Sub-Meter
+                  <p className="text-[10.5px] text-slate-500">
+                    2048 × 2048 px · High-Boost
                   </p>
                 </button>
               </div>
@@ -265,23 +289,23 @@ export default function HomePage() {
           </div>
 
           {/* Card 2: Configuration & Presets */}
-          <div className="p-4 rounded-2xl glass-liquid-card flex flex-col gap-3.5 shadow-sm">
-            {/* Global Presets */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col gap-3.5">
+            {/* Reference AOI Presets */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
-                  Event Presets
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Reference AOI Presets
                 </span>
-                <span className="text-[10px] text-[#6b7a99]">1-Tap Snap</span>
+                <span className="text-[10px] text-slate-400 font-mono">6 Locations</span>
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  { name: "Mumbai Harbour", lat: 18.9600, lon: 72.8200 },
-                  { name: "Ahmedabad Metro", lat: 23.0225, lon: 72.5714 },
-                  { name: "Berlin Core", lat: 52.5200, lon: 13.4050 },
-                  { name: "Uttarakhand Valley", lat: 30.3800, lon: 79.7200 },
-                  { name: "Derna Flash Flood", lat: 32.7600, lon: 22.6300 },
-                  { name: "Sundarbans Delta", lat: 21.9400, lon: 89.1800 },
+                  { name: "Mumbai Port", desc: "Coastal", lat: 18.9600, lon: 72.8200 },
+                  { name: "Ahmedabad Urban", desc: "Built-up", lat: 23.0225, lon: 72.5714 },
+                  { name: "Berlin Center", desc: "European", lat: 52.5200, lon: 13.4050 },
+                  { name: "Uttarakhand Valley", desc: "Topography", lat: 30.3800, lon: 79.7200 },
+                  { name: "Derna Coastal Plain", desc: "Flood Plain", lat: 32.7600, lon: 22.6300 },
+                  { name: "Sundarbans Delta", desc: "Wetland", lat: 21.9400, lon: 89.1800 },
                 ].map((item) => {
                   const isSelected =
                     selectedLatLon &&
@@ -296,28 +320,28 @@ export default function HomePage() {
                       className={`px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer truncate border text-left flex items-center justify-between ${
                         isSelected
                           ? "bg-[#0066cc] text-white border-[#0066cc] shadow-2xs font-semibold"
-                          : "glass-liquid-inner hover:bg-white text-[#1a1f2e] border-white/60"
+                          : "bg-slate-50 hover:bg-slate-100/90 text-slate-700 border-slate-200"
                       }`}
-                      title={item.name}
+                      title={`${item.name} (${item.desc})`}
                     >
                       <span className="truncate">{item.name}</span>
-                      <ChevronRight size={12} className={isSelected ? "text-white" : "text-[#6b7a99] opacity-60"} />
+                      <ChevronRight size={12} className={isSelected ? "text-white" : "text-slate-400"} />
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="h-px bg-[#dde3ed]/60" />
+            <div className="h-px bg-slate-200" />
 
             {/* Inference Steps (Quality) */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
                   <Settings2 size={13} className="text-[#0066cc]" />
                   <span>DDIM Sampling Steps</span>
                 </div>
-                <span className="text-[11px] font-mono text-[#6b7a99]">
+                <span className="text-[11px] font-mono text-slate-500 tabular-nums">
                   {selectedSteps} Iterations
                 </span>
               </div>
@@ -331,13 +355,13 @@ export default function HomePage() {
                     className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer border ${
                       selectedSteps === tier.steps
                         ? "bg-[#0066cc] text-white border-[#0066cc] shadow-xs font-semibold"
-                        : "glass-liquid-inner hover:bg-white text-[#1a1f2e] border-white/60"
+                        : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
                     }`}
                   >
-                    <div className="font-bold text-xs">{tier.steps}</div>
+                    <div className="font-bold text-xs tabular-nums">{tier.steps}</div>
                     <div
-                      className={`text-[9.5px] ${
-                        selectedSteps === tier.steps ? "text-white/80" : "text-[#6b7a99]"
+                      className={`text-[9.5px] tabular-nums ${
+                        selectedSteps === tier.steps ? "text-white/80" : "text-slate-500"
                       }`}
                     >
                       {tier.approxTime}
@@ -348,21 +372,24 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Status & Error Notification */}
+          {/* Progress Bar & Status Display */}
           <AnimatePresence>
             {jobStatus && (
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="p-3 rounded-xl glass-liquid-card"
               >
-                <JobStatusBadge status={jobStatus} msg={statusMsg} />
-                {queuePos && queuePos > 1 && (
-                  <p className="text-[11px] text-[#6b7a99] mt-1.5">
-                    Queue Position {queuePos} · Multi-analyst safe GPU serialization.
-                  </p>
-                )}
+                <ExecutionProgressBar
+                  status={jobStatus}
+                  msg={statusMsg}
+                  pct={progressPct}
+                  stage={currentStage}
+                  elapsedSeconds={elapsedSeconds}
+                  queuePos={queuePos}
+                  samplingSteps={selectedSteps}
+                  scaleFactor={scaleFactor}
+                />
               </motion.div>
             )}
 
@@ -371,25 +398,25 @@ export default function HomePage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-600 leading-relaxed"
+                className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed shadow-2xs font-medium"
               >
                 {error}
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Liquid Run Super-Resolution Submit Button */}
+          {/* Super-Resolution Submit Button */}
           <motion.button
             onClick={handleSubmit}
             disabled={!selectedLatLon || isRunning || submitting}
-            whileHover={!selectedLatLon || isRunning ? {} : { scale: 1.01 }}
-            whileTap={!selectedLatLon || isRunning ? {} : { scale: 0.99 }}
-            className={`mt-auto relative w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            whileHover={!selectedLatLon || isRunning ? {} : { scale: 1.005 }}
+            whileTap={!selectedLatLon || isRunning ? {} : { scale: 0.995 }}
+            className={`mt-auto relative w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
               !selectedLatLon || isRunning
-                ? "bg-[#dde3ed] text-[#6b7a99] cursor-not-allowed shadow-none"
+                ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none"
                 : scaleFactor === 8
-                ? "bg-gradient-to-r from-emerald-600 to-[#0066cc] text-white shadow-emerald-600/20 hover:shadow-lg"
-                : "bg-[#0066cc] hover:bg-[#0052a3] text-white shadow-[#0066cc]/20 hover:shadow-lg"
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow"
+                : "bg-[#0066cc] hover:bg-[#0052a3] text-white shadow-[#0066cc]/20 hover:shadow"
             }`}
           >
             {submitting || isRunning ? (
@@ -397,25 +424,25 @@ export default function HomePage() {
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                  className="w-4 h-4 border-2 border-slate-400/40 border-t-[#0066cc] rounded-full"
                 />
-                <span>
+                <span className="font-medium text-slate-700">
                   {isRunning
-                    ? `Running ${scaleFactor}× ${
-                        scaleFactor === 8 ? "Ultra-Resolution (2048px)" : "Super-Resolution (512px)"
-                      }…`
-                    : "Submitting Task…"}
+                    ? `Running ${scaleFactor}× Pipeline (${typeof progressPct === "number" ? progressPct : 15}%)…`
+                    : "Initializing Pipeline…"}
                 </span>
               </>
             ) : (
               <>
-                <Sparkles size={16} />
+                <Sparkles size={15} />
                 <span>
-                  {scaleFactor === 8
-                    ? "Deploy 8× Ultra-Resolution (2048px · 0.625m)"
-                    : "Deploy 4× Super-Resolution (512px · 2.5m)"}
+                  {selectedLatLon
+                    ? scaleFactor === 8
+                      ? "Run 8× Sub-Meter Pipeline (0.625m GSD)"
+                      : "Run 4× Super-Resolution Pipeline (2.5m GSD)"
+                    : "Select Location on Map to Proceed"}
                 </span>
-                <ChevronRight size={16} />
+                {selectedLatLon && <ChevronRight size={15} />}
               </>
             )}
           </motion.button>

@@ -41,6 +41,9 @@ class JobStatus(BaseModel):
     status: Literal["queued", "running", "done", "error"]
     queue_position: Optional[int] = None   # None when running or done
     progress_msg: Optional[str] = None
+    progress_pct: Optional[int] = None      # 0 to 100 percentage
+    stage: Optional[str] = None             # e.g. 'stac', 'diffusion', 'exporting'
+    elapsed_s: Optional[float] = None       # elapsed runtime in seconds
 
 
 class BandMetrics(BaseModel):

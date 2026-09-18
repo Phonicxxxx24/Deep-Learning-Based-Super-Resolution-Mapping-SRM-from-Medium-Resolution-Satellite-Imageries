@@ -116,9 +116,9 @@ function CompareImageCard({
   onMaximize?: () => void;
 }) {
   return (
-    <Card3D depth={8} className="glass-card bg-white/90 flex flex-col overflow-hidden group">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col overflow-hidden group hover:border-slate-300 hover:shadow transition-all">
       <div
-        className="relative w-full aspect-square bg-[#0e131d] overflow-hidden cursor-pointer"
+        className="relative w-full aspect-square bg-slate-950 overflow-hidden cursor-pointer"
         onClick={onMaximize}
       >
         <Image
@@ -126,10 +126,10 @@ function CompareImageCard({
           alt={label}
           fill
           sizes="(max-width: 768px) 100vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+          className="object-cover group-hover:scale-102 transition-transform duration-300 ease-out"
           unoptimized
         />
-        <div className="absolute bottom-2.5 left-2.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-black/75 backdrop-blur-md text-white border border-white/20 shadow-md">
+        <div className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold bg-slate-900/85 backdrop-blur-md text-white border border-white/10 shadow-sm tabular-nums">
           {badge}
         </div>
 
@@ -140,26 +140,26 @@ function CompareImageCard({
             onMaximize?.();
           }}
           title="Maximize in full lossless resolution"
-          className="absolute top-2.5 right-2.5 px-2.5 py-1.5 rounded-xl bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-lg opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer z-10"
+          className="absolute top-2.5 right-2.5 px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md border border-white/15 shadow-md opacity-90 group-hover:opacity-100 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer z-10"
         >
           <Maximize2 size={12} />
           <span>Maximize</span>
         </button>
       </div>
-      <div className="p-3.5 bg-white/80 flex items-center justify-between">
+      <div className="p-3.5 bg-white border-t border-slate-100 flex items-center justify-between">
         <div>
-          <h3 className="text-xs font-bold text-[#1a1f2e]">{label}</h3>
-          {subtext && <p className="text-[11px] text-[#6b7a99] mt-0.5">{subtext}</p>}
+          <h3 className="text-xs font-bold text-slate-900">{label}</h3>
+          {subtext && <p className="text-[11px] text-slate-500 mt-0.5">{subtext}</p>}
         </div>
         <button
           onClick={onMaximize}
-          title="Maximize image in large full-resolution size"
-          className="p-1.5 rounded-lg hover:bg-black/5 text-[#6b7a99] hover:text-[#0066cc] transition-all cursor-pointer shrink-0"
+          title="Maximize image"
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-[#0066cc] transition-all cursor-pointer shrink-0"
         >
           <Maximize2 size={14} />
         </button>
       </div>
-    </Card3D>
+    </div>
   );
 }
 
@@ -189,45 +189,45 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
       <LiquidBackdrop />
 
       {/* ── Top Command Bar ── */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl glass-panel shadow-sm">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-white hover:bg-[#f7f8fa] text-[#1a1f2e] border border-[#dde3ed] shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs transition-all cursor-pointer"
           >
             <ArrowLeft size={14} /> Back to Command Map
           </Link>
-          <div className="w-px h-6 bg-[#dde3ed]" />
+          <div className="w-px h-6 bg-slate-200" />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-[#1a1f2e]">
-                {scaleFactor === 8 ? "8× Ultra-Resolution Telemetry" : "4× Super-Resolution Telemetry"}
+              <h1 className="text-base font-bold text-slate-900">
+                {scaleFactor === 8 ? "8× Sub-Meter Resolution Telemetry" : "4× Super-Resolution Telemetry"}
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25">
-                ✓ Inference Complete
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                ✓ Inference Validated
               </span>
             </div>
-            <p className="text-xs text-[#6b7a99] font-mono mt-0.5">
+            <p className="text-xs text-slate-500 font-mono mt-0.5 tabular-nums">
               Lat {result.lat.toFixed(5)}°, Lon {result.lon.toFixed(5)}° · Job ID:{" "}
-              <strong className="text-[#0066cc]">{result.job_id}</strong>
+              <strong className="text-[#0066cc] font-mono">{result.job_id}</strong>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-xs">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill font-mono text-[#1a1f2e]">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 font-mono tabular-nums text-slate-700 text-xs">
             <Clock size={12} className="text-[#0066cc]" />
             <span>{result.processing_time_s.toFixed(1)}s Runtime</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-pill font-mono text-[#0066cc] font-semibold">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 font-mono tabular-nums text-[#0066cc] font-semibold text-xs">
             <Sparkles size={12} />
             <span>{result.sampling_steps_used ?? 50} DDIM Steps</span>
           </div>
 
           <button
             onClick={() => setReportOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0066cc] text-white hover:bg-[#0052a3] font-semibold text-xs transition-all shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0066cc] text-white hover:bg-[#0052a3] font-semibold text-xs transition-all shadow-xs cursor-pointer active:scale-98"
           >
             <FileText size={13} />
             <span>Executive Dossier</span>
@@ -355,12 +355,12 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
 
 
       {/* ── GeoTIFF Downloads ── */}
-      <section className="rounded-2xl p-4.5 glass-card bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+      <section className="rounded-2xl p-4 bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b7a99]">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Enterprise GeoTIFF Deliverables
           </h3>
-          <p className="text-xs text-[#1a1f2e] mt-0.5">
+          <p className="text-xs text-slate-800 mt-0.5 font-medium">
             Download 32-bit float GeoTIFFs georeferenced in Sentinel-2 UTM coordinate reference system.
           </p>
         </div>
@@ -368,7 +368,7 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
           <a
             href={srTifUrl}
             download
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#0066cc] hover:bg-[#0052a3] text-white shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#0066cc] hover:bg-[#0052a3] text-white shadow-xs transition-all cursor-pointer"
           >
             <FileDown size={14} />
             10-Band SR GeoTIFF ({resStr})
@@ -376,7 +376,7 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
           <a
             href={uncTifUrl}
             download
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-[#f7f8fa] text-[#1a1f2e] border border-[#dde3ed] shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs transition-all cursor-pointer"
           >
             <Download size={14} />
             Uncertainty GeoTIFF
@@ -407,10 +407,10 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
               <button
                 key={tab}
                 onClick={() => setIndexTab(tab)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   indexTab === tab
                     ? "bg-[#0066cc] text-white shadow-xs"
-                    : "bg-white/80 hover:bg-white text-[#6b7a99] border border-[#dde3ed]"
+                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200"
                 }`}
               >
                 {INDEX_CONFIG[tab].label}
@@ -420,13 +420,13 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
           </div>
 
           {/* View Mode Switcher */}
-          <div className="flex items-center rounded-xl bg-white border border-[#dde3ed] p-0.5 shadow-2xs self-start sm:self-auto">
+          <div className="flex items-center rounded-xl bg-slate-50 border border-slate-200 p-0.5 shadow-2xs self-start sm:self-auto">
             <button
               onClick={() => setViewMode("split")}
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === "split"
                   ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-[#6b7a99] hover:text-[#1a1f2e]"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               Side-by-Side (Before & After)
@@ -436,7 +436,7 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === "before"
                   ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-[#6b7a99] hover:text-[#1a1f2e]"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               Before (10m)
@@ -446,7 +446,7 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === "after"
                   ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-[#6b7a99] hover:text-[#1a1f2e]"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               After ({resStr})
@@ -643,23 +643,23 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
         )}
 
         {/* ── High-Visibility Scale Legend Bar ── */}
-        <div className="p-4 rounded-2xl glass-card bg-white/95 border border-[#dde3ed] space-y-2.5 shadow-2xs">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-2.5 shadow-sm">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-[#1a1f2e] flex items-center gap-1.5">
+            <span className="font-bold text-slate-900 flex items-center gap-1.5">
               <Sliders size={13} className="text-[#0066cc]" />
-              <span>Radiometric Color Scale & Class Legend ({INDEX_CONFIG[indexTab].cmapName})</span>
+              <span>Radiometric Color Scale & Dynamic Class Legend ({INDEX_CONFIG[indexTab].cmapName})</span>
             </span>
-            <span className="text-[11px] text-[#6b7a99] font-mono">
-              High-Contrast Dynamic Range (Embedded Scale Bar on Images)
+            <span className="text-[11px] text-slate-500 font-mono">
+              Calibrated Dynamic Range (Shared LR/SR Scale)
             </span>
           </div>
 
           {/* Continuous Gradient Bar */}
           <div className="space-y-1">
             <div className={`h-3.5 w-full rounded-full ${INDEX_CONFIG[indexTab].gradientClass} shadow-inner border border-black/10`} />
-            <div className="flex justify-between text-[11px] text-[#4a5568] font-medium px-0.5">
+            <div className="flex justify-between text-[11px] text-slate-600 font-medium font-mono px-0.5 tabular-nums">
               <span>◀ {INDEX_CONFIG[indexTab].lowLabel}</span>
-              <span className="text-center font-semibold text-[#1a1f2e]">{INDEX_CONFIG[indexTab].midLabel}</span>
+              <span className="text-center font-semibold text-slate-900">{INDEX_CONFIG[indexTab].midLabel}</span>
               <span className="text-right">{INDEX_CONFIG[indexTab].highLabel} ▶</span>
             </div>
           </div>

@@ -115,11 +115,11 @@ export default function ScansArchiveDrawer({
                   <DatabaseArchiveIcon size={18} />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-[#1a1f2e]">
-                    Planetary Scans Archive
+                  <h2 className="text-base font-bold text-slate-900">
+                    Processed Scans Archive
                   </h2>
-                  <p className="text-xs text-[#6b7a99]">
-                    Persistent SQLite Telemetry · {scans.length} verified scans recorded
+                  <p className="text-xs text-slate-500 font-mono tabular-nums">
+                    Telemetry Database · {scans.length} verified AOI acquisitions
                   </p>
                 </div>
               </div>

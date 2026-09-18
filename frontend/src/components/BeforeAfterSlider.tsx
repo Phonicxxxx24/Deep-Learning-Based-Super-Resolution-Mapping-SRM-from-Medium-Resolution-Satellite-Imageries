@@ -163,16 +163,16 @@ export default function BeforeAfterSlider({
         {/* Quick Toolbar Controls */}
         <div className="flex items-center gap-2 flex-wrap text-xs">
           {/* Preset Buttons */}
-          <div className="flex items-center rounded-xl bg-white border border-[#dde3ed] p-0.5 shadow-2xs">
+          <div className="flex items-center rounded-xl bg-slate-50 border border-slate-200 p-0.5 shadow-2xs">
             <button
               onClick={() => {
                 setIsAutoSweeping(false);
                 setSliderPosition(25);
               }}
-              className={`px-2.5 py-1 rounded-lg font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
                 Math.round(sliderPosition) === 25 && !isAutoSweeping
                   ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-[#6b7a99] hover:text-[#1a1f2e] hover:bg-black/5"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
               title="Show 25% Input / 75% Cleared"
             >
@@ -183,10 +183,10 @@ export default function BeforeAfterSlider({
                 setIsAutoSweeping(false);
                 setSliderPosition(50);
               }}
-              className={`px-2.5 py-1 rounded-lg font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
                 Math.round(sliderPosition) === 50 && !isAutoSweeping
                   ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-[#6b7a99] hover:text-[#1a1f2e] hover:bg-black/5"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
               title="Classic 50/50 Split View"
             >
@@ -197,10 +197,10 @@ export default function BeforeAfterSlider({
                 setIsAutoSweeping(false);
                 setSliderPosition(75);
               }}
-              className={`px-2.5 py-1 rounded-lg font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
                 Math.round(sliderPosition) === 75 && !isAutoSweeping
                   ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-[#6b7a99] hover:text-[#1a1f2e] hover:bg-black/5"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
               title="Show 75% Input / 25% Cleared"
             >
@@ -213,8 +213,8 @@ export default function BeforeAfterSlider({
             onClick={() => setIsAutoSweeping((prev) => !prev)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
               isAutoSweeping
-                ? "bg-[#0066cc] border-[#0066cc] text-white ring-2 ring-[#0066cc]/20 animate-pulse"
-                : "bg-white hover:bg-[#f7f8fa] border-[#dde3ed] text-[#1a1f2e]"
+                ? "bg-[#0066cc] border-[#0066cc] text-white shadow-xs"
+                : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
             }`}
             title={isAutoSweeping ? "Pause automatic scan" : "Play continuous radar sweep animation"}
           >
@@ -225,10 +225,10 @@ export default function BeforeAfterSlider({
           {/* Swap Sides */}
           <button
             onClick={() => setIsSwapped((prev) => !prev)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#f7f8fa] text-[#1a1f2e] border border-[#dde3ed] shadow-2xs text-xs font-semibold transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs text-xs font-semibold transition-all cursor-pointer active:scale-98"
             title="Swap which image is on left vs right"
           >
-            <ArrowLeftRight size={12} className="text-[#6b7a99]" />
+            <ArrowLeftRight size={12} className="text-slate-500" />
             <span>Swap</span>
           </button>
         </div>
@@ -242,7 +242,7 @@ export default function BeforeAfterSlider({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="relative w-full aspect-square max-w-3xl mx-auto rounded-2xl overflow-hidden glass-card border border-[#dde3ed] shadow-xl select-none cursor-ew-resize focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 bg-[#0e131d]"
+        className="relative w-full aspect-square max-w-3xl mx-auto rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 shadow-md select-none cursor-ew-resize focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40"
         style={{ touchAction: "none" }}
       >
         {/* ── Bottom Layer (Right reveal) ── */}

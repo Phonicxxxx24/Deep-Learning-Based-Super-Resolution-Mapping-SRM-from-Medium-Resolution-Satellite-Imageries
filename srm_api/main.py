@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,9 +69,14 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
     ],
-    allow_methods=["GET", "POST"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Serve output PNGs at /static/<filename>
@@ -89,7 +95,10 @@ async def _gpu_worker() -> None:
         try:
             job_id, req = await _queue.get()
             _jobs[job_id]["status"] = "running"
-            _jobs[job_id]["progress_msg"] = f"Running SR inference ({req.sampling_steps} DDIM steps)…"
+            _jobs[job_id]["started_at"] = time.time()
+            _jobs[job_id]["progress_pct"] = 8
+            _jobs[job_id]["stage"] = "acquisition"
+            _jobs[job_id]["progress_msg"] = f"Initializing acquisition for ({req.lat:.4f}, {req.lon:.4f})..."
             try:
                 upsert_scan({"job_id": job_id, "status": "running"})
             except Exception as dbe:
@@ -105,7 +114,9 @@ async def _gpu_worker() -> None:
                 )
                 _jobs[job_id]["status"] = "done"
                 _jobs[job_id]["result"] = result
-                _jobs[job_id]["progress_msg"] = "Complete"
+                _jobs[job_id]["progress_pct"] = 100
+                _jobs[job_id]["stage"] = "done"
+                _jobs[job_id]["progress_msg"] = "Super-Resolution Mapping complete"
 
                 # Compute mean preservation if band_stats available
                 pres_pct = None
@@ -155,6 +166,12 @@ def _run_sr_blocking(job_id: str, req: SRRequest) -> SRResult:
     """Synchronous SR execution — called in executor to avoid blocking asyncio."""
     from srm.flexible_input import run_sr_from_latlon
 
+    def on_progress(pct: int, msg: str, stage: str) -> None:
+        if job_id in _jobs:
+            _jobs[job_id]["progress_pct"] = pct
+            _jobs[job_id]["progress_msg"] = msg
+            _jobs[job_id]["stage"] = stage
+
     flex = run_sr_from_latlon(
         lat=req.lat,
         lon=req.lon,
@@ -164,6 +181,7 @@ def _run_sr_blocking(job_id: str, req: SRRequest) -> SRResult:
         sampling_steps=req.sampling_steps,
         run_lam=req.run_lam,
         scale_factor=req.scale_factor,
+        progress_callback=on_progress,
     )
 
     def _url(suffix: str) -> str:
@@ -306,8 +324,16 @@ async def submit_sr_job(req: SRRequest) -> JobStatus:
     """Submit a new SR job. Returns immediately with job_id and queue position."""
     job_id = uuid.uuid4().hex[:12]
     now_iso = datetime.now(timezone.utc).isoformat()
-    _jobs[job_id] = {"status": "queued", "result": None, "request": req}
     queue_size_before = _queue.qsize()
+    _jobs[job_id] = {
+        "status": "queued",
+        "result": None,
+        "request": req,
+        "progress_pct": 0,
+        "stage": "queued",
+        "progress_msg": f"Queued (position {queue_size_before + 1})",
+        "queued_at": time.time(),
+    }
     await _queue.put((job_id, req))
 
     # Persist queued scan to SQLite with resolved area name
@@ -328,6 +354,9 @@ async def submit_sr_job(req: SRRequest) -> JobStatus:
         status="queued",
         queue_position=queue_size_before + 1,
         progress_msg=f"Queued (position {queue_size_before + 1})",
+        progress_pct=0,
+        stage="queued",
+        elapsed_s=0.0,
     )
 
 
@@ -348,11 +377,20 @@ async def get_job_status(job_id: str) -> JobStatus:
         ids = [item[0] for item in queue_list]
         queue_pos = ids.index(job_id) + 1 if job_id in ids else 1
 
+    elapsed = None
+    if "started_at" in job:
+        elapsed = round(time.time() - job["started_at"], 1)
+    elif "queued_at" in job:
+        elapsed = round(time.time() - job["queued_at"], 1)
+
     return JobStatus(
         job_id=job_id,
         status=status,
         queue_position=queue_pos,
         progress_msg=job.get("progress_msg"),
+        progress_pct=job.get("progress_pct"),
+        stage=job.get("stage"),
+        elapsed_s=elapsed,
     )
 
 
