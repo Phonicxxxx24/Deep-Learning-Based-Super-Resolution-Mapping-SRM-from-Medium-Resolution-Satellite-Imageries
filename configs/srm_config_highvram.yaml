@@ -22,6 +22,12 @@ models:
   sen2sr:
     model_dir: "model/SEN2SRLite"
     hf_mlm_url: "https://huggingface.co/tacofoundation/sen2sr/resolve/main/SEN2SRLite/main/mlm.json"
+  able_model:
+    weights_path: "model/Sen2SR_Able/final_weights.pth"
+    feat_ch: 64
+    num_blocks: 8
+    sampling_steps: 100
+    uncertainty_variations: 25
   opensr_model:
     ckpt_path: "opensr-ldsrs2_v1_0_0.ckpt"
     config_name: "config_10m.yaml"

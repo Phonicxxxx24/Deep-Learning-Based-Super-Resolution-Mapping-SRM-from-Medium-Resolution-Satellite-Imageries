@@ -37,8 +37,11 @@ cuda_env/
 *.bin
 *.safetensors
 opensr-ldsrs2_v1_0_0.ckpt
-model/
+model/*
 models/
+!model/Sen2SR_Able/
+!model/Sen2SR_Able/**
+!model/Sen2SR_Able/*.pth
 
 # Database & SQLite files
 *.db

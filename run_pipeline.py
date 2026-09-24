@@ -597,6 +597,7 @@ def main() -> None:
     logging.info("Loading super-resolution models...")
     use_tta_flag = args.tta or args.max_quality or getattr(cfg, "use_tta", False)
     pipeline = DualPathSRPipeline(
+        able_weights=cfg.models.able_weights_path,
         opensr_ckpt=cfg.models.opensr_ckpt_path,
         opensr_config_name=cfg.models.opensr_config_name,
         sen2sr_model_dir=cfg.models.sen2sr_model_dir,

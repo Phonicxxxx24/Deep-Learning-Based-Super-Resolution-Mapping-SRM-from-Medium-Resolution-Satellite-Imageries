@@ -9,7 +9,7 @@ torchvision>=0.17.0
 torchaudio>=2.2.0
 
 # Super-Resolution & Remote Sensing Models
-opensr-model>=1.1.0
+# opensr-model>=1.1.0  # Optional legacy LDSR-S2 diffusion (replaced by native Sen2SR-RRDB)
 sen2sr>=0.8.5
 mlstac>=0.4.9
 opensr-utils>=2.0.0

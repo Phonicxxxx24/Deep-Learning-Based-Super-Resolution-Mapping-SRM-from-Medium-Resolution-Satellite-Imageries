@@ -1,0 +1,30 @@
+{
+  "architecture": "Sen2SR_RGBN",
+  "model_family": "RRDB",
+  "num_parameters": 4580292,
+  "scale": 4,
+  "in_channels": 4,
+  "out_channels": 4,
+  "feat_channels": 64,
+  "num_blocks": 8,
+  "input_bands": ["B02", "B03", "B04", "B08"],
+  "output_bands": ["B02", "B03", "B04", "B08"],
+  "ground_sample_distance": {
+    "input_gsd_m": 10.0,
+    "output_gsd_m": 2.5
+  },
+  "metrics": {
+    "val_psnr_db": 35.8958,
+    "val_ssim": 0.8828,
+    "val_sam_deg": 2.08,
+    "val_sam_rad": 0.0363
+  },
+  "training": {
+    "source_dataset": "SEN2NAIPv2",
+    "normalization_factor": 10000.0,
+    "stages": "Phase 1 PSNR pretraining + Phase 2 High-Frequency Edge Refinement"
+  },
+  "source_repository": "heavycoding (Able)",
+  "weight_file": "final_weights.pth",
+  "sha256": "eab33c9e4ef544d5526f54a879ae92822848321e19aff3670d28c1750d605b5a"
+}

@@ -1,13 +1,12 @@
-"""Uncertainty estimation module using Latent Diffusion Monte Carlo sampling.
+"""Uncertainty estimation module using stochastic multi-pass sampling.
 
-Leverages opensr-model's stochastic sampling to compute per-pixel predictive
-uncertainty (variance / confidence interval width) across repeated passes.
+Computes per-pixel predictive uncertainty (variance / confidence interval width)
+across repeated stochastic passes.
 """
 
 import logging
-from typing import Dict, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
-import opensr_model
 from scipy.ndimage import sobel
 import torch
 
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def compute_uncertainty_map(
-    model: opensr_model.SRLatentDiffusion,
+    model: Any,
     lr_rgbn: torch.Tensor,
     n_variations: int = 15,
     sampling_steps: int = 50,
@@ -127,7 +126,7 @@ def compute_uncertainty(
     Accepts (1, 10, H, W) or (1, 4, H, W) tensor and either DualPathSRPipeline
     or SRLatentDiffusion model, returning a (1, 512, 512) uncertainty tensor.
     """
-    model = getattr(pipeline, "model_diffusion", pipeline)
+    model = getattr(pipeline, "model_able", getattr(pipeline, "model_diffusion", pipeline))
 
     if lr_input.ndim == 4 and lr_input.shape[1] == 10:
         lr_rgbn = lr_input[:, [0, 1, 2, 6]]

@@ -42,9 +42,12 @@ class ModelsConfig:
     Attributes:
         sen2sr_model_dir: Local path to the SEN2SRLite model directory.
         sen2sr_hf_url: Remote HuggingFace MLM url for SEN2SRLite.
-        opensr_ckpt_path: Path to the LDSR-S2 checkpoint file.
-        opensr_config_name: Filename of the LDSR-S2 config YAML.
-        sampling_steps: Number of DDIM sampling steps for diffusion.
+        able_weights_path: Path to the custom Sen2SR-RRDB checkpoint file.
+        able_feat_ch: Feature channels for Sen2SR-RRDB (default: 64).
+        able_num_blocks: Number of RRDB blocks for Sen2SR-RRDB (default: 8).
+        opensr_ckpt_path: Retained for backward compatibility.
+        opensr_config_name: Retained for backward compatibility.
+        sampling_steps: Sampling steps / variations parameter.
         uncertainty_variations: Number of stochastic passes for uncertainty.
     """
 
@@ -52,6 +55,9 @@ class ModelsConfig:
     sen2sr_hf_url: str = (
         "https://huggingface.co/tacofoundation/sen2sr/resolve/main/SEN2SRLite/main/mlm.json"
     )
+    able_weights_path: str = "model/Sen2SR_Able/final_weights.pth"
+    able_feat_ch: int = 64
+    able_num_blocks: int = 8
     opensr_ckpt_path: str = "opensr-ldsrs2_v1_0_0.ckpt"
     opensr_config_name: str = "config_10m.yaml"
     sampling_steps: int = 50
@@ -192,22 +198,45 @@ class SRMConfig:
             raw_data: Dict[str, Any] = yaml.safe_load(f)
 
         models_data = raw_data.get("models", {})
+        able_data = models_data.get("able_model", {})
+        opensr_data = models_data.get("opensr_model", {})
         models_cfg = ModelsConfig(
             sen2sr_model_dir=models_data.get("sen2sr", {}).get(
                 "model_dir", "model/SEN2SRLite"
             ),
             sen2sr_hf_url=models_data.get("sen2sr", {}).get("hf_mlm_url", ""),
-            opensr_ckpt_path=models_data.get("opensr_model", {}).get(
+            able_weights_path=str(
+                able_data.get(
+                    "weights_path",
+                    models_data.get(
+                        "able_weights_path", "model/Sen2SR_Able/final_weights.pth"
+                    ),
+                )
+            ),
+            able_feat_ch=int(able_data.get("feat_ch", 64)),
+            able_num_blocks=int(able_data.get("num_blocks", 8)),
+            opensr_ckpt_path=opensr_data.get(
                 "ckpt_path", "opensr-ldsrs2_v1_0_0.ckpt"
             ),
-            opensr_config_name=models_data.get("opensr_model", {}).get(
+            opensr_config_name=opensr_data.get(
                 "config_name", "config_10m.yaml"
             ),
-            sampling_steps=models_data.get("opensr_model", {}).get(
-                "sampling_steps", 100
+            sampling_steps=int(
+                able_data.get(
+                    "sampling_steps",
+                    opensr_data.get(
+                        "sampling_steps", raw_data.get("sampling_steps", 50)
+                    ),
+                )
             ),
-            uncertainty_variations=models_data.get("opensr_model", {}).get(
-                "uncertainty_variations", 5
+            uncertainty_variations=int(
+                able_data.get(
+                    "uncertainty_variations",
+                    opensr_data.get(
+                        "uncertainty_variations",
+                        raw_data.get("n_uncertainty", 15),
+                    ),
+                )
             ),
         )
 
