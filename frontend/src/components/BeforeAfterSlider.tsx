@@ -140,30 +140,30 @@ export default function BeforeAfterSlider({
   return (
     <section className="space-y-3">
       {/* ── Section Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#0066cc]/10 text-[#0066cc] flex items-center justify-center border border-[#0066cc]/20 shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-[#141414] text-white flex items-center justify-center border border-[#2a2a2a] shadow-xs">
             <SlidersHorizontal size={16} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-[#1a1f2e] uppercase tracking-wider">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
                 Interactive Before / After Resolution Slider
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0066cc]/10 text-[#0066cc] border border-[#0066cc]/20">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1a1a1a] text-white border border-[#333333]">
                 Live Sub-Pixel Comparison
               </span>
             </div>
-            <p className="text-xs text-[#6b7a99] mt-0.5">
-              Slide horizontally to reveal the raw 10m Sentinel-2 input vs the cleared 2.5m super-resolved image simultaneously.
+            <p className="text-xs text-[#888] mt-0.5">
+              Slide horizontally to reveal raw Sentinel-2 input vs super-resolved output.
             </p>
           </div>
         </div>
 
         {/* Quick Toolbar Controls */}
-        <div className="flex items-center gap-2 flex-wrap text-xs">
+        <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
           {/* Preset Buttons */}
-          <div className="flex items-center rounded-xl bg-slate-50 border border-slate-200 p-0.5 shadow-2xs">
+          <div className="flex items-center rounded-xl bg-[#111111] border border-[#222222] p-0.5">
             <button
               onClick={() => {
                 setIsAutoSweeping(false);
@@ -171,8 +171,8 @@ export default function BeforeAfterSlider({
               }}
               className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
                 Math.round(sliderPosition) === 25 && !isAutoSweeping
-                  ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-white text-black"
+                  : "text-[#888] hover:text-white hover:bg-[#1a1a1a]"
               }`}
               title="Show 25% Input / 75% Cleared"
             >
@@ -185,8 +185,8 @@ export default function BeforeAfterSlider({
               }}
               className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
                 Math.round(sliderPosition) === 50 && !isAutoSweeping
-                  ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-white text-black"
+                  : "text-[#888] hover:text-white hover:bg-[#1a1a1a]"
               }`}
               title="Classic 50/50 Split View"
             >
@@ -199,8 +199,8 @@ export default function BeforeAfterSlider({
               }}
               className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
                 Math.round(sliderPosition) === 75 && !isAutoSweeping
-                  ? "bg-[#0066cc] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-white text-black"
+                  : "text-[#888] hover:text-white hover:bg-[#1a1a1a]"
               }`}
               title="Show 75% Input / 25% Cleared"
             >
@@ -211,10 +211,10 @@ export default function BeforeAfterSlider({
           {/* Auto-Sweep Animation Button */}
           <button
             onClick={() => setIsAutoSweeping((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
               isAutoSweeping
-                ? "bg-[#0066cc] border-[#0066cc] text-white shadow-xs"
-                : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                ? "bg-white text-black border-white"
+                : "bg-[#111111] hover:bg-[#1a1a1a] border-[#222222] text-white"
             }`}
             title={isAutoSweeping ? "Pause automatic scan" : "Play continuous radar sweep animation"}
           >
@@ -370,17 +370,17 @@ export default function BeforeAfterSlider({
       </div>
 
       {/* ── Bottom Info Strip & Interaction Guide ── */}
-      <div className="flex items-center justify-between text-xs text-[#6b7a99] px-2 py-1 bg-white/60 rounded-xl border border-[#dde3ed]">
+      <div className="flex items-center justify-between text-xs text-[#888] px-3 py-2 bg-[#0c0c0c] rounded-xl border border-[#1f1f1f] font-mono">
         <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#0066cc]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-white" />
           <span>
-            <strong>Interactive Guidance:</strong> Drag the slider handle or click anywhere across the image to evaluate sharpness, building edges, and field boundaries.
+            <strong className="text-white">Guidance:</strong> Drag slider handle to evaluate building edges and field boundaries.
           </span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowBadges((b) => !b)}
-            className="hover:text-[#0066cc] transition-colors cursor-pointer text-[11px]"
+            className="hover:text-white transition-colors cursor-pointer text-[11px]"
           >
             {showBadges ? "Hide Labels" : "Show Labels"}
           </button>
@@ -389,7 +389,7 @@ export default function BeforeAfterSlider({
               setIsAutoSweeping(false);
               setSliderPosition(50);
             }}
-            className="flex items-center gap-1 hover:text-[#0066cc] transition-colors cursor-pointer text-[11px]"
+            className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer text-[11px]"
             title="Reset slider to 50%"
           >
             <RotateCcw size={11} /> Reset (50%)

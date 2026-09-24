@@ -40,7 +40,7 @@ export interface BandPreservationStat {
   preservation_pct: number;
 }
 
-export type ModelChoice = "able" | "diffusion" | "both";
+export type ModelChoice = "able";
 
 export interface SRResult {
   job_id:              string;
@@ -98,6 +98,7 @@ export interface ScanRecord {
   ssim?:               number | null;
   sam_deg?:            number | null;
   ergas?:              number | null;
+  scale_factor?:       number | null;
   preservation_pct?:   number | null;
   thumbnail_url?:      string | null;
   lr_rgb_url?:         string | null;

@@ -1,168 +1,180 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLACK & WHITE DESIGN SYSTEM — Beyond Pixels SRM Platform
+   Rule: Pure black canvas. White for primary text. Grey 111–555 for surfaces.
+   Color ONLY for functional signals: green=ok, amber=warn, red=error.
+══════════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --color-bg:          #f0f2f5;   /* warm light grey page background */
-  --color-surface:     #ffffff;   /* pure white cards */
-  --color-surface-2:   #f7f8fa;   /* slightly off-white elevated surface */
-  --color-border:      #dde3ed;   /* soft blue-grey border */
-  --color-accent:      #0066cc;   /* SugarCRM-style solid blue */
-  --color-accent-dim:  #0052a3;   /* hover blue */
-  --color-warn:        #e8850a;   /* amber, kept */
-  --color-danger:      #d93025;   /* red, kept */
-  --color-text:        #1a1f2e;   /* near-black navy */
-  --color-muted:       #6b7a99;   /* blue-grey secondary text */
+  --bg:         #000;
+  --s0:         #080808;   /* deepest surface */
+  --s1:         #0f0f0f;   /* card base */
+  --s2:         #151515;   /* elevated */
+  --s3:         #1c1c1c;   /* hover state */
+  --b1:         #1e1e1e;   /* primary border */
+  --b2:         #2a2a2a;   /* soft border */
+  --text:       #f0f0f0;
+  --muted:      #888;
+  --dim:        #555;
+  --ok:         #4ade80;
+  --warn:       #fbbf24;
+  --danger:     #f87171;
+  --info:       #60a5fa;
 }
 
-/* Dark mode — keep identical to before but opt-in only */
-.dark {
-  --color-bg:          #0a0e14;
-  --color-surface:     #111827;
-  --color-surface-2:   #1a2235;
-  --color-border:      #1e2d40;
-  --color-accent:      #00d4aa;
-  --color-accent-dim:  #00a888;
-  --color-text:        #e2e8f0;
-  --color-muted:       #64748b;
-}
-
-*,
-*::before,
-*::after { box-sizing: border-box; }
-
-html,
-body {
-  height: 100%;
-  margin: 0;
-}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: #000; }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--bg);
+  color: var(--text);
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Professional Cartography & Spatial Workstation System */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 4px 16px -2px rgba(15, 23, 42, 0.03);
+/* ─── Force dark on ALL Tailwind white/light utility classes ─────────────── */
+/* This covers every component without per-file edits */
+
+.bg-white:not(.btn-white):not([data-preserve-white]):not(.text-black),
+.bg-slate-50:not(.btn-white):not(.text-black),
+.bg-slate-100:not(.btn-white):not(.text-black),
+.bg-slate-200:not(.btn-white):not(.text-black) {
+  background: var(--s1) !important;
 }
 
-.glass-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 6px 20px -4px rgba(15, 23, 42, 0.04);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+.btn-white,
+.bg-pure-white,
+.bg-white.text-black,
+.text-black.bg-white {
+  background: #ffffff !important;
+  color: #000000 !important;
 }
 
-.glass-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px 0 rgba(15, 23, 42, 0.06), 0 12px 28px -4px rgba(15, 23, 42, 0.06);
+.bg-slate-800, .bg-slate-900 {
+  background: var(--s0) !important;
+}
+.bg-white\/95, .bg-white\/90 {
+  background: rgba(15,15,15,0.97) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.bg-slate-50\/70 { background: rgba(15,15,15,0.7) !important; }
+
+.border-slate-100, .border-slate-200, .border-slate-300 { border-color: var(--b1) !important; }
+.border-slate-200\/80, .border-slate-200\/90 { border-color: rgba(30,30,30,0.9) !important; }
+
+.text-slate-900 { color: #ffffff      !important; }
+.text-slate-800 { color: #f0f0f0      !important; }
+.text-slate-700 { color: #d0d0d0      !important; }
+.text-slate-600 { color: #a0a0a0      !important; }
+.text-slate-500 { color: #888888      !important; }
+.text-slate-400 { color: #666666      !important; }
+
+/* Functional tinted backgrounds — keep them, just darker */
+.bg-emerald-50  { background: rgba(74,222,128,0.07)  !important; }
+.bg-amber-50    { background: rgba(251,191,36,0.07)   !important; }
+.bg-red-50      { background: rgba(248,113,113,0.07)  !important; }
+.bg-sky-50      { background: rgba(96,165,250,0.07)   !important; }
+.bg-purple-50   { background: rgba(167,139,250,0.07)  !important; }
+.bg-blue-50     { background: rgba(96,165,250,0.07)   !important; }
+.bg-rose-50     { background: rgba(251,113,133,0.07)  !important; }
+.bg-teal-50     { background: rgba(45,212,191,0.07)   !important; }
+
+.bg-slate-100\/70, .bg-slate-100\/80 { background: rgba(20,20,20,0.8) !important; }
+
+/* Border colors for tinted sections */
+.border-emerald-100, .border-emerald-200 { border-color: rgba(74,222,128,0.2)  !important; }
+.border-amber-100, .border-amber-200     { border-color: rgba(251,191,36,0.2)  !important; }
+.border-sky-100, .border-sky-200         { border-color: rgba(96,165,250,0.2)  !important; }
+.border-red-100, .border-red-200         { border-color: rgba(248,113,113,0.2) !important; }
+.border-purple-100,.border-purple-200    { border-color: rgba(167,139,250,0.2) !important; }
+
+/* Gradient card backgrounds — collapse to flat dark */
+.bg-gradient-to-br,
+.bg-gradient-to-r,
+.bg-gradient-to-b {
+  background-image: none !important;
+  background: var(--s1) !important;
 }
 
-.glass-liquid-card {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 8px 24px -4px rgba(15, 23, 42, 0.04);
-}
+/* Ring/shadow overrides */
+.shadow-sm, .shadow-xs, .shadow-2xs, .shadow-lg { box-shadow: 0 1px 4px rgba(0,0,0,0.6) !important; }
 
-.glass-liquid-inner {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02);
-  transition: all 0.15s ease;
-}
+/* Tailwind v4 color accent strip (header) */
+.bg-linear-to-r { background: var(--b1) !important; background-image: none !important; }
 
-.glass-liquid-inner:hover {
-  background: #ffffff;
-  border-color: #cbd5e1;
+/* Input / form elements */
+input, textarea, select {
+  background: var(--s0) !important;
+  color: var(--text) !important;
+  border-color: var(--b1) !important;
 }
+input::placeholder { color: var(--dim) !important; }
 
-.glass-pill {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+/* hover states */
+.hover\:bg-slate-50:hover,
+.hover\:bg-slate-100:hover,
+.hover\:bg-slate-100\/80:hover,
+.hover\:bg-slate-100\/90:hover {
+  background: var(--s3) !important;
 }
+.hover\:bg-slate-50:hover { background: var(--s2) !important; }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+/* ─── B&W Surface primitives ─────────────────────────────────────────────── */
+.glass-panel, .glass-liquid-card, .glass-liquid-inner, .glass-card, .glass-pill {
+  background: var(--s1) !important;
+  border: 1px solid var(--b1) !important;
+  backdrop-filter: none !important;
 }
+.glass-card:hover { border-color: var(--b2) !important; }
 
-.perspective-1000 {
-  perspective: 1000px;
-}
+/* ─── Typography helpers ─────────────────────────────────────────────────── */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.perspective-1000   { perspective: 1000px; }
+.transform-style-3d { transform-style: preserve-3d; }
 
-.transform-style-3d {
-  transform-style: preserve-3d;
-}
-
-/* Liquid keyframes */
+/* ─── Keyframes ──────────────────────────────────────────────────────────── */
 @keyframes liquidPulse {
-  0%, 100% {
-    transform: scale(1) rotate(0deg);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.08) rotate(180deg);
-    opacity: 0.8;
-  }
+  0%,100% { transform:scale(1) rotate(0deg);   opacity:.15; }
+  50%      { transform:scale(1.04) rotate(180deg); opacity:.3; }
 }
-
 @keyframes liquidFloat {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(25px, -20px) scale(1.06);
-  }
-  66% {
-    transform: translate(-20px, 15px) scale(0.95);
-  }
+  0%,100% { transform:translate(0,0) scale(1); }
+  33%      { transform:translate(18px,-12px) scale(1.03); }
+  66%      { transform:translate(-12px,10px) scale(.97); }
 }
-
 @keyframes scanSweep {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+  0%   { transform:translateY(-100%); }
+  100% { transform:translateY(100%); }
+}
+@keyframes pulse-slow {
+  0%,100% { opacity:1; }
+  50%      { opacity:.4; }
 }
 
-.animate-liquid-pulse {
-  animation: liquidPulse 8s ease-in-out infinite;
-}
+.animate-liquid-pulse { animation: liquidPulse 14s ease-in-out infinite; }
+.animate-liquid-float { animation: liquidFloat 22s ease-in-out infinite; }
+.animate-pulse-slow   { animation: pulse-slow 2s ease-in-out infinite; }
 
-.animate-liquid-float {
-  animation: liquidFloat 16s ease-in-out infinite;
-}
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width:4px; height:4px; }
+::-webkit-scrollbar-track  { background:transparent; }
+::-webkit-scrollbar-thumb  { background:#2a2a2a; border-radius:9999px; }
+::-webkit-scrollbar-thumb:hover { background:#3a3a3a; }
 
-/* Custom sleek scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(107, 122, 153, 0.25);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 102, 204, 0.45);
-}
-
-/* Leaflet — keep controls above glass panels */
-.leaflet-control { z-index: 500 !important; }
-.leaflet-pane    { z-index: 400 !important; }
+/* ─── Leaflet ─────────────────────────────────────────────────────────────── */
+.leaflet-control { z-index:500 !important; }
+.leaflet-pane    { z-index:400 !important; }
 .leaflet-container {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 550px !important;
-  background: var(--color-surface) !important;
+  width:100% !important; height:100% !important; min-height:550px !important;
+  background:var(--s0) !important;
 }
+.leaflet-control-attribution {
+  background: rgba(0,0,0,0.7) !important;
+  color: #555 !important;
+}
+.leaflet-control-attribution a { color:#555 !important; }
 
-
-
-
+/* ─── Globe canvas wrapper ──────────────────────────────────────────────── */
+.globe-canvas-wrapper { position:relative; width:100%; height:100%; background:#000; }
+.globe-canvas-wrapper canvas { display:block; width:100%!important; height:100%!important; }

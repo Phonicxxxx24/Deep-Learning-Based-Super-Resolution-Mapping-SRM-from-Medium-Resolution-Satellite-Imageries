@@ -2,14 +2,22 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { DatabaseArchiveIcon, RadarReticleIcon } from "./GlobalIcons";
-import { Satellite } from "lucide-react";
+import Link from "next/link";
+import { Search, Database, Sparkles, Navigation, Globe, Radio } from "lucide-react";
+import { RadarReticleIcon } from "./GlobalIcons";
 
 interface CommandHeaderProps {
   totalScans: number;
   onOpenArchive: () => void;
   onSearchCoordinates?: (lat: number, lon: number) => void;
 }
+
+const QUICK_CHIPS = [
+  { name: "Mumbai", lat: 18.9600, lon: 72.8200 },
+  { name: "Dubai", lat: 25.2048, lon: 55.2708 },
+  { name: "Grand Canyon", lat: 36.1069, lon: -112.1129 },
+  { name: "Paris", lat: 48.8566, lon: 2.3522 },
+];
 
 export default function CommandHeader({
   totalScans,
@@ -24,95 +32,119 @@ export default function CommandHeader({
     const parts = searchInput.split(/[, ]+/).map((s) => parseFloat(s.trim()));
     if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
       onSearchCoordinates?.(parts[0], parts[1]);
+      setSearchInput("");
     }
   };
 
   return (
-    <header className="relative w-full z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-[0_1px_3px_0_rgba(15,23,42,0.03)]">
-      {/* Top Aerospace Optical Accent Strip */}
-      <div className="h-[2px] w-full bg-linear-to-r from-[#0052cc] via-[#0284c7] via-60% to-[#10b981]" />
-
-      <div className="w-full px-5 py-2.5 flex items-center justify-between gap-4">
-        {/* Brand & Mission Identification */}
-        <div className="flex items-center gap-3">
-          {/* Beyond Pixels Mission Emblem */}
-          <div className="relative w-9 h-9 rounded-xl overflow-hidden shadow-sm ring-1 ring-sky-400/30 bg-[#07101e] shrink-0 group">
-            <Image
-              src="/beyond-pixels-icon.png"
-              alt="Beyond Pixels Logo"
-              width={36}
-              height={36}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-              priority
-            />
-            <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white" />
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-black tracking-tight text-slate-900 leading-none">
-                Beyond Pixels
-              </span>
-              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider bg-[#0066cc]/10 text-[#0066cc] border border-[#0066cc]/20">
-                v2.4 · SRM
-              </span>
+    <header
+      className="w-full z-40 select-none font-mono shrink-0"
+      style={{
+        background: "#080808",
+        borderBottom: "1px solid #1a1a1a",
+      }}
+    >
+      <div className="w-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+        {/* Left: Brand Identification */}
+        <div className="flex items-center gap-3 shrink-0">
+          <Link href="/" className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="w-8 h-8 rounded-xl overflow-hidden bg-black border border-[#262626] p-0.5 group-hover:border-[#444] transition-colors shrink-0">
+              <Image
+                src="/beyond-pixels-icon.png"
+                alt="Beyond Pixels Logo"
+                width={30}
+                height={30}
+                className="w-full h-full object-contain rounded-lg"
+                priority
+              />
             </div>
-            <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
-              Sentinel-2 Super-Resolution Mapping · 10m → 2.5m
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-white tracking-tight uppercase">
+                  Beyond Pixels
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#141414] text-white border border-[#2a2a2a]">
+                  Studio v2.4
+                </span>
+              </div>
+              <p className="text-[10px] text-[#666] leading-none mt-0.5">
+                Copernicus Sentinel-2 Deep Super-Resolution Mapping
+              </p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Center: Search & Quick Jumps Capsule (like Image 1 & 3) */}
+        <div className="flex-1 max-w-xl mx-2 hidden md:flex items-center gap-2">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex-1 relative flex items-center"
+          >
+            <Search
+              size={13}
+              className="absolute left-3.5 text-[#666] pointer-events-none"
+            />
+            <input
+              id="coordinates-search-input"
+              name="coordinates"
+              type="text"
+              autoComplete="off"
+              aria-label="Search coordinates"
+              placeholder="Search coordinates e.g. 18.96, 72.82 or paste lat, lon…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-20 py-2 rounded-2xl text-xs bg-[#111111] text-white border border-[#222222] focus:border-[#555] transition-all outline-none placeholder:text-[#555]"
+            />
+            <button
+              type="submit"
+              className="btn-white absolute right-1.5 px-3 py-1 rounded-xl text-[10px] font-bold bg-white text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+            >
+              Locate
+            </button>
+          </form>
+
+          {/* Quick preset chips */}
+          <div className="hidden lg:flex items-center gap-1">
+            {QUICK_CHIPS.map((chip) => (
+              <button
+                key={chip.name}
+                type="button"
+                onClick={() => onSearchCoordinates?.(chip.lat, chip.lon)}
+                className="px-2.5 py-1 rounded-xl text-[10px] bg-[#121212] hover:bg-[#1f1f1f] text-[#888] hover:text-white border border-[#222] transition-colors cursor-pointer"
+              >
+                {chip.name}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Center Precision Search & Coordinate Navigator */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-lg hidden md:flex items-center">
-          <div className="relative w-full group">
-            <RadarReticleIcon
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#0066cc] transition-colors"
-            />
-            <input
-              type="text"
-              placeholder="Jump to coordinates (lat, lon) e.g. 28.6139, 77.2090..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-9 pr-20 py-1.5 rounded-xl text-xs bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 placeholder-slate-400 border border-slate-200/90 focus:border-[#0066cc] focus:ring-2 focus:ring-[#0066cc]/15 transition-all font-mono tabular-nums outline-none"
-            />
-            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <button
-                type="submit"
-                className="px-2 py-0.5 rounded-lg text-[10px] font-bold text-[#0066cc] hover:bg-[#0066cc]/10 transition-all cursor-pointer"
-              >
-                Locate
-              </button>
-              <kbd className="hidden lg:inline-block text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 border border-slate-200/80">
-                ↵
-              </kbd>
-            </div>
-          </div>
-        </form>
-
-        {/* Telemetry & Scans Vault Action Cluster */}
-        <div className="flex items-center gap-2.5">
-          {/* Live Copernicus STAC Stream Status */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-emerald-50/70 border border-emerald-200/70 text-[11px] font-medium text-emerald-800 shadow-2xs">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span className="hidden sm:inline font-semibold">ESA Copernicus Hub</span>
-            <span className="text-[9px] font-mono font-bold uppercase px-1 py-0.2 rounded bg-emerald-600/10 text-emerald-700">
-              Online
+        {/* Right: Telemetry & Actions */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Status pill: GPU Ready */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0f0f0f] border border-[#202020] text-xs">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white">
+              GPU Engine Ready
             </span>
           </div>
 
-          {/* Scans Archive Trigger */}
+          {/* Status pill: Model Target */}
+          <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0f0f0f] border border-[#202020] text-xs">
+            <Sparkles size={12} className="text-white" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#aaa]">
+              10m → <span className="text-white font-bold">0.625m (8×)</span>
+            </span>
+          </div>
+
+          {/* Scans Archive Button */}
           <button
+            type="button"
             onClick={onOpenArchive}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs transition-all cursor-pointer active:scale-98"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#141414] hover:bg-[#1e1e1e] text-white border border-[#282828] hover:border-[#444] transition-all cursor-pointer text-xs font-semibold"
           >
-            <DatabaseArchiveIcon size={14} className="text-[#0066cc]" />
-            <span>Archive</span>
-            <span className="px-1.5 py-0.2 rounded-md text-[10px] font-bold font-mono bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
+            <Database size={13} className="text-[#888]" />
+            <span>Mission Archive</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-[#222] text-[10px] text-white font-bold tabular-nums">
               {totalScans}
             </span>
           </button>

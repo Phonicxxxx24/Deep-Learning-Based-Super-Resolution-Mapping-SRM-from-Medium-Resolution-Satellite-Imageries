@@ -34,3 +34,31 @@ export const QUALITY_TIERS = [
 ] as const;
 
 export type QualityTierSteps = typeof QUALITY_TIERS[number]["steps"];
+
+export interface NotableLocation {
+  name: string;
+  desc: string;
+  lat: number;
+  lon: number;
+}
+
+export const NOTABLE_LOCATIONS: NotableLocation[] = [
+  { name: "Mumbai Port",        desc: "Coastal Harbour",   lat: 18.9600, lon:  72.8200 },
+  { name: "Ahmedabad Urban",    desc: "Built-up Basin",    lat: 23.0225, lon:  72.5714 },
+  { name: "New Delhi Core",     desc: "Metropolitan",      lat: 28.6139, lon:  77.2090 },
+  { name: "Uttarakhand Valley", desc: "Himalayan Terrain", lat: 30.3800, lon:  79.7200 },
+  { name: "Sundarbans Delta",   desc: "Mangrove Wetland",  lat: 21.9400, lon:  89.1800 },
+  { name: "Derna Coast",        desc: "Floodplain Area",   lat: 32.7600, lon:  22.6300 },
+  { name: "Berlin Centre",      desc: "European Urban",    lat: 52.5200, lon:  13.4050 },
+  { name: "London City",        desc: "Thames Valley",     lat: 51.5074, lon:  -0.1278 },
+  { name: "Tokyo Bay",          desc: "Industrial Coast",  lat: 35.6762, lon: 139.6503 },
+  { name: "New York Port",      desc: "Hudson Estuary",    lat: 40.7128, lon: -74.0060 },
+  { name: "San Francisco",      desc: "Bay Area",          lat: 37.7749, lon:-122.4194 },
+  { name: "Amazon Basin",       desc: "Dense Rainforest",  lat: -3.4653, lon: -62.2159 },
+  { name: "Cairo Nile",         desc: "River Oasis",       lat: 30.0444, lon:  31.2357 },
+  { name: "Sydney Harbour",     desc: "Ocean Port",        lat:-33.8688, lon: 151.2093 },
+  { name: "Singapore Strait",   desc: "Maritime Hub",      lat:  1.3521, lon: 103.8198 },
+  { name: "Dubai Coastline",    desc: "Desert Urban",      lat: 25.2048, lon:  55.2708 },
+  { name: "Paris Central",      desc: "Seine Basin",       lat: 48.8566, lon:   2.3522 },
+  { name: "Cape Town Coast",    desc: "Peninsula",         lat:-33.9249, lon:  18.4241 },
+];
