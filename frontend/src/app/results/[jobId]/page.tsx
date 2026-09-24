@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { getJobStatus, getJobResult } from "@/utils/api";
 import ResultsPanel from "@/components/ResultsPanel";
@@ -98,6 +99,32 @@ export default function ResultsPage() {
         animate={{ opacity: 1, scale: 1 }}
         className="flex flex-col items-center gap-5 text-center max-w-lg w-full p-6 sm:p-8 rounded-2xl glass-card bg-white/95 shadow-xl border border-slate-200"
       >
+        {/* Beyond Pixels Branding Badge */}
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100 w-full">
+          <div className="relative w-10 h-10 rounded-xl overflow-hidden ring-1 ring-sky-400/30 bg-[#07101e] shrink-0 shadow-sm">
+            <Image
+              src="/beyond-pixels-icon.png"
+              alt="Beyond Pixels Logo"
+              width={40}
+              height={40}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-black tracking-tight text-slate-900">
+                Beyond Pixels
+              </span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-[#0066cc]/10 text-[#0066cc]">
+                AI Engine
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium">
+              Planetary Super-Resolution Mapping
+            </p>
+          </div>
+        </div>
+
         <ExecutionProgressBar
           status={status}
           msg={msg}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { DatabaseArchiveIcon, RadarReticleIcon } from "./GlobalIcons";
 import { Satellite } from "lucide-react";
 
@@ -34,16 +35,23 @@ export default function CommandHeader({
       <div className="w-full px-5 py-2.5 flex items-center justify-between gap-4">
         {/* Brand & Mission Identification */}
         <div className="flex items-center gap-3">
-          {/* Custom Avlok Aerospace Mission Emblem */}
-          <div className="relative w-9 h-9 rounded-xl bg-linear-to-br from-[#07101e] to-[#004b99] flex items-center justify-center text-white shadow-sm ring-1 ring-sky-400/20 shrink-0">
-            <Satellite size={19} className="text-sky-300 transform -rotate-12" />
+          {/* Beyond Pixels Mission Emblem */}
+          <div className="relative w-9 h-9 rounded-xl overflow-hidden shadow-sm ring-1 ring-sky-400/30 bg-[#07101e] shrink-0 group">
+            <Image
+              src="/beyond-pixels-icon.png"
+              alt="Beyond Pixels Logo"
+              width={36}
+              height={36}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              priority
+            />
             <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white" />
           </div>
 
           <div>
             <div className="flex items-center gap-2">
               <span className="text-base font-black tracking-tight text-slate-900 leading-none">
-                Avlok
+                Beyond Pixels
               </span>
               <span className="px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider bg-[#0066cc]/10 text-[#0066cc] border border-[#0066cc]/20">
                 v2.4 · SRM

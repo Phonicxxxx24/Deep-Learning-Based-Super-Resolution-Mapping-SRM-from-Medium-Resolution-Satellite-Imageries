@@ -1,4 +1,8 @@
-# Deep-Learning-Based Super-Resolution Mapping (SRM) from Medium-Resolution Satellite Imageries
+# Beyond Pixels — Super-Resolution Mapping (SRM) from Satellite Imageries
+
+<div align="center">
+  <img src="frontend/public/beyond-pixels-logo.jpg" alt="Beyond Pixels Logo" width="360" />
+</div>
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.13%2Bcu126-EE4C2C.svg)](https://pytorch.org/)

@@ -12,7 +12,7 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 echo -e "${CYAN}=======================================================================${NC}"
-echo -e "${CYAN}${BOLD}        Avlok — Sentinel-2 Super-Resolution Command Center             ${NC}"
+echo -e "${CYAN}${BOLD}    Beyond Pixels — Sentinel-2 Super-Resolution Command Center         ${NC}"
 echo -e "${CYAN}        Multi-Scale Diffusion SR (10m -> 2.5m / 1.25m) · SIH 2026      ${NC}"
 echo -e "${CYAN}=======================================================================${NC}"
 echo ""

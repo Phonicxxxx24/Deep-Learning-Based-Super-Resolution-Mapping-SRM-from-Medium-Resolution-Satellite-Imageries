@@ -145,16 +145,25 @@ export default function ExecutiveReportModal({
         <div className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8 text-[#1e293b] print:p-0">
           {/* Header Banner */}
           <div className="border-b-2 border-[#0284c7] pb-5 flex flex-col sm:flex-row justify-between items-start gap-4">
-            <div>
-              <div className="inline-block bg-[#0f172a] text-[#38bdf8] font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-md mb-2">
-                MISSION ASSURANCE DOSSIER · RESTRICTED
+            <div className="flex items-start gap-4">
+              <div className="relative w-14 h-14 rounded-xl overflow-hidden shadow-md ring-1 ring-sky-400/30 shrink-0 bg-[#07101e]">
+                <img
+                  src="/beyond-pixels-icon.png"
+                  alt="Beyond Pixels Logo"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <h1 className="text-2xl font-black text-[#0f172a] tracking-tight">
-                SRM PLANETARY SUPER-RESOLUTION INTELLIGENCE REPORT
-              </h1>
-              <p className="text-xs text-[#0284c7] font-bold mt-1">
-                Deep-Learning Dual-Path Multi-Scale Super-Resolution Mapping · Copernicus Sentinel-2
-              </p>
+              <div>
+                <div className="inline-block bg-[#0f172a] text-[#38bdf8] font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-md mb-2">
+                  BEYOND PIXELS · MISSION ASSURANCE DOSSIER
+                </div>
+                <h1 className="text-2xl font-black text-[#0f172a] tracking-tight">
+                  PLANETARY SUPER-RESOLUTION INTELLIGENCE REPORT
+                </h1>
+                <p className="text-xs text-[#0284c7] font-bold mt-1">
+                  Beyond Pixels · Deep-Learning Dual-Path Multi-Scale Super-Resolution Mapping · Copernicus Sentinel-2
+                </p>
+              </div>
             </div>
 
             <div className="text-left sm:text-right">
@@ -475,7 +484,7 @@ export default function ExecutiveReportModal({
           <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 text-xs text-slate-500">
             <div>
               <p className="font-bold text-slate-800">
-                SRM Validation Authority & System Assurance
+                Beyond Pixels · SRM Validation Authority & System Assurance
               </p>
               <p>Model Engine: LDSR-S2 Latent Diffusion + SEN2SRLite Fourier Filter</p>
               <p className="font-mono text-[10px] text-slate-400 mt-0.5">

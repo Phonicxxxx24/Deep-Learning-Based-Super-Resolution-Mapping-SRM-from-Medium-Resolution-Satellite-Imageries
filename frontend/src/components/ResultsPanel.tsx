@@ -198,19 +198,30 @@ export default function ResultsPanel({ result }: { result: SRResult }) {
             <ArrowLeft size={14} /> Back to Command Map
           </Link>
           <div className="w-px h-6 bg-slate-200" />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-slate-900">
-                {scaleFactor === 8 ? "8× Sub-Meter Resolution Telemetry" : "4× Super-Resolution Telemetry"}
-              </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
-                ✓ Inference Validated
-              </span>
+          <div className="flex items-center gap-3">
+            <div className="relative w-8 h-8 rounded-lg overflow-hidden ring-1 ring-sky-400/30 bg-[#07101e] shrink-0">
+              <Image
+                src="/beyond-pixels-icon.png"
+                alt="Beyond Pixels Logo"
+                width={32}
+                height={32}
+                className="w-full h-full object-cover"
+              />
             </div>
-            <p className="text-xs text-slate-500 font-mono mt-0.5 tabular-nums">
-              Lat {result.lat.toFixed(5)}°, Lon {result.lon.toFixed(5)}° · Job ID:{" "}
-              <strong className="text-[#0066cc] font-mono">{result.job_id}</strong>
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-bold text-slate-900">
+                  {scaleFactor === 8 ? "8× Sub-Meter Resolution Telemetry" : "4× Super-Resolution Telemetry"}
+                </h1>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                  ✓ Inference Validated
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-mono mt-0.5 tabular-nums">
+                Beyond Pixels · Lat {result.lat.toFixed(5)}°, Lon {result.lon.toFixed(5)}° · Job ID:{" "}
+                <strong className="text-[#0066cc] font-mono">{result.job_id}</strong>
+              </p>
+            </div>
           </div>
         </div>
 
