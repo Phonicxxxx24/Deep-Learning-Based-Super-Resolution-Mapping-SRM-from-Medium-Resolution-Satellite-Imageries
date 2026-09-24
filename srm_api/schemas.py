@@ -26,6 +26,10 @@ class SRRequest(BaseModel):
         default=4,
         description="Enhancement scale factor: 4 (2.5m standard) or 8 (0.625m ultra-res).",
     )
+    model_choice: Literal["able", "diffusion", "both"] = Field(
+        default="able",
+        description="Super-resolution model architecture: 'able' (Sen2SR-RRDB), 'diffusion' (LDSR-S2), or 'both' (dual comparison)",
+    )
 
     @model_validator(mode="after")
     def clamp_hardware_limits(self) -> "SRRequest":
@@ -84,6 +88,11 @@ class SRResult(BaseModel):
     lr_ndbi_url: Optional[str] = None
     metrics: BandMetrics
     band_stats: Optional[list[BandPreservationStat]] = None
+    model_choice: str = "able"
+    sr_able_url: Optional[str] = None
+    sr_diffusion_url: Optional[str] = None
+    band_stats_able: Optional[list[BandPreservationStat]] = None
+    band_stats_diffusion: Optional[list[BandPreservationStat]] = None
     patch_size_px: int = 128
     output_size_px: int = 512
     lr_resolution_m: float = 10.0

@@ -72,6 +72,11 @@ class FlexibleSRResult:
     scale_factor: int = 4
     output_size_px: int = 512
     sr_resolution_m: float = 2.5
+    model_choice: str = "able"
+    sr_able_url: Optional[str] = None
+    sr_diffusion_url: Optional[str] = None
+    band_stats_able: Optional[list[dict]] = None
+    band_stats_diffusion: Optional[list[dict]] = None
 
 
 def run_sr_from_latlon(
@@ -86,6 +91,7 @@ def run_sr_from_latlon(
     date_range: tuple[str, str] = ("2024-01-01", "2025-12-31"),
     config_path: str = "configs/srm_config.yaml",
     progress_callback: Optional[Callable[[int, str, str], None]] = None,
+    model_choice: str = "able",
 ) -> FlexibleSRResult:
     """
     Fetch Sentinel-2 data centred on (lat, lon) and run the full SR pipeline.
@@ -191,7 +197,13 @@ def run_sr_from_latlon(
         f"preprocess() must return a Tensor, got {type(lr_padded)}"
 
     # ── 3. Run dual-path SR ────────────────────────────────────────────────
-    _report(48, f"Executing Dual-Path Latent Diffusion SR ({sampling_steps} DDIM steps)...", "diffusion")
+    if model_choice == "both":
+        _report(48, f"Executing Dual-Model SRM: Sen2SR-RRDB + Latent Diffusion ({sampling_steps} DDIM steps)...", "diffusion")
+    elif model_choice == "diffusion":
+        _report(48, f"Executing Latent Diffusion SR ({sampling_steps} DDIM steps)...", "diffusion")
+    else:
+        _report(48, "Executing Sen2SR-RRDB Super-Resolution Mapping...", "diffusion")
+
     pipeline = DualPathSRPipeline(
         device=device,
         sampling_steps=sampling_steps,
@@ -202,11 +214,21 @@ def run_sr_from_latlon(
         lr_padded.unsqueeze(0).to(device),   # adds batch dim: (10,128,128) → (1,10,128,128)
         aoi_name=job_id,
         scale_factor=scale_factor,
+        model_mode=model_choice,
     )
     sr_final_out = sr_dict["sr_final"]
     assert sr_final_out is not None, f"[{job_id}] Pipeline produced None for sr_final"
     sr_tensor = sr_final_out.squeeze(0).cpu()  # (10, 2048, 2048) if 8x, else (10, 512, 512)
-    _report(74, "Dual-path SR synthesis completed. Clearing GPU caches...", "diffusion")
+
+    sr_able_tensor = None
+    if sr_dict.get("sr_final_able") is not None:
+        sr_able_tensor = sr_dict["sr_final_able"].squeeze(0).cpu()
+
+    sr_diff_tensor = None
+    if sr_dict.get("sr_final_diffusion") is not None:
+        sr_diff_tensor = sr_dict["sr_final_diffusion"].squeeze(0).cpu()
+
+    _report(74, f"SR synthesis completed ({model_choice} mode). Clearing GPU caches...", "diffusion")
 
     if device != "cpu":
         torch.cuda.empty_cache()
@@ -221,6 +243,7 @@ def run_sr_from_latlon(
             n_variations=n_uncertainty,
             sampling_steps=sampling_steps,
             aoi_name=job_id,
+            model_mode="diffusion" if model_choice == "diffusion" else "able",
         ).cpu()
         if device != "cpu":
             torch.cuda.empty_cache()
@@ -405,21 +428,32 @@ def run_sr_from_latlon(
         rgba = (cmap_obj(norm) * 255).astype(np.uint8)
         Image.fromarray(rgba).save(path)
 
-    sr_rgb_path   = output_dir / f"{job_id}_sr_rgb.png"
-    lr_rgb_path   = output_dir / f"{job_id}_lr_rgb.png"
-    unc_png_path  = output_dir / f"{job_id}_uncertainty.png"
-    ndvi_path     = output_dir / f"{job_id}_ndvi.png"
-    lr_ndvi_path  = output_dir / f"{job_id}_lr_ndvi.png"
-    mndwi_path    = output_dir / f"{job_id}_mndwi.png"
-    lr_mndwi_path = output_dir / f"{job_id}_lr_mndwi.png"
-    ndbi_path     = output_dir / f"{job_id}_ndbi.png"
-    lr_ndbi_path  = output_dir / f"{job_id}_lr_ndbi.png"
-    lam_path      = output_dir / f"{job_id}_lam.png"
-    chart_path    = output_dir / f"{job_id}_spectral_chart.png"
-    stats_json    = output_dir / f"{job_id}_band_stats.json"
+    sr_rgb_path        = output_dir / f"{job_id}_sr_rgb.png"
+    sr_able_path       = output_dir / f"{job_id}_sr_able_rgb.png"
+    sr_diffusion_path  = output_dir / f"{job_id}_sr_diffusion_rgb.png"
+    lr_rgb_path        = output_dir / f"{job_id}_lr_rgb.png"
+    unc_png_path       = output_dir / f"{job_id}_uncertainty.png"
+    ndvi_path          = output_dir / f"{job_id}_ndvi.png"
+    lr_ndvi_path       = output_dir / f"{job_id}_lr_ndvi.png"
+    mndwi_path         = output_dir / f"{job_id}_mndwi.png"
+    lr_mndwi_path      = output_dir / f"{job_id}_lr_mndwi.png"
+    ndbi_path          = output_dir / f"{job_id}_ndbi.png"
+    lr_ndbi_path       = output_dir / f"{job_id}_lr_ndbi.png"
+    lam_path           = output_dir / f"{job_id}_lam.png"
+    chart_path         = output_dir / f"{job_id}_spectral_chart.png"
+    stats_json         = output_dir / f"{job_id}_band_stats.json"
 
     # SR RGB: B04 (idx 2), B03 (idx 1), B02 (idx 0) → true colour
     _save_rgb_png(sr_np[[2, 1, 0]], sr_rgb_path)
+
+    # Save individual model outputs when available
+    sr_able_np = sr_able_tensor.numpy() if sr_able_tensor is not None else None
+    sr_diff_np = sr_diff_tensor.numpy() if sr_diff_tensor is not None else None
+
+    if sr_able_np is not None:
+        _save_rgb_png(sr_able_np[[2, 1, 0]], sr_able_path)
+    if sr_diff_np is not None:
+        _save_rgb_png(sr_diff_np[[2, 1, 0]], sr_diffusion_path)
 
     # LR display: upscaled to target_size (512 or 2048) for visual comparison
     lr_display = F.interpolate(
@@ -447,37 +481,53 @@ def run_sr_from_latlon(
 
     # ── 8b. Compute 10-band spectral preservation stats & plot chart ────────
     import json
-    band_stats = []
-    for i, m in enumerate(BAND_METADATA_10B):
-        band_lr = lr_np[i]
-        band_sr = sr_np[i]
 
-        lr_m = float(np.nanmean(band_lr)) if not np.all(np.isnan(band_lr)) else 0.2
-        sr_m = float(np.nanmean(band_sr)) if not np.all(np.isnan(band_sr)) else 0.2
-        lr_s = float(np.nanstd(band_lr)) if not np.all(np.isnan(band_lr)) else 0.02
-        sr_s = float(np.nanstd(band_sr)) if not np.all(np.isnan(band_sr)) else 0.02
+    def _calc_stats(target_sr_np: np.ndarray) -> list[dict]:
+        res = []
+        for i, m in enumerate(BAND_METADATA_10B):
+            band_lr = lr_np[i]
+            band_sr = target_sr_np[i]
 
-        if np.isnan(lr_m) or np.isinf(lr_m): lr_m = 0.2
-        if np.isnan(sr_m) or np.isinf(sr_m): sr_m = 0.2
-        if np.isnan(lr_s) or np.isinf(lr_s): lr_s = 0.02
-        if np.isnan(sr_s) or np.isinf(sr_s): sr_s = 0.02
+            lr_m = float(np.nanmean(band_lr)) if not np.all(np.isnan(band_lr)) else 0.2
+            sr_m = float(np.nanmean(band_sr)) if not np.all(np.isnan(band_sr)) else 0.2
+            lr_s = float(np.nanstd(band_lr)) if not np.all(np.isnan(band_lr)) else 0.02
+            sr_s = float(np.nanstd(band_sr)) if not np.all(np.isnan(band_sr)) else 0.02
 
-        diff = abs(sr_m - lr_m)
-        pres_pct = max(0.0, min(100.0, (1.0 - diff / (lr_m + 1e-6)) * 100))
-        band_stats.append({
-            "band": m["band"],
-            "name": m["name"],
-            "wavelength_nm": m["wavelength"],
-            "lr_mean": round(lr_m, 4),
-            "sr_mean": round(sr_m, 4),
-            "lr_std": round(lr_s, 4),
-            "sr_std": round(sr_s, 4),
-            "abs_diff": round(diff, 6),
-            "preservation_pct": round(pres_pct, 2),
-        })
+            if np.isnan(lr_m) or np.isinf(lr_m): lr_m = 0.2
+            if np.isnan(sr_m) or np.isinf(sr_m): sr_m = 0.2
+            if np.isnan(lr_s) or np.isinf(lr_s): lr_s = 0.02
+            if np.isnan(sr_s) or np.isinf(sr_s): sr_s = 0.02
 
+            diff = abs(sr_m - lr_m)
+            pres_pct = max(0.0, min(100.0, (1.0 - diff / (lr_m + 1e-6)) * 100))
+            res.append({
+                "band": m["band"],
+                "name": m["name"],
+                "wavelength_nm": m["wavelength"],
+                "lr_mean": round(lr_m, 4),
+                "sr_mean": round(sr_m, 4),
+                "lr_std": round(lr_s, 4),
+                "sr_std": round(sr_s, 4),
+                "abs_diff": round(diff, 6),
+                "preservation_pct": round(pres_pct, 2),
+            })
+        return res
+
+    band_stats = _calc_stats(sr_np)
     with open(stats_json, "w", encoding="utf-8") as f:
         json.dump(band_stats, f, indent=2)
+
+    band_stats_able = None
+    if sr_able_np is not None:
+        band_stats_able = _calc_stats(sr_able_np)
+        with open(output_dir / f"{job_id}_band_stats_able.json", "w", encoding="utf-8") as f:
+            json.dump(band_stats_able, f, indent=2)
+
+    band_stats_diffusion = None
+    if sr_diff_np is not None:
+        band_stats_diffusion = _calc_stats(sr_diff_np)
+        with open(output_dir / f"{job_id}_band_stats_diffusion.json", "w", encoding="utf-8") as f:
+            json.dump(band_stats_diffusion, f, indent=2)
 
     try:
         _report(97, "Synthesizing radiometric consistency & spectral verification charts...", "export")
@@ -492,7 +542,7 @@ def run_sr_from_latlon(
     }
 
     t_end = time.time()
-    logger.info("[%s] SR job complete in %.1fs (scale=%dx, size=%dpx)", job_id, t_end - t_start, scale_factor, target_size)
+    logger.info("[%s] SR job complete in %.1fs (scale=%dx, size=%dpx, model=%s)", job_id, t_end - t_start, scale_factor, target_size, model_choice)
     _report(100, "Super-Resolution Mapping pipeline completed successfully.", "done")
 
     return FlexibleSRResult(
@@ -512,6 +562,11 @@ def run_sr_from_latlon(
         scale_factor=scale_factor,
         output_size_px=target_size,
         sr_resolution_m=target_res_m,
+        model_choice=model_choice,
+        sr_able_url=f"/static/{job_id}_sr_able_rgb.png" if sr_able_np is not None else None,
+        sr_diffusion_url=f"/static/{job_id}_sr_diffusion_rgb.png" if sr_diff_np is not None else None,
+        band_stats_able=band_stats_able,
+        band_stats_diffusion=band_stats_diffusion,
     )
 
 

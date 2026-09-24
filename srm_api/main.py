@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+import json
 import logging
 import time
 import uuid
@@ -131,6 +132,7 @@ async def _gpu_worker() -> None:
                         "completed_at": now_iso,
                         "processing_time_s": result.processing_time_s,
                         "scale_factor": req.scale_factor,
+                        "model_choice": req.model_choice,
                         "psnr_db": result.metrics.psnr_db,
                         "ssim": result.metrics.ssim,
                         "sam_deg": result.metrics.sam_deg,
@@ -139,6 +141,8 @@ async def _gpu_worker() -> None:
                         "thumbnail_url": result.sr_rgb_url,
                         "lr_rgb_url": result.lr_rgb_url,
                         "sr_rgb_url": result.sr_rgb_url,
+                        "sr_able_url": result.sr_able_url,
+                        "sr_diffusion_url": result.sr_diffusion_url,
                         "uncertainty_url": result.uncertainty_url,
                         "spectral_chart_url": result.spectral_chart_url,
                         "ndvi_url": result.ndvi_url,
@@ -182,6 +186,7 @@ def _run_sr_blocking(job_id: str, req: SRRequest) -> SRResult:
         run_lam=req.run_lam,
         scale_factor=req.scale_factor,
         progress_callback=on_progress,
+        model_choice=req.model_choice,
     )
 
     def _url(suffix: str) -> str:
@@ -190,6 +195,17 @@ def _run_sr_blocking(job_id: str, req: SRRequest) -> SRResult:
     band_stats_models = None
     if flex.band_stats:
         band_stats_models = [BandPreservationStat(**s) for s in flex.band_stats]
+
+    band_stats_able_models = None
+    if flex.band_stats_able:
+        band_stats_able_models = [BandPreservationStat(**s) for s in flex.band_stats_able]
+
+    band_stats_diff_models = None
+    if flex.band_stats_diffusion:
+        band_stats_diff_models = [BandPreservationStat(**s) for s in flex.band_stats_diffusion]
+
+    sr_able_url = _url("sr_able_rgb.png") if (OUTPUT_DIR / f"{job_id}_sr_able_rgb.png").exists() else None
+    sr_diff_url = _url("sr_diffusion_rgb.png") if (OUTPUT_DIR / f"{job_id}_sr_diffusion_rgb.png").exists() else None
 
     return SRResult(
         job_id=job_id,
@@ -208,6 +224,11 @@ def _run_sr_blocking(job_id: str, req: SRRequest) -> SRResult:
         lr_ndbi_url=_url("lr_ndbi.png"),
         metrics=BandMetrics(**flex.metrics),
         band_stats=band_stats_models,
+        model_choice=req.model_choice,
+        sr_able_url=sr_able_url,
+        sr_diffusion_url=sr_diff_url,
+        band_stats_able=band_stats_able_models,
+        band_stats_diffusion=band_stats_diff_models,
         patch_size_px=128,
         output_size_px=flex.output_size_px,
         lr_resolution_m=10.0,
@@ -246,7 +267,6 @@ def _recover_job_from_disk(job_id: str) -> Optional[SRResult]:
     band_stats = None
 
     if stats_json.exists():
-        import json
         try:
             with open(stats_json, encoding="utf-8") as f:
                 band_stats = [BandPreservationStat(**s) for s in json.load(f)]
@@ -255,7 +275,7 @@ def _recover_job_from_disk(job_id: str) -> Optional[SRResult]:
 
     if not band_stats and sr_tif.exists():
         try:
-            import json, rasterio
+            import rasterio
             from srm.flexible_input import BAND_METADATA_10B, generate_spectral_chart_file
             with rasterio.open(sr_tif) as src:
                 sr_data = src.read()
@@ -290,6 +310,29 @@ def _recover_job_from_disk(job_id: str) -> Optional[SRResult]:
         p = OUTPUT_DIR / f"{job_id}_{suffix}"
         return f"/static/{job_id}_{suffix}" if p.exists() else None
 
+    # Check for individual model outputs
+    sr_able_url = _url("sr_able_rgb.png")
+    sr_diff_url = _url("sr_diffusion_rgb.png")
+    recovered_model_choice = "both" if (sr_able_url and sr_diff_url) else ("diffusion" if sr_diff_url else "able")
+
+    stats_able = None
+    stats_able_file = OUTPUT_DIR / f"{job_id}_band_stats_able.json"
+    if stats_able_file.exists():
+        try:
+            with open(stats_able_file, encoding="utf-8") as f:
+                stats_able = [BandPreservationStat(**s) for s in json.load(f)]
+        except Exception:
+            pass
+
+    stats_diff = None
+    stats_diff_file = OUTPUT_DIR / f"{job_id}_band_stats_diffusion.json"
+    if stats_diff_file.exists():
+        try:
+            with open(stats_diff_file, encoding="utf-8") as f:
+                stats_diff = [BandPreservationStat(**s) for s in json.load(f)]
+        except Exception:
+            pass
+
     result = SRResult(
         job_id=job_id,
         lat=20.5937,
@@ -307,6 +350,11 @@ def _recover_job_from_disk(job_id: str) -> Optional[SRResult]:
         lr_ndbi_url=_url("lr_ndbi.png"),
         metrics=BandMetrics(),
         band_stats=band_stats,
+        model_choice=recovered_model_choice,
+        sr_able_url=sr_able_url,
+        sr_diffusion_url=sr_diff_url,
+        band_stats_able=stats_able,
+        band_stats_diffusion=stats_diff,
         patch_size_px=128,
         output_size_px=recovered_size,
         lr_resolution_m=10.0,
@@ -345,6 +393,7 @@ async def submit_sr_job(req: SRRequest) -> JobStatus:
         "location_name": area_name,
         "event_category": "Planetary Scan",
         "sampling_steps": req.sampling_steps,
+        "model_choice": req.model_choice,
         "status": "queued",
         "created_at": now_iso,
     })

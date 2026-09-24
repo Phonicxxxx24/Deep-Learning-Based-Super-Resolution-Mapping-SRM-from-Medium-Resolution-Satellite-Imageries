@@ -1,0 +1,112 @@
+[
+  {
+    "band": "B02",
+    "name": "Blue",
+    "wavelength_nm": 492,
+    "lr_mean": 0.1889,
+    "sr_mean": 0.1889,
+    "lr_std": 0.0554,
+    "sr_std": 0.0664,
+    "abs_diff": 3.4e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B03",
+    "name": "Green",
+    "wavelength_nm": 560,
+    "lr_mean": 0.21,
+    "sr_mean": 0.2101,
+    "lr_std": 0.056,
+    "sr_std": 0.066,
+    "abs_diff": 3.8e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B04",
+    "name": "Red",
+    "wavelength_nm": 665,
+    "lr_mean": 0.219,
+    "sr_mean": 0.2191,
+    "lr_std": 0.0667,
+    "sr_std": 0.075,
+    "abs_diff": 4e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B05",
+    "name": "Red Edge 1",
+    "wavelength_nm": 704,
+    "lr_mean": 0.2453,
+    "sr_mean": 0.2454,
+    "lr_std": 0.0671,
+    "sr_std": 0.0697,
+    "abs_diff": 4.6e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B06",
+    "name": "Red Edge 2",
+    "wavelength_nm": 740,
+    "lr_mean": 0.2685,
+    "sr_mean": 0.2686,
+    "lr_std": 0.081,
+    "sr_std": 0.0834,
+    "abs_diff": 5e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B07",
+    "name": "Red Edge 3",
+    "wavelength_nm": 783,
+    "lr_mean": 0.2826,
+    "sr_mean": 0.2827,
+    "lr_std": 0.0876,
+    "sr_std": 0.09,
+    "abs_diff": 5.3e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B08",
+    "name": "NIR",
+    "wavelength_nm": 842,
+    "lr_mean": 0.2823,
+    "sr_mean": 0.2823,
+    "lr_std": 0.0953,
+    "sr_std": 0.1032,
+    "abs_diff": 5.3e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B8A",
+    "name": "Narrow NIR",
+    "wavelength_nm": 865,
+    "lr_mean": 0.2859,
+    "sr_mean": 0.2859,
+    "lr_std": 0.0916,
+    "sr_std": 0.0943,
+    "abs_diff": 5.3e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B11",
+    "name": "SWIR 1",
+    "wavelength_nm": 1610,
+    "lr_mean": 0.2718,
+    "sr_mean": 0.2719,
+    "lr_std": 0.0879,
+    "sr_std": 0.0871,
+    "abs_diff": 5e-05,
+    "preservation_pct": 99.98
+  },
+  {
+    "band": "B12",
+    "name": "SWIR 2",
+    "wavelength_nm": 2190,
+    "lr_mean": 0.2429,
+    "sr_mean": 0.2429,
+    "lr_std": 0.0813,
+    "sr_std": 0.0809,
+    "abs_diff": 4.5e-05,
+    "preservation_pct": 99.98
+  }
+]

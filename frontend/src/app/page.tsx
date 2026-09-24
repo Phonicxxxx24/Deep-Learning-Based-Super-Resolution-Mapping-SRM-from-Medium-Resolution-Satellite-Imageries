@@ -9,6 +9,10 @@ import {
   Settings2,
   Sparkles,
   SlidersHorizontal,
+  Cpu,
+  Zap,
+  Waves,
+  Scale,
 } from "lucide-react";
 
 import CommandHeader from "@/components/CommandHeader";
@@ -23,7 +27,7 @@ import {
   QUALITY_TIERS,
   type QualityTierSteps,
 } from "@/lib/constants";
-import type { JobStatus, StatusResponse, ScanRecord } from "@/types";
+import type { JobStatus, StatusResponse, ScanRecord, ModelChoice } from "@/types";
 
 // Dynamic Leaflet import
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -51,7 +55,8 @@ export default function HomePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Quality Steps
+  // Model Choice & Quality Steps
+  const [modelChoice, setModelChoice] = useState<ModelChoice>("able");
   const [selectedSteps, setSelectedSteps] = useState<QualityTierSteps>(50);
   const [scaleFactor, setScaleFactor] = useState<number>(4);
 
@@ -89,6 +94,7 @@ export default function HomePage() {
         n_uncertainty: 5,
         sampling_steps: selectedSteps,
         scale_factor: scaleFactor,
+        model_choice: modelChoice,
       });
       setJobId(res.job_id);
       setJobStatus(res.status);
@@ -105,7 +111,7 @@ export default function HomePage() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedLatLon, selectedSteps, scaleFactor]);
+  }, [selectedLatLon, selectedSteps, scaleFactor, modelChoice]);
 
   // Polling
   useEffect(() => {
@@ -285,6 +291,105 @@ export default function HomePage() {
                   </p>
                 </button>
               </div>
+            </div>
+
+            {/* Super-Resolution Model Architecture Selection */}
+            <div className="space-y-2 pt-2 border-t border-slate-200/80">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <Cpu size={12} className="text-[#0066cc]" />
+                  <span>Model Architecture</span>
+                </span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  {modelChoice === "able" ? "Sen2SR-RRDB (<1s)" : modelChoice === "diffusion" ? "LDSR-S2 (DDIM)" : "Dual Model (Compare)"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {/* 1. Sen2SR-RRDB (Able) */}
+                <button
+                  type="button"
+                  onClick={() => setModelChoice("able")}
+                  disabled={isRunning}
+                  className={`p-2.5 rounded-xl text-left transition-all cursor-pointer border flex flex-col justify-between ${
+                    modelChoice === "able"
+                      ? "bg-white border-[#0066cc] shadow-xs ring-1 ring-[#0066cc]/30"
+                      : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                      <Zap size={13} className="text-amber-500 fill-amber-500" />
+                      Sen2SR
+                    </span>
+                    <span className="text-[9px] font-mono uppercase px-1 py-0.2 rounded bg-amber-500/10 text-amber-600 font-bold">
+                      Fast
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 line-clamp-1">
+                    RRDB · &lt;1s · 35.9dB
+                  </p>
+                </button>
+
+                {/* 2. Latent Diffusion */}
+                <button
+                  type="button"
+                  onClick={() => setModelChoice("diffusion")}
+                  disabled={isRunning}
+                  className={`p-2.5 rounded-xl text-left transition-all cursor-pointer border flex flex-col justify-between ${
+                    modelChoice === "diffusion"
+                      ? "bg-white border-sky-600 shadow-xs ring-1 ring-sky-600/30"
+                      : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                      <Waves size={13} className="text-sky-600" />
+                      Diffusion
+                    </span>
+                    <span className="text-[9px] font-mono uppercase px-1 py-0.2 rounded bg-sky-500/10 text-sky-600 font-bold">
+                      DDIM
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 line-clamp-1">
+                    LDSR-S2 Prior
+                  </p>
+                </button>
+
+                {/* 3. Both (Compare) */}
+                <button
+                  type="button"
+                  onClick={() => setModelChoice("both")}
+                  disabled={isRunning}
+                  className={`p-2.5 rounded-xl text-left transition-all cursor-pointer border flex flex-col justify-between ${
+                    modelChoice === "both"
+                      ? "bg-white border-purple-600 shadow-xs ring-1 ring-purple-600/30"
+                      : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                      <Scale size={13} className="text-purple-600" />
+                      Both
+                    </span>
+                    <span className="text-[9px] font-mono uppercase px-1 py-0.2 rounded bg-purple-500/10 text-purple-600 font-bold">
+                      Compare
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 line-clamp-1">
+                    Side-by-Side
+                  </p>
+                </button>
+              </div>
+
+              {modelChoice === "both" && (
+                <div className="p-2 rounded-lg bg-purple-50 border border-purple-200/80 text-[10.5px] text-purple-700 flex items-center gap-2">
+                  <Scale size={13} className="shrink-0 text-purple-600" />
+                  <span>
+                    Dual-model execution: runs both models sequentially & enables side-by-side comparison slider in results.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

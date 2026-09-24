@@ -120,13 +120,17 @@ def compute_uncertainty(
     n_variations: int = 5,
     sampling_steps: int = 50,
     aoi_name: str = "custom_aoi",
+    model_mode: str = "able",
 ) -> torch.Tensor:
     """Convenience wrapper for uncertainty estimation.
 
     Accepts (1, 10, H, W) or (1, 4, H, W) tensor and either DualPathSRPipeline
     or SRLatentDiffusion model, returning a (1, 512, 512) uncertainty tensor.
     """
-    model = getattr(pipeline, "model_able", getattr(pipeline, "model_diffusion", pipeline))
+    if model_mode == "diffusion":
+        model = getattr(pipeline, "model_diffusion", getattr(pipeline, "model_able", pipeline))
+    else:
+        model = getattr(pipeline, "model_able", getattr(pipeline, "model_diffusion", pipeline))
 
     if lr_input.ndim == 4 and lr_input.shape[1] == 10:
         lr_rgbn = lr_input[:, [0, 1, 2, 6]]

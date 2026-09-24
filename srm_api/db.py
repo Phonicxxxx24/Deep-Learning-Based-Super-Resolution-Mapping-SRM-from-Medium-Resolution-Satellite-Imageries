@@ -52,15 +52,24 @@ def init_db() -> None:
                 ndvi_url TEXT,
                 mndwi_url TEXT,
                 ndbi_url TEXT,
-                scale_factor INTEGER DEFAULT 4
+                scale_factor INTEGER DEFAULT 4,
+                model_choice TEXT DEFAULT 'able',
+                sr_able_url TEXT,
+                sr_diffusion_url TEXT
             )
         """)
-        # Migration: ensure scale_factor column exists in existing DB
+        # Migration: ensure scale_factor, model_choice, sr_able_url, sr_diffusion_url columns exist in existing DB
         try:
             cursor = conn.execute("PRAGMA table_info(scans)")
             cols = [row["name"] for row in cursor.fetchall()]
             if "scale_factor" not in cols:
                 conn.execute("ALTER TABLE scans ADD COLUMN scale_factor INTEGER DEFAULT 4")
+            if "model_choice" not in cols:
+                conn.execute("ALTER TABLE scans ADD COLUMN model_choice TEXT DEFAULT 'able'")
+            if "sr_able_url" not in cols:
+                conn.execute("ALTER TABLE scans ADD COLUMN sr_able_url TEXT")
+            if "sr_diffusion_url" not in cols:
+                conn.execute("ALTER TABLE scans ADD COLUMN sr_diffusion_url TEXT")
         except Exception:
             pass
 

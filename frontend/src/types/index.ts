@@ -40,6 +40,8 @@ export interface BandPreservationStat {
   preservation_pct: number;
 }
 
+export type ModelChoice = "able" | "diffusion" | "both";
+
 export interface SRResult {
   job_id:              string;
   lat:                 number;
@@ -64,6 +66,11 @@ export interface SRResult {
   processing_time_s:   number;
   sampling_steps_used: number;
   scale_factor?:       number;
+  model_choice?:       ModelChoice;
+  sr_able_url?:        string | null;
+  sr_diffusion_url?:   string | null;
+  band_stats_able?:    BandPreservationStat[] | null;
+  band_stats_diffusion?: BandPreservationStat[] | null;
 }
 
 export interface SubmitPayload {
@@ -73,6 +80,7 @@ export interface SubmitPayload {
   sampling_steps?:  number;
   run_lam?:         boolean;
   scale_factor?:    number;
+  model_choice?:    ModelChoice;
 }
 
 export interface ScanRecord {
@@ -94,6 +102,9 @@ export interface ScanRecord {
   thumbnail_url?:      string | null;
   lr_rgb_url?:         string | null;
   sr_rgb_url?:         string | null;
+  sr_able_url?:        string | null;
+  sr_diffusion_url?:   string | null;
+  model_choice?:       string | null;
   uncertainty_url?:    string | null;
   spectral_chart_url?: string | null;
   ndvi_url?:           string | null;

@@ -75,6 +75,7 @@ def test_dual_path_sr_pipeline_with_able():
     assert "sr_fused" in out
     assert "sr_final" in out
 
+    assert out["sr_able"] is not None
     assert out["sr_able"].shape == (1, 4, 512, 512)
     assert out["sr_final"].shape == (1, 10, 512, 512)
 
@@ -95,3 +96,35 @@ def test_uncertainty_wrappers_with_pipeline():
     unc_map, stats = compute_uncertainty_map(pipeline.model_able, lr_rgbn, n_variations=4)
     assert unc_map.shape == (1, 1, 256, 256)
     assert stats["spatial_variance"] > 0.0
+
+
+def test_dual_model_schemas_and_requests():
+    """Verify Pydantic schemas accept and validate model_choice and dual URLs."""
+    from srm_api.schemas import SRRequest, SRResult, BandMetrics, BandPreservationStat
+
+    req_able = SRRequest(lat=23.0, lon=72.0, model_choice="able")
+    assert req_able.model_choice == "able"
+
+    req_diff = SRRequest(lat=23.0, lon=72.0, model_choice="diffusion")
+    assert req_diff.model_choice == "diffusion"
+
+    req_both = SRRequest(lat=23.0, lon=72.0, model_choice="both")
+    assert req_both.model_choice == "both"
+
+    result = SRResult(
+        job_id="test1234",
+        lat=23.0,
+        lon=72.0,
+        sr_rgb_url="/static/test1234_sr_rgb.png",
+        lr_rgb_url="/static/test1234_lr_rgb.png",
+        uncertainty_url="/static/test1234_uncertainty.png",
+        metrics=BandMetrics(),
+        processing_time_s=1.2,
+        model_choice="both",
+        sr_able_url="/static/test1234_sr_able_rgb.png",
+        sr_diffusion_url="/static/test1234_sr_diffusion_rgb.png",
+    )
+    assert result.model_choice == "both"
+    assert result.sr_able_url is not None
+    assert result.sr_diffusion_url is not None
+
