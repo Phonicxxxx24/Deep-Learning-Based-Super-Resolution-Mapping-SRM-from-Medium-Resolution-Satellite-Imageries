@@ -276,6 +276,38 @@ cd frontend && npm run build
 
 ---
 
+## Repository Structure
+
+```
+├── assets/                           # Showcase imagery and demonstration figures
+├── configs/                          # Pipeline YAML configurations
+├── data/                             # SQLite mission database (srm_scans.db)
+├── docs/                             # Comprehensive technical documentation & prompts
+│   ├── FEATURE_3D_GLOBE_PROPOSAL.md  # 3D Globe architectural proposals
+│   ├── FUTURE_ROADMAP_AND_PLANS.md   # Project roadmap & milestones
+│   ├── GRAPH_REPORT.md               # Codebase AST graph analysis
+│   ├── REVISED_IMPLEMENTATION_PLAN.md# Implementation sprints
+│   ├── SRM_Architecture.md           # Deep learning architecture specifications
+│   ├── SRM_Frontend_Task_Prompts.md  # Frontend component task prompts
+│   ├── SRM_Solution_Architecture.md  # Solution overview & data flows
+│   ├── SRM_Task_Prompts.md           # Scientific pipeline task prompts
+│   ├── SYSTEM_DESIGN.md              # System design & hardware constraints
+│   └── progress.md                   # Task progress log
+├── frontend/                         # Next.js 16 Web Command Center (App Router)
+├── model/                            # Neural model weights (Sen2SR_Able)
+├── srm/                              # Python scientific library core
+├── srm_api/                          # FastAPI REST service & GPU worker queue
+├── tests/                            # Unit & integration pytest test suite
+├── verification/                     # Benchmark results & environment logs
+├── README.md                         # Master platform documentation
+├── run_pipeline.py                   # Master CLI runner
+├── start_project.sh                  # One-click Linux/macOS launcher
+└── start_project.bat                 # One-click Windows launcher
+```
+
+---
+
 ## License
 
 This project is licensed under the **Apache License 2.0**.
+
