@@ -153,11 +153,11 @@ git clone https://github.com/Phonicxxxx24/Deep-Learning-Based-Super-Resolution-M
 cd Deep-Learning-Based-Super-Resolution-Mapping-SRM-from-Medium-Resolution-Satellite-Imageries
 
 # Linux / macOS
-chmod +x start_project.sh
-./start_project.sh
+chmod +x linux/start_project.sh
+./linux/start_project.sh
 
 # Windows
-start_project.bat
+windows\start_project.bat
 ```
 
 Once running, access the services:
@@ -294,15 +294,19 @@ cd frontend && npm run build
 │   ├── SYSTEM_DESIGN.md              # System design & hardware constraints
 │   └── progress.md                   # Task progress log
 ├── frontend/                         # Next.js 16 Web Command Center (App Router)
+├── linux/                            # Linux provisioning and startup scripts
+│   ├── setup.sh                      # Environment setup and dependency checker
+│   └── start_project.sh              # One-click Linux launcher
+├── windows/                          # Windows provisioning and startup scripts
+│   ├── setup.bat                     # Environment setup and dependency installer
+│   └── start_project.bat             # One-click Windows launcher
 ├── model/                            # Neural model weights (Sen2SR_Able)
 ├── srm/                              # Python scientific library core
 ├── srm_api/                          # FastAPI REST service & GPU worker queue
 ├── tests/                            # Unit & integration pytest test suite
 ├── verification/                     # Benchmark results & environment logs
 ├── README.md                         # Master platform documentation
-├── run_pipeline.py                   # Master CLI runner
-├── start_project.sh                  # One-click Linux/macOS launcher
-└── start_project.bat                 # One-click Windows launcher
+└── run_pipeline.py                   # Master CLI runner
 ```
 
 ---

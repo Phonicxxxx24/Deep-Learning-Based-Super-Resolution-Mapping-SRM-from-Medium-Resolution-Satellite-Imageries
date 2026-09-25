@@ -16,7 +16,7 @@ echo -e "${CYAN}     Dual-Path Diffusion SR (10m -> 2.5m) Environment Provisioni
 echo -e "${CYAN}=======================================================================${NC}"
 echo ""
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # ------------------------------------------------------------------------------

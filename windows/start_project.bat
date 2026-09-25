@@ -9,14 +9,14 @@ echo          4x Dual-Path Diffusion SR (10m -^> 2.5m) · SIH 2026
 echo =======================================================================
 echo.
 
-:: Get directory of the bat script
-set "ROOT_DIR=%~dp0"
+:: Get root project directory (parent of windows\ folder)
+for %%i in ("%~dp0..") do set "ROOT_DIR=%%~fi\"
 cd /d "%ROOT_DIR%"
 
 :: Check Python Virtual Environment
 if not exist "%ROOT_DIR%.venv\Scripts\python.exe" (
     echo [ERROR] Python virtual environment not found at: %ROOT_DIR%.venv
-    echo Please create the virtual environment before launching.
+    echo Please run windows\setup.bat first to set up the environment.
     pause
     exit /b 1
 )

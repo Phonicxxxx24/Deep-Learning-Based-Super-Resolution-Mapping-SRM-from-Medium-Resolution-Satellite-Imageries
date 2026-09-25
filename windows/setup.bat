@@ -18,7 +18,8 @@ echo.
 echo =======================================================================
 echo.
 
-set "ROOT_DIR=%~dp0"
+:: Get root project directory (parent of windows\ folder)
+for %%i in ("%~dp0..") do set "ROOT_DIR=%%~fi\"
 cd /d "%ROOT_DIR%"
 
 :: ──────────────────────────────────────────────────────────────────────────

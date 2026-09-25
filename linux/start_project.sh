@@ -37,9 +37,9 @@ progress_bar() {
     fi
 }
 
-# Resolve root directory
+# Resolve root directory (parent of linux/ folder)
 progress_bar 5 "Resolving project directories..."
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 sleep 0.1
 
@@ -50,7 +50,7 @@ if [ ! -f "$VENV_PYTHON" ]; then
     echo ""
     echo -e "${RED}[ERROR] Python virtual environment not found at: $ROOT_DIR/.venv${NC}"
     echo -e "Please run the setup script first:"
-    echo -e "${YELLOW}  ./setup.sh${NC}"
+    echo -e "${YELLOW}  ./linux/setup.sh${NC}"
     exit 1
 fi
 sleep 0.1
