@@ -92,51 +92,48 @@ export default function ResultsPage() {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col items-center justify-center p-6 gap-6 font-mono"
-      style={{ background: "#000000", color: "#f5f5f5" }}
+      className="relative min-h-screen flex flex-col items-center justify-center p-6 gap-6 font-sans text-white"
+      style={{
+        backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('/results-bg.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+        backgroundAttachment: "fixed",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#06080e",
+      }}
     >
-      <LiquidBackdrop />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center gap-5 text-center max-w-lg w-full p-6 sm:p-8 rounded-2xl shadow-2xl"
+      {/* High-Visibility Satellite Background Layer */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none bg-cover bg-no-repeat"
         style={{
-          background: "#0a0a0a",
-          border: "1px solid #1f1f1f",
+          backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('/results-bg.jpg')",
+          backgroundPosition: "center top",
+          backgroundAttachment: "fixed",
         }}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+        className="relative z-10 flex flex-col items-center gap-5 text-center max-w-lg w-full p-6 sm:p-8 rounded-[32px] ios-glass-card border border-white/15 shadow-2xl backdrop-blur-2xl"
       >
         {/* Beyond Pixels Branding Badge */}
-        <div
-          className="flex items-center gap-3 pb-3 w-full"
-          style={{ borderBottom: "1px solid #1a1a1a" }}
-        >
-          <div
-            className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0"
-            style={{ background: "#000", border: "1px solid #2a2a2a" }}
-          >
+        <div className="flex items-center gap-3 pb-3 w-full border-b border-white/10">
+          <div className="relative w-12 h-12 shrink-0 filter drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]">
             <Image
               src="/beyond-pixels-icon.png"
               alt="Beyond Pixels Logo"
-              width={40}
-              height={40}
-              className="w-full h-full object-cover"
+              fill
+              className="object-contain"
             />
           </div>
           <div className="text-left">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold tracking-tight text-white">
+              <span className="text-base font-semibold tracking-tight text-white">
                 Beyond Pixels
               </span>
-              <span
-                className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider"
-                style={{ background: "#1a1a1a", color: "#888", border: "1px solid #2a2a2a" }}
-              >
-                SRM Engine
-              </span>
             </div>
-            <p className="text-[11px] text-[#666] font-medium">
-              Planetary Super-Resolution Mapping
-            </p>
           </div>
         </div>
 
@@ -151,32 +148,27 @@ export default function ResultsPage() {
         />
 
         {error ? (
-          <div className="flex flex-col items-center gap-3 mt-2">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500/10 text-red-400">
+          <div className="flex flex-col items-center gap-3 mt-2 font-sans">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500/15 text-red-400 border border-red-500/30">
               <AlertTriangle size={20} />
             </div>
-            <p className="text-sm font-mono text-red-400">
+            <p className="text-sm text-red-300">
               {error}
             </p>
             <Link
               href="/"
-              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors"
-              style={{
-                background: "#141414",
-                color: "#ffffff",
-                border: "1px solid #2a2a2a",
-              }}
+              className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all cursor-pointer active:scale-95"
             >
-              <ArrowLeft size={14} /> Return to 3D Globe
+              <ArrowLeft size={14} /> Return to Satellite Map
             </Link>
           </div>
         ) : (
-          <div className="space-y-1.5 pt-1 text-center font-mono">
-            <p className="text-xs text-[#777]">
+          <div className="space-y-1.5 pt-1 text-center font-sans">
+            <p className="text-xs text-white/60">
               Multi-spectral SRM pipeline is executing on dedicated GPU.
             </p>
-            <p className="text-[11px] text-[#555]">
-              Job ID: <span className="text-white font-semibold">{jobId}</span>
+            <p className="text-[11px] text-white/40 font-mono">
+              Job ID: <span className="text-white font-medium">{jobId}</span>
             </p>
           </div>
         )}

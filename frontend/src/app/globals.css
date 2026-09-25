@@ -1,180 +1,295 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BLACK & WHITE DESIGN SYSTEM — Beyond Pixels SRM Platform
-   Rule: Pure black canvas. White for primary text. Grey 111–555 for surfaces.
-   Color ONLY for functional signals: green=ok, amber=warn, red=error.
+   APPLE iOS LIQUID GLASS DESIGN SYSTEM — STRICT MONOCHROME (BLACK & WHITE)
+   Palette: Pure Obsidian Black (#000000), Pure White (#ffffff), and
+   Translucent Specular Glass (Frosted greys 111–eee with zero chromatic color).
 ══════════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg:         #000;
-  --s0:         #080808;   /* deepest surface */
-  --s1:         #0f0f0f;   /* card base */
-  --s2:         #151515;   /* elevated */
-  --s3:         #1c1c1c;   /* hover state */
-  --b1:         #1e1e1e;   /* primary border */
-  --b2:         #2a2a2a;   /* soft border */
-  --text:       #f0f0f0;
-  --muted:      #888;
-  --dim:        #555;
-  --ok:         #4ade80;
-  --warn:       #fbbf24;
-  --danger:     #f87171;
-  --info:       #60a5fa;
+  --ios-bg:              #000000;
+  --ios-surface-base:    rgba(14, 14, 14, 0.70);
+  --ios-surface-elevated:rgba(20, 20, 20, 0.82);
+  --ios-surface-subtle:  rgba(255, 255, 255, 0.05);
+  --ios-glass-border:    rgba(255, 255, 255, 0.14);
+  --ios-glass-border-hi: rgba(255, 255, 255, 0.28);
+  --ios-text-primary:    #ffffff;
+  --ios-text-secondary:  rgba(255, 255, 255, 0.70);
+  --ios-text-tertiary:   rgba(255, 255, 255, 0.45);
+  --ios-accent:          #ffffff;
+  --ios-accent-hover:    #f0f0f0;
+  --ios-accent-glow:     rgba(255, 255, 255, 0.25);
 }
 
-*, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; background: #000; }
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: "Inter", system-ui, sans-serif;
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000000;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
-/* ─── Force dark on ALL Tailwind white/light utility classes ─────────────── */
-/* This covers every component without per-file edits */
-
-.bg-white:not(.btn-white):not([data-preserve-white]):not(.text-black),
-.bg-slate-50:not(.btn-white):not(.text-black),
-.bg-slate-100:not(.btn-white):not(.text-black),
-.bg-slate-200:not(.btn-white):not(.text-black) {
-  background: var(--s1) !important;
+/* ─── Typography & Monospace ─────────────────────────────────────────────── */
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
+  font-feature-settings: "tnum" 1;
 }
 
-.btn-white,
-.bg-pure-white,
-.bg-white.text-black,
-.text-black.bg-white {
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── iOS Liquid Glass Material Primitives (Strict Monochrome) ───────────── */
+
+/* Primary Floating Glass (Navbars, Major Panels) */
+.ios-glass {
+  background: rgba(10, 10, 10, 0.72) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow:
+    0 16px 40px -10px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0.5px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Elevated Glass Cards (Inspector, Modals) */
+.ios-glass-card {
+  background: rgba(12, 12, 12, 0.78) !important;
+  backdrop-filter: blur(32px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow:
+    0 24px 50px -12px rgba(0, 0, 0, 0.8),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
+/* Subtle Glass Surface (Inner cards, chips, inactive segments) */
+.ios-glass-subtle {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
+.ios-glass-subtle:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+}
+
+/* Floating Glass Pill (Buttons, Badges, Search Bars) */
+.ios-glass-pill {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    0 8px 24px -4px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0.5px 0 rgba(255, 255, 255, 0.3) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ios-glass-pill:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.26) !important;
+  transform: translateY(-1px);
+}
+
+.ios-glass-pill:active {
+  transform: scale(0.98);
+}
+
+/* Primary Monochrome Action Button (Crisp Pure White on Obsidian) */
+.ios-btn-primary {
   background: #ffffff !important;
   color: #000000 !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow:
+    0 8px 30px -4px rgba(255, 255, 255, 0.25),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-weight: 700 !important;
 }
 
-.bg-slate-800, .bg-slate-900 {
-  background: var(--s0) !important;
-}
-.bg-white\/95, .bg-white\/90 {
-  background: rgba(15,15,15,0.97) !important;
-  backdrop-filter: blur(12px) !important;
-}
-.bg-slate-50\/70 { background: rgba(15,15,15,0.7) !important; }
-
-.border-slate-100, .border-slate-200, .border-slate-300 { border-color: var(--b1) !important; }
-.border-slate-200\/80, .border-slate-200\/90 { border-color: rgba(30,30,30,0.9) !important; }
-
-.text-slate-900 { color: #ffffff      !important; }
-.text-slate-800 { color: #f0f0f0      !important; }
-.text-slate-700 { color: #d0d0d0      !important; }
-.text-slate-600 { color: #a0a0a0      !important; }
-.text-slate-500 { color: #888888      !important; }
-.text-slate-400 { color: #666666      !important; }
-
-/* Functional tinted backgrounds — keep them, just darker */
-.bg-emerald-50  { background: rgba(74,222,128,0.07)  !important; }
-.bg-amber-50    { background: rgba(251,191,36,0.07)   !important; }
-.bg-red-50      { background: rgba(248,113,113,0.07)  !important; }
-.bg-sky-50      { background: rgba(96,165,250,0.07)   !important; }
-.bg-purple-50   { background: rgba(167,139,250,0.07)  !important; }
-.bg-blue-50     { background: rgba(96,165,250,0.07)   !important; }
-.bg-rose-50     { background: rgba(251,113,133,0.07)  !important; }
-.bg-teal-50     { background: rgba(45,212,191,0.07)   !important; }
-
-.bg-slate-100\/70, .bg-slate-100\/80 { background: rgba(20,20,20,0.8) !important; }
-
-/* Border colors for tinted sections */
-.border-emerald-100, .border-emerald-200 { border-color: rgba(74,222,128,0.2)  !important; }
-.border-amber-100, .border-amber-200     { border-color: rgba(251,191,36,0.2)  !important; }
-.border-sky-100, .border-sky-200         { border-color: rgba(96,165,250,0.2)  !important; }
-.border-red-100, .border-red-200         { border-color: rgba(248,113,113,0.2) !important; }
-.border-purple-100,.border-purple-200    { border-color: rgba(167,139,250,0.2) !important; }
-
-/* Gradient card backgrounds — collapse to flat dark */
-.bg-gradient-to-br,
-.bg-gradient-to-r,
-.bg-gradient-to-b {
-  background-image: none !important;
-  background: var(--s1) !important;
+.ios-btn-primary:hover:not(:disabled) {
+  background: #e6e6e6 !important;
+  color: #000000 !important;
+  box-shadow:
+    0 12px 36px -4px rgba(255, 255, 255, 0.4),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1) !important;
+  transform: translateY(-1px);
 }
 
-/* Ring/shadow overrides */
-.shadow-sm, .shadow-xs, .shadow-2xs, .shadow-lg { box-shadow: 0 1px 4px rgba(0,0,0,0.6) !important; }
-
-/* Tailwind v4 color accent strip (header) */
-.bg-linear-to-r { background: var(--b1) !important; background-image: none !important; }
-
-/* Input / form elements */
-input, textarea, select {
-  background: var(--s0) !important;
-  color: var(--text) !important;
-  border-color: var(--b1) !important;
-}
-input::placeholder { color: var(--dim) !important; }
-
-/* hover states */
-.hover\:bg-slate-50:hover,
-.hover\:bg-slate-100:hover,
-.hover\:bg-slate-100\/80:hover,
-.hover\:bg-slate-100\/90:hover {
-  background: var(--s3) !important;
-}
-.hover\:bg-slate-50:hover { background: var(--s2) !important; }
-
-/* ─── B&W Surface primitives ─────────────────────────────────────────────── */
-.glass-panel, .glass-liquid-card, .glass-liquid-inner, .glass-card, .glass-pill {
-  background: var(--s1) !important;
-  border: 1px solid var(--b1) !important;
-  backdrop-filter: none !important;
-}
-.glass-card:hover { border-color: var(--b2) !important; }
-
-/* ─── Typography helpers ─────────────────────────────────────────────────── */
-.tabular-nums { font-variant-numeric: tabular-nums; }
-.perspective-1000   { perspective: 1000px; }
-.transform-style-3d { transform-style: preserve-3d; }
-
-/* ─── Keyframes ──────────────────────────────────────────────────────────── */
-@keyframes liquidPulse {
-  0%,100% { transform:scale(1) rotate(0deg);   opacity:.15; }
-  50%      { transform:scale(1.04) rotate(180deg); opacity:.3; }
-}
-@keyframes liquidFloat {
-  0%,100% { transform:translate(0,0) scale(1); }
-  33%      { transform:translate(18px,-12px) scale(1.03); }
-  66%      { transform:translate(-12px,10px) scale(.97); }
-}
-@keyframes scanSweep {
-  0%   { transform:translateY(-100%); }
-  100% { transform:translateY(100%); }
-}
-@keyframes pulse-slow {
-  0%,100% { opacity:1; }
-  50%      { opacity:.4; }
+.ios-btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
-.animate-liquid-pulse { animation: liquidPulse 14s ease-in-out infinite; }
-.animate-liquid-float { animation: liquidFloat 22s ease-in-out infinite; }
-.animate-pulse-slow   { animation: pulse-slow 2s ease-in-out infinite; }
+.ios-btn-primary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
 
-/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
-::-webkit-scrollbar        { width:4px; height:4px; }
-::-webkit-scrollbar-track  { background:transparent; }
-::-webkit-scrollbar-thumb  { background:#2a2a2a; border-radius:9999px; }
-::-webkit-scrollbar-thumb:hover { background:#3a3a3a; }
+/* iOS Segmented Control Container (Monochrome) */
+.ios-segmented {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  padding: 3px;
+  position: relative;
+}
 
-/* ─── Leaflet ─────────────────────────────────────────────────────────────── */
-.leaflet-control { z-index:500 !important; }
-.leaflet-pane    { z-index:400 !important; }
+.ios-segmented-item {
+  flex: 1;
+  text-align: center;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ios-text-secondary);
+  border-radius: 0.8rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.ios-segmented-item:hover:not(.active) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ios-segmented-item.active {
+  background: #ffffff;
+  color: #000000 !important;
+  font-weight: 700;
+  border-color: #ffffff;
+  box-shadow:
+    0 4px 16px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0.5px 0 rgba(255, 255, 255, 1);
+}
+
+/* ─── Leaflet Map Container & Attribution (Monochrome) ────────────────────── */
 .leaflet-container {
-  width:100% !important; height:100% !important; min-height:550px !important;
-  background:var(--s0) !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: #000000 !important;
+  font-family: inherit !important;
 }
-.leaflet-control-attribution {
-  background: rgba(0,0,0,0.7) !important;
-  color: #555 !important;
-}
-.leaflet-control-attribution a { color:#555 !important; }
 
-/* ─── Globe canvas wrapper ──────────────────────────────────────────────── */
-.globe-canvas-wrapper { position:relative; width:100%; height:100%; background:#000; }
-.globe-canvas-wrapper canvas { display:block; width:100%!important; height:100%!important; }
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-size: 9px !important;
+  padding: 2px 8px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  margin: 6px !important;
+}
+
+.leaflet-control-attribution a {
+  color: rgba(255, 255, 255, 0.6) !important;
+  text-decoration: none !important;
+}
+
+/* ─── Custom Apple-like Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.20);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Monochrome Ambient Animations ──────────────────────────────────────── */
+@keyframes monochromeOrbit {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+    opacity: 0.08;
+  }
+  50% {
+    transform: translate(30px, -20px) scale(1.08);
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(-20px, 20px) scale(0.94);
+    opacity: 0.08;
+  }
+}
+
+.animate-monochrome-orbit {
+  animation: monochromeOrbit 22s ease-in-out infinite alternate;
+}
+
+/* ─── Dedicated Print Layout for PDF Result Report ──────────────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+
+  /* Reset body and background completely */
+  html, body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide all decorative overlays and non-print elements */
+  .print-hidden,
+  .print\:hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Ensure page breaks work predictably */
+  .print-page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    padding-top: 4mm !important;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Ensure images and tables print sharply */
+  img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    max-width: 100% !important;
+  }
+
+  table {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

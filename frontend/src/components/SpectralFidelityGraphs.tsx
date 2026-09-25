@@ -128,11 +128,17 @@ export default function SpectralFidelityGraphs({
   const activeHoverStat = stats.find((s) => s.band === hoveredBand);
 
   return (
-    <section className="space-y-4 font-mono text-white">
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="space-y-4 font-mono text-white"
+    >
       {/* ── Section Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#0c0c0c] border border-[#1f1f1f]">
+      <div className="ios-glass-card rounded-[28px] p-5 border border-white/15 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[#141414] text-white flex items-center justify-center border border-[#2a2a2a] shadow-xs shrink-0">
+          <div className="w-9 h-9 rounded-2xl bg-white/10 text-white flex items-center justify-center border border-white/15 backdrop-blur-md shadow-inner shrink-0">
             <Activity size={16} />
           </div>
           <div>
@@ -140,58 +146,53 @@ export default function SpectralFidelityGraphs({
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">
                 Spectral Band Value Preservation &amp; Radiometric Fidelity
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1a1a1a] text-white border border-[#333333]">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md">
                 ✓ {computedMeanPreservation}% Invariant
               </span>
             </div>
-            <p className="text-xs text-[#888] mt-0.5">
+            <p className="text-xs text-white/60 mt-0.5">
               Proves physical surface reflectance (BOA) conservation across all 10 Sentinel-2 bands.
             </p>
           </div>
         </div>
 
-        {/* View Mode Tabs */}
+        {/* View Mode Tabs (iOS Segmented Control) */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          <div className="flex items-center gap-1 bg-[#111111] p-1 rounded-xl border border-[#222222]">
-            <button
-              type="button"
-              onClick={() => setViewMode("dual")}
-              className="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
-              style={{
-                background: viewMode === "dual" ? "#ffffff" : "transparent",
-                color: viewMode === "dual" ? "#000000" : "#888888",
-              }}
-            >
-              <Layers size={13} />
-              <span>Dual Overview</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("curve")}
-              className="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
-              style={{
-                background: viewMode === "curve" ? "#ffffff" : "transparent",
-                color: viewMode === "curve" ? "#000000" : "#888888",
-              }}
-            >
-              <LineChart size={13} />
-              <span>Spectral Curve</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("bars")}
-              className="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
-              style={{
-                background: viewMode === "bars" ? "#ffffff" : "transparent",
-                color: viewMode === "bars" ? "#000000" : "#888888",
-              }}
-            >
-              <BarChart2 size={13} />
-              <span>10-Band Flux Bars</span>
-            </button>
+          <div className="flex items-center p-1 rounded-2xl bg-white/[0.05] border border-white/12 backdrop-blur-xl gap-0.5">
+            {[
+              { id: "dual", label: "Dual Overview", icon: Layers },
+              { id: "curve", label: "Spectral Curve", icon: LineChart },
+              { id: "bars", label: "10-Band Flux Bars", icon: BarChart2 },
+            ].map(({ id, label, icon: Icon }) => {
+              const isSel = viewMode === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setViewMode(id as "dual" | "curve" | "bars")}
+                  className={`relative px-3.5 py-1.5 rounded-xl font-mono text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                    isSel
+                      ? "text-black font-bold shadow-md"
+                      : "text-white/70 hover:text-white hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {isSel && (
+                    <motion.div
+                      layoutId="activeSpectralView"
+                      className="absolute inset-0 bg-white rounded-xl shadow-sm"
+                      transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-1.5">
+                    <Icon size={13} />
+                    <span>{label}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#141414] text-white border border-[#2a2a2a]">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 text-white border border-white/15 backdrop-blur-md shadow-sm">
             <ShieldCheck size={13} />
             <span>Fourier HardConstraint</span>
           </span>
@@ -206,7 +207,7 @@ export default function SpectralFidelityGraphs({
       >
         {/* GRAPH 1: Spectral Reflectance Curve */}
         {(viewMode === "dual" || viewMode === "curve") && (
-          <div className="flex flex-col rounded-2xl p-4 sm:p-5 bg-[#0c0c0c] border border-[#1f1f1f] shadow-xs relative overflow-hidden group">
+          <div className="ios-glass-card rounded-[28px] p-5 border border-white/15 shadow-xl backdrop-blur-xl relative overflow-hidden group hover:border-white/25 transition-all duration-300">
             {/* Header / Legend */}
             <div className="flex items-center justify-between gap-2 mb-3">
               <div>
@@ -214,15 +215,15 @@ export default function SpectralFidelityGraphs({
                   <LineChart size={14} className="text-white" />
                   <span>Spectral Signature by Wavelength</span>
                 </h3>
-                <span className="text-[11px] text-[#888]">
+                <span className="text-[11px] text-white/60">
                   Continuous surface reflectance profile across spectrum
                 </span>
               </div>
 
               {/* Curve Legend */}
               <div className="flex items-center gap-3 text-[11px] font-medium font-mono">
-                <span className="flex items-center gap-1.5 text-[#888]">
-                  <span className="w-3 h-0.5 bg-[#888] border-t border-dashed border-[#888] inline-block" />
+                <span className="flex items-center gap-1.5 text-white/60">
+                  <span className="w-3 h-0.5 bg-white/60 border-t border-dashed border-white/60 inline-block" />
                   <span>Input S2 (10m)</span>
                 </span>
                 <span className="flex items-center gap-1.5 text-white font-bold">
@@ -240,33 +241,33 @@ export default function SpectralFidelityGraphs({
               >
                 <defs>
                   <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ffffff" stopOpacity="0.12" />
+                    <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
                     <stop offset="100%" stopColor="#ffffff" stopOpacity="0.01" />
                   </linearGradient>
                   <filter id={glowFilterId} x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#ffffff" floodOpacity="0.25" />
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#ffffff" floodOpacity="0.3" />
                   </filter>
                 </defs>
 
                 {/* Spectral Domain Background Bands */}
-                <rect x={getX(490)} y={padT} width={getX(700) - getX(490)} height={innerH} fill="#141414" opacity="0.6" />
-                <rect x={getX(700)} y={padT} width={getX(785) - getX(700)} height={innerH} fill="#181818" opacity="0.6" />
-                <rect x={getX(785)} y={padT} width={getX(1000) - getX(785)} height={innerH} fill="#141414" opacity="0.6" />
-                <rect x={getX(1000)} y={padT} width={getX(2190) - getX(1000)} height={innerH} fill="#181818" opacity="0.6" />
+                <rect x={getX(490)} y={padT} width={getX(700) - getX(490)} height={innerH} fill="white" fillOpacity="0.02" />
+                <rect x={getX(700)} y={padT} width={getX(785) - getX(700)} height={innerH} fill="white" fillOpacity="0.04" />
+                <rect x={getX(785)} y={padT} width={getX(1000) - getX(785)} height={innerH} fill="white" fillOpacity="0.02" />
+                <rect x={getX(1000)} y={padT} width={getX(2190) - getX(1000)} height={innerH} fill="white" fillOpacity="0.04" />
 
                 {/* Domain Labels */}
-                <text x={(getX(490) + getX(700)) / 2} y={padT + 12} textAnchor="middle" fill="#666" fontSize="9" fontWeight="700" letterSpacing="0.08em">VIS</text>
-                <text x={(getX(700) + getX(785)) / 2} y={padT + 12} textAnchor="middle" fill="#888" fontSize="9" fontWeight="700" letterSpacing="0.08em">RED EDGE</text>
-                <text x={(getX(785) + getX(1000)) / 2} y={padT + 12} textAnchor="middle" fill="#aaa" fontSize="9" fontWeight="700" letterSpacing="0.08em">NIR</text>
-                <text x={(getX(1000) + getX(2190)) / 2} y={padT + 12} textAnchor="middle" fill="#666" fontSize="9" fontWeight="700" letterSpacing="0.08em">SWIR</text>
+                <text x={(getX(490) + getX(700)) / 2} y={padT + 12} textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="9" fontWeight="700" letterSpacing="0.08em">VIS</text>
+                <text x={(getX(700) + getX(785)) / 2} y={padT + 12} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="9" fontWeight="700" letterSpacing="0.08em">RED EDGE</text>
+                <text x={(getX(785) + getX(1000)) / 2} y={padT + 12} textAnchor="middle" fill="rgba(255,255,255,0.75)" fontSize="9" fontWeight="700" letterSpacing="0.08em">NIR</text>
+                <text x={(getX(1000) + getX(2190)) / 2} y={padT + 12} textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="9" fontWeight="700" letterSpacing="0.08em">SWIR</text>
 
                 {/* Gridlines */}
                 {yTicks.map((val) => {
                   const y = getY(val);
                   return (
                     <g key={val}>
-                      <line x1={padL} y1={y} x2={curveW - padR} y2={y} stroke="#1f1f1f" strokeDasharray="3 3" strokeWidth="1" />
-                      <text x={padL - 8} y={y + 3.5} textAnchor="end" fill="#666" fontSize="9.5" fontFamily="monospace" fontWeight="600">
+                      <line x1={padL} y1={y} x2={curveW - padR} y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" strokeWidth="1" />
+                      <text x={padL - 8} y={y + 3.5} textAnchor="end" fill="rgba(255,255,255,0.5)" fontSize="9.5" fontFamily="monospace" fontWeight="600">
                         {val.toFixed(2)}
                       </text>
                     </g>
@@ -279,7 +280,7 @@ export default function SpectralFidelityGraphs({
                   y={13}
                   transform="rotate(-90)"
                   textAnchor="middle"
-                  fill="#777"
+                  fill="rgba(255,255,255,0.55)"
                   fontSize="9.5"
                   fontWeight="600"
                 >
@@ -290,7 +291,7 @@ export default function SpectralFidelityGraphs({
                 <path d={envelopePath} fill={`url(#${gradientId})`} />
 
                 {/* Baseline LR Curve */}
-                <path d={lrPath} fill="none" stroke="#777777" strokeWidth="2" strokeDasharray="4 3" opacity="0.8" />
+                <path d={lrPath} fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" strokeDasharray="4 3" opacity="0.8" />
 
                 {/* Super-Resolved Curve */}
                 <path d={srPath} fill="none" stroke="#ffffff" strokeWidth="2.5" filter={`url(#${glowFilterId})`} />
@@ -324,8 +325,8 @@ export default function SpectralFidelityGraphs({
                         width="6"
                         height="6"
                         transform={`rotate(45 ${p.x} ${p.yLr})`}
-                        fill="#111111"
-                        stroke="#888888"
+                        fill="#000000"
+                        stroke="rgba(255,255,255,0.5)"
                         strokeWidth="1.5"
                       />
 
@@ -334,7 +335,7 @@ export default function SpectralFidelityGraphs({
                         cx={p.x}
                         cy={p.ySr}
                         r={isHovered ? 5.5 : 3.5}
-                        fill={isHovered ? "#ffffff" : "#111111"}
+                        fill={isHovered ? "#ffffff" : "#000000"}
                         stroke="#ffffff"
                         strokeWidth={isHovered ? 2.5 : 2}
                       />
@@ -344,7 +345,7 @@ export default function SpectralFidelityGraphs({
                         x={p.x}
                         y={p.ySr - 9}
                         textAnchor="middle"
-                        fill={isHovered ? "#ffffff" : "#888888"}
+                        fill={isHovered ? "#ffffff" : "rgba(255,255,255,0.7)"}
                         fontSize="9.5"
                         fontFamily="monospace"
                         fontWeight={isHovered ? "800" : "700"}
@@ -357,7 +358,7 @@ export default function SpectralFidelityGraphs({
                         x={p.x}
                         y={curveH - 12}
                         textAnchor="middle"
-                        fill={isHovered ? "#ffffff" : "#666666"}
+                        fill={isHovered ? "#ffffff" : "rgba(255,255,255,0.5)"}
                         fontSize="9"
                         fontFamily="monospace"
                         fontWeight={isHovered ? "700" : "500"}
@@ -368,44 +369,44 @@ export default function SpectralFidelityGraphs({
                   );
                 })}
 
-                <text x={padL + innerW / 2} y={curveH} textAnchor="middle" fill="#777" fontSize="9.5" fontWeight="600">
+                <text x={padL + innerW / 2} y={curveH} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize="9.5" fontWeight="600">
                   Wavelength λ (nm)
                 </text>
               </svg>
 
-              {/* Hover Tooltip */}
+              {/* Hover Tooltip (iOS Glass Card) */}
               <AnimatePresence>
                 {activeHoverStat && (
                   <motion.div
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute top-2 right-2 p-2.5 rounded-xl border font-mono text-xs pointer-events-none z-20 flex flex-col gap-1 min-w-[180px]"
-                    style={{ background: "#111111", borderColor: "#333333", color: "#f5f5f5" }}
+                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute top-2 right-2 p-3 rounded-2xl ios-glass-card border border-white/20 font-mono text-xs pointer-events-none z-20 flex flex-col gap-1 min-w-[190px] shadow-2xl backdrop-blur-2xl text-white"
                   >
-                    <div className="flex items-center justify-between border-b border-[#222] pb-1">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
                       <span className="font-bold text-white">
                         {activeHoverStat.band} · {activeHoverStat.name}
                       </span>
-                      <span className="text-[10px] text-[#888]">
+                      <span className="text-[10px] text-white/60">
                         {activeHoverStat.wavelength_nm} nm
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px] pt-0.5">
-                      <span className="text-[#888]">LR Input (10m):</span>
-                      <span className="font-bold text-white">
+                      <span className="text-white/60">LR Input (10m):</span>
+                      <span className="font-bold text-white tabular-nums">
                         {activeHoverStat.lr_mean.toFixed(4)}
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-[#888]">SR Output ({srResolutionM}m):</span>
-                      <span className="font-bold text-white">
+                      <span className="text-white/60">SR Output ({srResolutionM}m):</span>
+                      <span className="font-bold text-white tabular-nums">
                         {activeHoverStat.sr_mean.toFixed(4)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-[11px] border-t border-[#222] pt-1">
-                      <span className="text-[#888]">Flux Conservation:</span>
-                      <span className="font-bold text-white">
+                    <div className="flex justify-between text-[11px] border-t border-white/15 pt-1 mt-0.5">
+                      <span className="text-white/60">Flux Conservation:</span>
+                      <span className="font-bold text-white tabular-nums">
                         {activeHoverStat.preservation_pct.toFixed(1)}%
                       </span>
                     </div>
@@ -418,36 +419,36 @@ export default function SpectralFidelityGraphs({
 
         {/* GRAPH 2: 10-Band Conserved Radiometric Flux Bars */}
         {(viewMode === "dual" || viewMode === "bars") && (
-          <div className="flex flex-col rounded-2xl p-4 sm:p-5 bg-[#0c0c0c] border border-[#1f1f1f] shadow-xs relative overflow-hidden group">
+          <div className="ios-glass-card rounded-[28px] p-5 border border-white/15 shadow-xl backdrop-blur-xl relative overflow-hidden group hover:border-white/25 transition-all duration-300">
             <div className="flex items-center justify-between gap-2 mb-3">
               <div>
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                   <BarChart2 size={14} className="text-white" />
                   <span>10-Band Radiometric Consistency</span>
                 </h3>
-                <span className="text-[11px] text-[#888]">
+                <span className="text-[11px] text-white/60">
                   Conserved physical flux comparison (LR vs SR output)
                 </span>
               </div>
 
               {/* Bar Legend */}
               <div className="flex items-center gap-3 text-[11px] font-medium font-mono">
-                <span className="flex items-center gap-1.5 text-[#888]">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#555] inline-block" />
+                <span className="flex items-center gap-1.5 text-white/60">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-white/40 inline-block" />
                   <span>LR (10m)</span>
                 </span>
                 <span className="flex items-center gap-1.5 text-white font-bold">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-white inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-sm bg-white inline-block" />
                   <span>SR ({srResolutionM}m)</span>
                 </span>
               </div>
             </div>
 
             <div className="relative w-full aspect-[2/1] sm:aspect-[2.2/1] min-h-[230px] flex flex-col justify-end pb-7 pt-5 px-2">
-              <div className="absolute inset-x-0 bottom-7 top-5 flex flex-col justify-between pointer-events-none border-b border-[#222]">
+              <div className="absolute inset-x-0 bottom-7 top-5 flex flex-col justify-between pointer-events-none border-b border-white/15">
                 {yTicks.slice(1, -1).reverse().map((level) => (
-                  <div key={level} className="w-full flex items-center gap-2 border-t border-[#1a1a1a]">
-                    <span className="text-[9px] font-mono text-[#555] pl-1">{level.toFixed(2)}</span>
+                  <div key={level} className="w-full flex items-center gap-2 border-t border-white/[0.08]">
+                    <span className="text-[9px] font-mono text-white/40 pl-1">{level.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -467,12 +468,11 @@ export default function SpectralFidelityGraphs({
                       onMouseLeave={() => setHoveredBand(null)}
                     >
                       <span
-                        className="text-[9px] font-mono font-bold px-1 py-0.5 rounded transition-all mb-1"
-                        style={{
-                          background: isHovered ? "#ffffff" : "#1a1a1a",
-                          color: isHovered ? "#000000" : "#ffffff",
-                          border: isHovered ? "none" : "1px solid #333333",
-                        }}
+                        className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md transition-all duration-200 mb-1 tabular-nums ${
+                          isHovered
+                            ? "bg-white text-black shadow-md scale-105"
+                            : "bg-white/10 text-white border border-white/15 backdrop-blur-sm"
+                        }`}
                       >
                         {s.preservation_pct.toFixed(0)}%
                       </span>
@@ -481,13 +481,13 @@ export default function SpectralFidelityGraphs({
                         <div
                           style={{ height: `${barH_lr}%` }}
                           className={`w-1/2 rounded-t-sm transition-all duration-300 ${
-                            isHovered ? "bg-[#777]" : "bg-[#444]"
+                            isHovered ? "bg-white/60" : "bg-white/30"
                           }`}
                         />
                         <div
                           style={{ height: `${barH_sr}%` }}
                           className={`w-1/2 rounded-t-sm transition-all duration-300 ${
-                            isHovered ? "bg-white" : "bg-[#cccccc]"
+                            isHovered ? "bg-white shadow-[0_0_12px_rgba(255,255,255,0.8)]" : "bg-white/90"
                           }`}
                         />
                       </div>
@@ -495,12 +495,12 @@ export default function SpectralFidelityGraphs({
                       <div className="w-full text-center mt-1.5 flex flex-col items-center">
                         <span
                           className={`text-[10px] font-mono font-bold transition-colors ${
-                            isHovered ? "text-white" : "text-[#888]"
+                            isHovered ? "text-white" : "text-white/70"
                           }`}
                         >
                           {s.band}
                         </span>
-                        <span className="text-[8.5px] font-mono text-[#555] hidden sm:inline">
+                        <span className="text-[8.5px] font-mono text-white/40 hidden sm:inline">
                           {s.wavelength_nm}
                         </span>
                       </div>
@@ -515,11 +515,11 @@ export default function SpectralFidelityGraphs({
 
       {/* ── Per-Band Metrics Matrix Ribbon ── */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-[#888] font-mono">
+        <div className="flex items-center justify-between text-xs text-white/60 font-mono">
           <span className="font-bold uppercase tracking-wider text-[11px] text-white">
             10-Band Radiance Preservation Matrix (492 nm → 2190 nm)
           </span>
-          <span className="text-[10px] text-[#666]">Hover to cross-inspect bands</span>
+          <span className="text-[10px] text-white/50">Hover to cross-inspect bands</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-1.5">
@@ -530,29 +530,28 @@ export default function SpectralFidelityGraphs({
                 key={s.band}
                 onMouseEnter={() => setHoveredBand(s.band)}
                 onMouseLeave={() => setHoveredBand(null)}
-                className="rounded-xl p-2 transition-all duration-200 cursor-pointer flex flex-col items-center text-center font-mono"
-                style={{
-                  background: isHovered ? "#ffffff" : "#111111",
-                  color: isHovered ? "#000000" : "#ffffff",
-                  border: `1px solid ${isHovered ? "#ffffff" : "#222222"}`,
-                }}
+                className={`rounded-2xl p-2.5 transition-all duration-200 cursor-pointer flex flex-col items-center text-center font-mono active:scale-95 ${
+                  isHovered
+                    ? "bg-white text-black shadow-xl -translate-y-1 scale-105 border border-white"
+                    : "bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/12 backdrop-blur-xl"
+                }`}
               >
                 <span className="font-bold text-xs">{s.band}</span>
-                <span className="text-[9px]" style={{ color: isHovered ? "#333" : "#666" }}>
+                <span className="text-[9px]" style={{ color: isHovered ? "#333" : "rgba(255,255,255,0.5)" }}>
                   {s.wavelength_nm}nm
                 </span>
                 <span
-                  className="mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold"
-                  style={{
-                    background: isHovered ? "#000000" : "#1a1a1a",
-                    color: isHovered ? "#ffffff" : "#ffffff",
-                  }}
+                  className={`mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums transition-colors ${
+                    isHovered
+                      ? "bg-black text-white"
+                      : "bg-white/10 text-white border border-white/15"
+                  }`}
                 >
                   {s.preservation_pct.toFixed(0)}%
                 </span>
                 <span
-                  className="text-[9px] mt-0.5"
-                  style={{ color: isHovered ? "#222" : "#888" }}
+                  className="text-[9px] mt-0.5 tabular-nums"
+                  style={{ color: isHovered ? "#222" : "rgba(255,255,255,0.6)" }}
                 >
                   {s.sr_mean.toFixed(3)}
                 </span>
@@ -562,24 +561,18 @@ export default function SpectralFidelityGraphs({
         </div>
       </div>
 
-      {/* ── Guarantee Banner ── */}
-      <div
-        className="rounded-xl px-4 py-3 text-xs flex items-center justify-between gap-3 font-mono"
-        style={{ background: "#0c0c0c", border: "1px solid #1f1f1f", color: "#cccccc" }}
-      >
-        <div className="flex items-center gap-2">
+      {/* ── Guarantee Banner (iOS Glass Card) ── */}
+      <div className="ios-glass-card rounded-2xl px-4 py-3.5 border border-white/15 text-xs flex items-center justify-between gap-3 font-mono text-white/80 shadow-lg backdrop-blur-xl">
+        <div className="flex items-center gap-2.5">
           <ShieldCheck size={16} className="text-white shrink-0" />
           <span>
             <strong className="text-white">Fourier-Invariant Radiance Guarantee:</strong> HardConstraint low-pass frequency filtering prevents AI spectral hallucination, preserving 100% radiometric flux across all 10 Sentinel-2 bands.
           </span>
         </div>
-        <span
-          className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full shrink-0"
-          style={{ background: "#1a1a1a", color: "#ffffff", border: "1px solid #333333" }}
-        >
+        <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full shrink-0 bg-white/10 text-white border border-white/20 backdrop-blur-md">
           ✓ Verified ISO-19115
         </span>
       </div>
-    </section>
+    </motion.section>
   );
 }

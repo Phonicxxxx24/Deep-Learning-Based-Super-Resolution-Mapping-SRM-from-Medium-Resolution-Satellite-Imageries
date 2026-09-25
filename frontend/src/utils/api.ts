@@ -54,6 +54,18 @@ export const getPastScans = (params?: {
 export const getScanRecord = (jobId: string): Promise<ScanRecord> =>
   apiFetch<ScanRecord>(`/api/scans/${jobId}`);
 
+/** Delete an individual scan record and its artifacts from backend. */
+export const deleteScanRecord = (jobId: string): Promise<{ status: string; job_id: string; deleted: boolean }> =>
+  apiFetch(`/api/scans/${jobId}`, {
+    method: "DELETE",
+  });
+
+/** Clear all scan records and past history. */
+export const clearAllScans = (): Promise<{ status: string; deleted_count: number }> =>
+  apiFetch("/api/scans", {
+    method: "DELETE",
+  });
+
 /** Health check. */
 export const healthCheck = (): Promise<{ status: string; queue_depth: number }> =>
   apiFetch("/api/health");

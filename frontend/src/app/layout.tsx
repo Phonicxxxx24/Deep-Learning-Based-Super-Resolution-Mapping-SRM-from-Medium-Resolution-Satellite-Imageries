@@ -1,9 +1,21 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const sans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Beyond Pixels — Sentinel-2 Super-Resolution Platform",
@@ -25,8 +37,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning style={{ background: "#000" }}>
-      <body className={inter.className} suppressHydrationWarning style={{ background: "#000" }}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${sans.variable} ${mono.variable}`}
+      style={{ background: "#000" }}
+    >
+      <body
+        className={`${sans.className} font-sans`}
+        suppressHydrationWarning
+        style={{ background: "#000" }}
+      >
         {children}
       </body>
     </html>

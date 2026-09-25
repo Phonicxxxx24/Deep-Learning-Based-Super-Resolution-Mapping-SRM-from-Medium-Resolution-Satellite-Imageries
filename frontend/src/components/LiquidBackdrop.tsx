@@ -4,29 +4,29 @@ import React from "react";
 
 export default function LiquidBackdrop() {
   return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10 bg-[#f8fafc]">
-      {/* Primary Ambient Atmosphere Glow */}
+    <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10 bg-transparent">
+      {/* Soft Monochrome Specular Light Diffusion (Top Left) */}
       <div
-        className="absolute -top-32 -left-32 w-[640px] h-[640px] rounded-full pointer-events-none opacity-20"
+        className="absolute -top-40 -left-40 w-[680px] h-[680px] rounded-full blur-[140px] pointer-events-none animate-monochrome-orbit"
         style={{
-          background: "radial-gradient(circle, rgba(2, 132, 199, 0.25) 0%, rgba(56, 189, 248, 0.08) 50%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 50%, transparent 70%)",
         }}
       />
 
-      {/* Secondary Edge Glow */}
+      {/* Secondary Monochrome Light Glow (Bottom Right) */}
       <div
-        className="absolute top-1/2 -right-32 w-[600px] h-[600px] rounded-full pointer-events-none opacity-15"
+        className="absolute -bottom-48 right-1/4 w-[640px] h-[640px] rounded-full blur-[150px] pointer-events-none animate-monochrome-orbit"
         style={{
-          background: "radial-gradient(circle, rgba(14, 165, 233, 0.20) 0%, rgba(99, 102, 241, 0.06) 50%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 50%, transparent 70%)",
+          animationDelay: "-7s",
         }}
       />
 
-      {/* Engineering Precision Cartographic Grid */}
+      {/* Subtle Vignette Overlay */}
       <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: `linear-gradient(#0f172a 1px, transparent 1px), linear-gradient(to right, #0f172a 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
+          background: "radial-gradient(circle at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.3) 100%)",
         }}
       />
     </div>

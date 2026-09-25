@@ -8,7 +8,6 @@ import {
   ZoomOut,
   RotateCcw,
   Download,
-  Grid,
   Sparkles,
   Maximize2,
 } from "lucide-react";
@@ -41,7 +40,6 @@ export default function ImageMaximizeModal({
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [crispPixels, setCrispPixels] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +48,6 @@ export default function ImageMaximizeModal({
     if (image) {
       setZoom(1);
       setPan({ x: 0, y: 0 });
-      setCrispPixels(false);
     }
   }, [image]);
 
@@ -125,20 +122,21 @@ export default function ImageMaximizeModal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           onClick={onClose}
-          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex flex-col items-center justify-between p-3 sm:p-6 select-none"
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-2xl flex flex-col items-center justify-between p-3 sm:p-6 select-none"
         >
           {/* ── Top Header Toolbar ── */}
           <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
+            initial={{ opacity: 0, y: -16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-5xl rounded-2xl bg-[#111827]/90 border border-white/15 px-4 py-3 text-white shadow-2xl flex flex-wrap items-center justify-between gap-3 z-10"
+            className="w-full max-w-5xl rounded-[24px] ios-glass-card border border-white/15 px-4 py-3 text-white shadow-2xl flex flex-wrap items-center justify-between gap-3 z-10 backdrop-blur-2xl"
           >
             {/* Title & Metadata */}
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-[#0066cc]/25 text-sky-400 border border-[#0066cc]/40">
-                <Maximize2 size={18} />
+              <div className="p-2 rounded-xl bg-white/10 text-white border border-white/15 backdrop-blur-md shadow-inner">
+                <Maximize2 size={16} />
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -146,12 +144,12 @@ export default function ImageMaximizeModal({
                     {image.title}
                   </h2>
                   {image.badge && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#0066cc]/30 text-sky-300 border border-[#0066cc]/50">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md">
                       {image.badge}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                <p className="text-[11px] text-white/60 mt-0.5 font-mono">
                   {image.resolution || "Full Lossless Resolution"}
                   {image.dimensions ? ` · ${image.dimensions}` : ""}
                   {image.subtext ? ` — ${image.subtext}` : ""}
@@ -161,48 +159,37 @@ export default function ImageMaximizeModal({
 
             {/* Controls */}
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Pixel-Level Crisp Rendering Mode */}
-              <button
-                onClick={() => setCrispPixels((p) => !p)}
-                title={crispPixels ? "Switch to Smooth (Bilinear)" : "Switch to Crisp Pixels (Nearest Neighbor for Sub-pixel Inspection)"}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                  crispPixels
-                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-xs"
-                    : "bg-white/10 hover:bg-white/15 text-slate-300 border-white/10"
-                }`}
-              >
-                <Grid size={13} />
-                <span>{crispPixels ? "Crisp Pixels (1:1)" : "Smooth"}</span>
-              </button>
-
               {/* Zoom Controls */}
-              <div className="flex items-center bg-black/40 rounded-xl p-1 border border-white/10">
+              <div className="flex items-center bg-white/[0.05] rounded-xl p-1 border border-white/12 backdrop-blur-xl">
                 <button
+                  type="button"
                   onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)))}
                   disabled={zoom <= 1}
                   title="Zoom Out (-)"
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-90"
                 >
                   <ZoomOut size={14} />
                 </button>
-                <span className="px-2 font-mono text-xs font-bold text-sky-400 min-w-[48px] text-center">
+                <span className="px-2 font-mono text-xs font-bold text-white min-w-[48px] text-center tabular-nums">
                   {Math.round(zoom * 100)}%
                 </span>
                 <button
+                  type="button"
                   onClick={() => setZoom((z) => Math.min(6, +(z + 0.5).toFixed(1)))}
                   disabled={zoom >= 6}
                   title="Zoom In (+)"
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-90"
                 >
                   <ZoomIn size={14} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setZoom(1);
                     setPan({ x: 0, y: 0 });
                   }}
                   title="Reset Zoom (0)"
-                  className="p-1.5 ml-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all cursor-pointer"
+                  className="p-1.5 ml-1 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-all cursor-pointer active:scale-90"
                 >
                   <RotateCcw size={13} />
                 </button>
@@ -213,7 +200,7 @@ export default function ImageMaximizeModal({
                 href={fullImageUrl}
                 download={`${image.title.toLowerCase().replace(/[^a-z0-9]+/g, "_")}.png`}
                 title="Download original full-resolution PNG"
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#0066cc] hover:bg-[#0052a3] text-white flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                className="ios-btn-primary px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95"
               >
                 <Download size={13} />
                 <span>Download</span>
@@ -221,9 +208,10 @@ export default function ImageMaximizeModal({
 
               {/* Close Button */}
               <button
+                type="button"
                 onClick={onClose}
                 title="Close (Esc)"
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-all cursor-pointer"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all cursor-pointer active:scale-90"
               >
                 <X size={16} />
               </button>
@@ -239,7 +227,7 @@ export default function ImageMaximizeModal({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onDoubleClick={handleDoubleClick}
-            className={`relative w-full max-w-5xl flex-1 flex items-center justify-center overflow-hidden my-3 rounded-2xl bg-[#090d16] border border-white/10 shadow-2xl ${
+            className={`relative w-full max-w-5xl flex-1 flex items-center justify-center overflow-hidden my-3 rounded-[28px] bg-black/90 border border-white/15 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95)] ${
               zoom > 1 ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-zoom-in"
             }`}
           >
@@ -253,7 +241,6 @@ export default function ImageMaximizeModal({
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: "center center",
                 transition: isDragging ? "none" : "transform 0.15s ease-out",
-                imageRendering: crispPixels ? "pixelated" : "auto",
                 maxHeight: "78vh",
                 maxWidth: "100%",
                 objectFit: "contain",
@@ -263,30 +250,30 @@ export default function ImageMaximizeModal({
 
             {/* Optional Colorbar Scale for Spectral Indices */}
             {image.colorScale && (
-              <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-md px-3 py-2 rounded-xl border border-white/20 text-white flex items-center gap-3 text-xs shadow-lg">
-                <span className="font-mono text-[11px] text-slate-300">{image.colorScale.minLabel}</span>
+              <div className="absolute bottom-4 left-4 ios-glass-card px-3.5 py-2 rounded-2xl border border-white/20 text-white flex items-center gap-3 text-xs shadow-xl backdrop-blur-xl">
+                <span className="font-mono text-[11px] text-white/70">{image.colorScale.minLabel}</span>
                 <div
                   className="w-32 h-2.5 rounded-full border border-white/20 shadow-inner"
                   style={{ background: image.colorScale.gradient }}
                 />
-                <span className="font-mono text-[11px] text-slate-300">{image.colorScale.maxLabel}</span>
+                <span className="font-mono text-[11px] text-white/70">{image.colorScale.maxLabel}</span>
               </div>
             )}
           </div>
 
           {/* ── Bottom Information Ribbon ── */}
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
+            exit={{ opacity: 0, y: 16 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-5xl px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-slate-400 text-xs flex items-center justify-between gap-4 font-mono"
+            className="w-full max-w-5xl px-4 py-2.5 rounded-2xl ios-glass-card border border-white/12 text-white/70 text-xs flex items-center justify-between gap-4 font-mono backdrop-blur-xl shadow-lg"
           >
             <div className="flex items-center gap-2 text-[11px]">
-              <Sparkles size={13} className="text-[#0066cc]" />
+              <Sparkles size={13} className="text-white" />
               <span>Full-Fidelity Lossless Viewport: Zero Compression & Zero Downsampling</span>
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-slate-500">
+            <div className="flex items-center gap-3 text-[10px] text-white/50">
               <span>[Scroll / + / -] Zoom</span>
               <span>[Drag] Pan</span>
               <span>[Double-Click] Reset</span>

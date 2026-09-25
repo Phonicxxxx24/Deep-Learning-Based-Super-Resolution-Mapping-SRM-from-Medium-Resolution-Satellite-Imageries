@@ -7,29 +7,23 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronRight,
-  Settings2,
   Sparkles,
-  SlidersHorizontal,
-  Globe2,
-  Cpu,
-  Layers,
-  Clock,
   ArrowRight,
-  Check,
-  CheckCircle2,
-  ExternalLink,
-  ShieldCheck,
-  Activity,
+  Clock,
+  MapPin,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
 } from "lucide-react";
 
 import CommandHeader from "@/components/CommandHeader";
-import SidebarNav from "@/components/SidebarNav";
 import ScansArchiveDrawer from "@/components/ScansArchiveDrawer";
 import LiquidBackdrop from "@/components/LiquidBackdrop";
+import SpecsModal from "@/components/SpecsModal";
 import ExecutionProgressBar from "@/components/ExecutionProgressBar";
-import { RadarReticleIcon } from "@/components/GlobalIcons";
-import { submitSRJob, getJobStatus, getPastScans, staticUrl } from "@/utils/api";
+import QuickPresetsSidebar from "@/components/QuickPresetsSidebar";
+import { submitSRJob, getJobStatus, getPastScans, staticUrl, deleteScanRecord, clearAllScans } from "@/utils/api";
 import {
   POLL_INTERVAL_MS,
   QUALITY_TIERS,
@@ -38,31 +32,21 @@ import {
 } from "@/lib/constants";
 import type { JobStatus, StatusResponse, ScanRecord } from "@/types";
 
-/* ── Dynamic import for 3D Globe (Client side only) ─────────────────────── */
-const Globe3DNavigator = dynamic(
-  () => import("@/components/Globe3DNavigator"),
+/* ── Dynamic import for 2D High-Res Satellite Surface (Client side only) ── */
+const MapPicker = dynamic(
+  () => import("@/components/MapPicker"),
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-black">
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[#06080e]">
         <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-        <span className="text-xs font-mono text-[#888]">
-          Initialising 3D Satellite Earth…
+        <span className="text-xs text-white/60 tracking-wide font-sans">
+          Loading High-Resolution Satellite Surface…
         </span>
       </div>
     ),
   }
 );
-
-/* ── Reference AOI Presets for Quick Selection ───────────────────────────── */
-const PRESET_AOIS = [
-  { name: "Mumbai Port",       desc: "Coastal",     lat: 18.9600, lon: 72.8200 },
-  { name: "Ahmedabad Urban",   desc: "Built-up",    lat: 23.0225, lon: 72.5714 },
-  { name: "Berlin Centre",     desc: "European",    lat: 52.5200, lon: 13.4050 },
-  { name: "Uttarakhand",       desc: "Topography",  lat: 30.3800, lon: 79.7200 },
-  { name: "Derna Coast",       desc: "Flood Plain", lat: 32.7600, lon: 22.6300 },
-  { name: "Sundarbans Delta",  desc: "Wetland",     lat: 21.9400, lon: 89.1800 },
-];
 
 export default function HomePage() {
   const router = useRouter();
@@ -86,8 +70,10 @@ export default function HomePage() {
   const [selectedSteps, setSelectedSteps] = useState<QualityTierSteps>(50);
   const [scaleFactor,   setScaleFactor]   = useState<number>(4);
 
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [pastScans,   setPastScans]   = useState<ScanRecord[]>([]);
+  const [archiveOpen,      setArchiveOpen]      = useState(false);
+  const [specsOpen,        setSpecsOpen]        = useState(false);
+  const [inspectorFolded,  setInspectorFolded]  = useState(false);
+  const [pastScans,        setPastScans]        = useState<ScanRecord[]>([]);
 
   /* ── Load past scans ──────────────────────────────────────────────────── */
   useEffect(() => {
@@ -95,6 +81,41 @@ export default function HomePage() {
       .then((res) => { if (res?.scans) setPastScans(res.scans); })
       .catch((err) => console.warn("Past scans load failed:", err));
   }, []);
+
+  const [confirmClearMissions, setConfirmClearMissions] = useState(false);
+
+  // Auto-reset clear confirmation after 3s
+  useEffect(() => {
+    if (confirmClearMissions) {
+      const t = setTimeout(() => setConfirmClearMissions(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [confirmClearMissions]);
+
+  const handleDeleteMission = useCallback(async (e: React.MouseEvent, targetJobId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPastScans((prev) => prev.filter((s) => s.job_id !== targetJobId));
+    try {
+      await deleteScanRecord(targetJobId);
+    } catch (err) {
+      console.error("Failed to delete mission:", err);
+    }
+  }, []);
+
+  const handleClearAllMissions = useCallback(async () => {
+    if (!confirmClearMissions) {
+      setConfirmClearMissions(true);
+      return;
+    }
+    setConfirmClearMissions(false);
+    setPastScans([]);
+    try {
+      await clearAllScans();
+    } catch (err) {
+      console.error("Failed to clear missions:", err);
+    }
+  }, [confirmClearMissions]);
 
   /* ── Location Selection Handler ────────────────────────────────────────── */
   const handleLocationSelect = useCallback((lat: number, lon: number, name?: string) => {
@@ -105,7 +126,7 @@ export default function HomePage() {
       const match = NOTABLE_LOCATIONS.find(
         (loc) => Math.abs(loc.lat - lat) < 0.15 && Math.abs(loc.lon - lon) < 0.15
       );
-      setSelectedLocName(match ? match.name : `AOI (${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"}, ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? "E" : "W"})`);
+      setSelectedLocName(match ? match.name : `Target AOI (${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"}, ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? "E" : "W"})`);
     }
     setError(null);
   }, []);
@@ -126,7 +147,7 @@ export default function HomePage() {
         n_uncertainty:  5,
         sampling_steps: selectedSteps,
         scale_factor:   scaleFactor,
-        model_choice:   "able", // Sen2SR-RRDB model
+        model_choice:   "able", // Sen2SR-RRDB neural model
       });
 
       setJobId(res.job_id);
@@ -176,387 +197,351 @@ export default function HomePage() {
   }, [jobId, jobStatus, router]);
 
   const isRunning = jobStatus === "queued" || jobStatus === "running";
+  const isProcessing = isRunning || submitting;
 
   return (
-    <div
-      className="relative w-screen h-screen flex flex-col overflow-hidden selection:bg-white selection:text-black font-mono"
-      style={{ background: "#000000", color: "#f5f5f5" }}
-    >
-      {/* Background Ambience */}
+    <div className="relative w-screen h-screen overflow-hidden font-sans select-none bg-[#06080e] text-white">
+      {/* Dynamic Ambient Liquid Glow Backdrop */}
       <LiquidBackdrop />
 
-      {/* Full-Width Top Header */}
-      <CommandHeader
-        totalScans={pastScans.length}
-        onOpenArchive={() => setArchiveOpen(true)}
-        onSearchCoordinates={(lat, lon) => handleLocationSelect(lat, lon)}
-      />
+      {/* ── BASE LEVEL: FULL-SCREEN SATELLITE MAP (100% Display Coverage) ── */}
+      <div className="absolute inset-0 w-full h-full z-0">
+        <MapPicker
+          selectedPoint={selectedLatLon}
+          onSelect={(lat, lon) => handleLocationSelect(lat, lon)}
+          disabled={isRunning}
+        />
+      </div>
 
-      {/* Main Full-Width Content Canvas */}
-      <div className="flex-1 flex flex-row w-full h-[calc(100vh-53px)] overflow-hidden">
-        {/* Left Vertical Navigation Rail (inspired by Image 2 & 3) */}
-        <SidebarNav
-          activeTab="globe"
+      {/* ── OVERLAY LEVEL 1: FLOATING TOP COMMAND HEADER ── */}
+      <div className="absolute top-0 left-0 right-0 z-30 pointer-events-none">
+        <CommandHeader
           totalScans={pastScans.length}
           onOpenArchive={() => setArchiveOpen(true)}
+          onSearchCoordinates={(lat, lon) => handleLocationSelect(lat, lon)}
+          onOpenSpecs={() => setSpecsOpen(true)}
         />
+      </div>
 
-        {/* Workspace: 3D Globe (Stage) + Right Telemetry HUD */}
-        <main className="flex-1 flex flex-col lg:flex-row p-3 sm:p-4 gap-3.5 h-full overflow-hidden w-full">
-          {/* Center Stage: 3D Physical Satellite Globe (Takes ~68% width, Full Height) */}
-          <section
-            className="flex-1 w-full h-full min-h-[460px] lg:min-h-0 relative rounded-3xl overflow-hidden flex flex-col shadow-2xl"
-            style={{
-              border: "1px solid #1e1e1e",
-              background: "#050505",
-            }}
-          >
-            {/* 3D Physical Earth draped with high-res satellite imagery */}
-            <Globe3DNavigator
-              selectedLocation={selectedLatLon}
-              onSelectLocation={handleLocationSelect}
-            />
-          </section>
+      {/* ── OVERLAY LEVEL 2: LEFT FLOATING QUICK PRESETS SIDEBAR ── */}
+      <QuickPresetsSidebar
+        selectedLocation={selectedLatLon}
+        onSelectLocation={(lat, lon, name) => handleLocationSelect(lat, lon, name)}
+        className="absolute top-20 left-4 sm:left-6 max-h-[calc(100vh-140px)]"
+      />
 
-          {/* Right Control Telemetry HUD Panel (Takes ~32% width, w-[420px], scrollable) */}
-          <aside className="w-full lg:w-[420px] xl:w-[450px] shrink-0 h-full flex flex-col gap-3 overflow-y-auto pr-0.5 custom-scrollbar">
-            {/* Card 1: Target AOI & Telemetry (inspired by Account / Balance card in Image 2 & 3) */}
-            <div
-              className="p-4 rounded-3xl flex flex-col gap-3 shadow-xl"
-              style={{
-                background: "#0c0c0c",
-                border: "1px solid #1f1f1f",
-              }}
-            >
+      {/* ── OVERLAY LEVEL 3: FLOATING iOS LIQUID GLASS INSPECTOR SHEET ── */}
+      <motion.aside
+        initial={{ x: 36, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 26 }}
+        className="absolute top-20 right-4 sm:right-6 bottom-4 w-[390px] xl:w-[420px] max-w-[calc(100vw-2rem)] z-20 pointer-events-auto flex flex-col gap-3 overflow-y-auto custom-scrollbar transition-all"
+      >
+        {/* Main Controls Glass Sheet */}
+        <div className="p-5 rounded-[28px] flex flex-col gap-3.5 ios-glass-card shadow-2xl border border-white/15">
+          {/* Header with Title and Collapse / Minimize Toggle */}
+          <div className="flex items-center justify-between pb-1">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-white/10 flex items-center justify-center text-white">
+                <MapPin size={15} />
+              </div>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-white/90">
+                Target Observation Area
+              </h2>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                type="button"
+                onClick={() => setInspectorFolded((prev) => !prev)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer"
+                title={inspectorFolded ? "Expand Controls" : "Collapse for Map View"}
+                aria-label="Toggle inspector view"
+              >
+                {inspectorFolded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Target Location & Coordinates Pill */}
+          {selectedLatLon ? (
+            <div className="p-3.5 rounded-2xl ios-glass-subtle flex flex-col gap-1.5 border border-white/10">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-white">
-                    <RadarReticleIcon size={13} />
-                  </div>
-                  <h2 className="text-[11px] font-bold uppercase tracking-wider text-white">
-                    Target Specification &amp; AOI
-                  </h2>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#181818] text-[#888] border border-[#2a2a2a]">
-                  Sentinel-2 MSI
+                <span className="text-[11px] font-medium text-white/60">
+                  Target Geographic Coordinates
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/80 font-mono">
+                  1.28 × 1.28 km
                 </span>
               </div>
-
-              {selectedLatLon ? (
-                <div
-                  className="p-3.5 rounded-2xl flex flex-col gap-2.5"
-                  style={{
-                    background: "#121212",
-                    border: "1px solid #222222",
-                  }}
-                >
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[9.5px] uppercase font-bold tracking-wider text-[#777] block">
-                        Locked Coordinates
-                      </span>
-                      <div className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-white mt-0.5 tabular-nums">
-                        {Math.abs(selectedLatLon.lat).toFixed(4)}°{selectedLatLon.lat >= 0 ? "N" : "S"},{" "}
-                        {Math.abs(selectedLatLon.lon).toFixed(4)}°{selectedLatLon.lon >= 0 ? "E" : "W"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedLocName && (
-                    <div className="flex items-center gap-2 text-xs text-[#aaa]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      <span className="font-semibold text-white truncate">{selectedLocName}</span>
-                    </div>
-                  )}
-
-                  {/* 4-Metric Grid */}
-                  <div
-                    className="grid grid-cols-2 gap-2 pt-2.5 text-[11px]"
-                    style={{ borderTop: "1px solid #202020", color: "#888" }}
-                  >
-                    <div className="p-2 rounded-xl bg-[#171717] border border-[#242424]">
-                      <span className="text-[9px] uppercase text-[#666] block font-bold">Ground Footprint</span>
-                      <span className="text-white font-bold mt-0.5 block">1.28 × 1.28 km</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-[#171717] border border-[#242424]">
-                      <span className="text-[9px] uppercase text-[#666] block font-bold">Native GSD</span>
-                      <span className="text-white font-bold mt-0.5 block">10.0 m/px</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-[#171717] border border-[#242424]">
-                      <span className="text-[9px] uppercase text-[#666] block font-bold">Target GSD</span>
-                      <span className="text-white font-bold mt-0.5 block">
-                        {scaleFactor === 8 ? "0.625m (8× Sub-M)" : "2.5m (4×)"}
-                      </span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-[#171717] border border-[#242424]">
-                      <span className="text-[9px] uppercase text-[#666] block font-bold">Spectral Bands</span>
-                      <span className="text-white font-bold mt-0.5 block">10 Bands (L2A)</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 text-center text-xs rounded-2xl bg-[#121212] border border-[#222] text-[#666]">
-                  Click anywhere on the physical satellite globe to lock AOI
+              <div className="text-xl sm:text-2xl font-semibold tracking-tight font-mono text-white tabular-nums">
+                {Math.abs(selectedLatLon.lat).toFixed(4)}°{selectedLatLon.lat >= 0 ? "N" : "S"},{" "}
+                {Math.abs(selectedLatLon.lon).toFixed(4)}°{selectedLatLon.lon >= 0 ? "E" : "W"}
+              </div>
+              {selectedLocName && (
+                <div className="flex items-center gap-1.5 text-xs text-white/80 pt-1 border-t border-white/10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                  <span className="truncate font-medium">{selectedLocName}</span>
                 </div>
               )}
             </div>
-
-            {/* Card 2: Sen2SR-RRDB Neural Engine Specs (Sole Model) */}
-            <div
-              className="p-4 rounded-3xl flex flex-col gap-2.5 shadow-xl"
-              style={{
-                background: "#0c0c0c",
-                border: "1px solid #1f1f1f",
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-white">
-                    <Cpu size={13} />
-                  </div>
-                  <h2 className="text-[11px] font-bold uppercase tracking-wider text-white">
-                    Sen2SR-RRDB Neural Engine
-                  </h2>
-                </div>
-                <span className="text-[9.5px] font-bold uppercase px-2 py-0.5 rounded-full bg-white text-black">
-                  Active
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#121212] border border-[#222] space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#888]">Architecture:</span>
-                  <span className="text-white font-bold">Residual-Dense SR-Net</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#888]">Fidelity Guarantee:</span>
-                  <span className="text-white font-bold">99.98% Flux Preservation</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#888]">Benchmark Score:</span>
-                  <span className="text-white font-bold">35.9 dB PSNR · 0.942 SSIM</span>
-                </div>
-              </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl ios-glass-subtle text-center text-xs text-white/60">
+              Tap anywhere on the satellite surface to lock target coordinates
             </div>
+          )}
 
-            {/* Card 3: Execution Settings (Scale Factor & Steps Pills) */}
-            <div
-              className="p-4 rounded-3xl flex flex-col gap-3 shadow-xl"
-              style={{
-                background: "#0c0c0c",
-                border: "1px solid #1f1f1f",
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-white">
-                    <SlidersHorizontal size={13} />
+          {/* Collapsible settings block */}
+          <AnimatePresence initial={false}>
+            {!inspectorFolded && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="flex flex-col gap-3.5 overflow-hidden"
+              >
+                {/* Super-Resolution Scale Factor Setting (iOS Segmented Control with smooth sliding pill) */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-white/70">Super-Resolution Scale</span>
+                    <span className="font-mono text-[10px] text-white/50">
+                      {scaleFactor === 8 ? "2048 × 2048 px" : "512 × 512 px"}
+                    </span>
                   </div>
-                  <h2 className="text-[11px] font-bold uppercase tracking-wider text-white">
-                    Inference Parameters
-                  </h2>
-                </div>
-              </div>
-
-              {/* Super-Resolution Scale Factor Pills */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-[#888] font-bold uppercase">
-                  <span>Scale Factor</span>
-                  <span>{scaleFactor === 8 ? "2048 × 2048 px" : "512 × 512 px"}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: "4× Standard", res: "2.5m GSD", factor: 4, sub: "16× Density" },
-                    { label: "8× Sub-Metre", res: "0.625m GSD", factor: 8, sub: "64× Ultra-Res" },
-                  ].map(({ label, res, factor, sub }) => {
-                    const isSel = scaleFactor === factor;
-                    return (
+                  <div className="ios-segmented relative p-1">
+                    {[
+                      { factor: 4, label: "4× Enhanced", sub: "2.5m GSD" },
+                      { factor: 8, label: "8× Ultra-HD", sub: "0.625m Sub-Metre" },
+                    ].map(({ factor, label, sub }) => (
                       <button
                         key={factor}
                         type="button"
                         onClick={() => setScaleFactor(factor)}
                         disabled={isRunning}
-                        className={`p-3 rounded-2xl text-left transition-all cursor-pointer border ${
-                          isSel
-                            ? "bg-white text-black border-white shadow-md font-bold"
-                            : "bg-[#141414] text-white border-[#242424] hover:bg-[#1a1a1a]"
-                        }`}
+                        className="relative flex-1 py-2 px-3 rounded-xl text-center cursor-pointer transition-colors"
                       >
-                        <div className="flex items-center justify-between text-xs font-bold mb-0.5">
-                          <span>{label}</span>
-                          <span className={`text-[10px] ${isSel ? "text-black" : "text-[#888]"}`}>{res}</span>
-                        </div>
-                        <span className={`text-[10px] block ${isSel ? "text-neutral-700" : "text-[#666]"}`}>
+                        {scaleFactor === factor && (
+                          <motion.div
+                            layoutId="activeScalePill"
+                            transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                            className="absolute inset-0 bg-white/20 border border-white/25 rounded-xl backdrop-blur-md shadow-sm"
+                          />
+                        )}
+                        <span className={`relative z-10 block font-semibold text-xs ${scaleFactor === factor ? "text-white" : "text-white/60 hover:text-white"}`}>
+                          {label}
+                        </span>
+                        <span className={`relative z-10 text-[10px] block font-normal ${scaleFactor === factor ? "text-white/90" : "text-white/40"}`}>
                           {sub}
                         </span>
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* DDIM Sampling Steps Pills */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-[10px] text-[#888] font-bold uppercase">
-                  <span>Sampling Iterations</span>
-                  <span>{selectedSteps} DDIM Steps</span>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {QUALITY_TIERS.map((tier) => {
-                    const isSel = selectedSteps === tier.steps;
-                    return (
+                {/* Quality Passes (iOS Segmented Control with smooth sliding pill) */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-white/70">Inference Sampling Passes</span>
+                    <span className="font-mono text-[10px] text-white/50">
+                      {selectedSteps} passes ({selectedSteps === 50 ? "~4s" : selectedSteps === 100 ? "~6s" : "~8s"})
+                    </span>
+                  </div>
+                  <div className="ios-segmented relative p-1">
+                    {QUALITY_TIERS.slice(0, 3).map((tier) => (
                       <button
                         key={tier.steps}
                         type="button"
                         onClick={() => setSelectedSteps(tier.steps)}
                         disabled={isRunning}
-                        className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer border ${
-                          isSel
-                            ? "bg-white text-black border-white font-bold shadow-sm"
-                            : "bg-[#141414] text-[#aaa] border-[#242424] hover:text-white hover:bg-[#1a1a1a]"
-                        }`}
+                        className="relative flex-1 py-1.5 px-2 rounded-xl text-center cursor-pointer transition-colors"
                       >
-                        <div className="font-bold text-xs tabular-nums">{tier.steps}</div>
-                        <div className={`text-[9px] tabular-nums ${isSel ? "text-neutral-700" : "text-[#666]"}`}>
-                          {tier.approxTime}
-                        </div>
+                        {selectedSteps === tier.steps && (
+                          <motion.div
+                            layoutId="activeTierPill"
+                            transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                            className="absolute inset-0 bg-white/20 border border-white/25 rounded-xl backdrop-blur-md shadow-sm"
+                          />
+                        )}
+                        <span className={`relative z-10 block font-semibold text-xs ${selectedSteps === tier.steps ? "text-white" : "text-white/60 hover:text-white"}`}>
+                          {tier.label}
+                        </span>
+                        <span className={`relative z-10 text-[10px] block font-mono ${selectedSteps === tier.steps ? "text-white/90" : "text-white/40"}`}>
+                          {tier.steps} steps
+                        </span>
                       </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Progress / Error Reporting */}
-            <AnimatePresence>
-              {jobStatus && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <ExecutionProgressBar
-                    status={jobStatus}
-                    msg={statusMsg}
-                    pct={progressPct}
-                    stage={currentStage}
-                    elapsedSeconds={elapsedSeconds}
-                    queuePos={queuePos}
-                    samplingSteps={selectedSteps}
-                    scaleFactor={scaleFactor}
-                  />
-                </motion.div>
-              )}
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="p-3.5 rounded-2xl text-xs font-mono leading-relaxed"
-                  style={{
-                    background: "#180a0a",
-                    border: "1px solid #7f1d1d",
-                    color: "#f87171",
-                  }}
-                >
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Primary Action Button (inspired by the Review button in Image 2!) */}
-            <motion.button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!selectedLatLon || isRunning || submitting}
-              whileHover={!selectedLatLon || isRunning ? {} : { scale: 1.01 }}
-              whileTap={!selectedLatLon || isRunning ? {} : { scale: 0.99 }}
-              className={`w-full py-4 px-5 rounded-2xl text-xs sm:text-sm font-extrabold uppercase tracking-wider font-mono transition-all flex items-center justify-center gap-2 shadow-2xl cursor-pointer ${
-                !selectedLatLon || isRunning
-                  ? "bg-[#141414] text-[#555] border border-[#242424] cursor-not-allowed"
-                  : "btn-white bg-white text-black border border-white hover:bg-neutral-200"
-              }`}
-            >
-              {submitting || isRunning ? (
-                <>
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                    className="w-4 h-4 rounded-full border-2 border-current border-t-transparent"
-                  />
-                  <span>Reconstructing Sentinel-2 Tile…</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} />
-                  <span>Initialize Super-Resolution Mapping</span>
-                  <ArrowRight size={15} />
-                </>
-              )}
-            </motion.button>
-
-            {/* Card 5: Recent Planetary Scans (inspired by Last Transactions in Image 2!) */}
-            {pastScans.length > 0 && (
-              <div
-                className="p-4 rounded-3xl flex flex-col gap-2.5 shadow-xl mt-1"
-                style={{
-                  background: "#0c0c0c",
-                  border: "1px solid #1f1f1f",
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock size={13} className="text-[#888]" />
-                    <h2 className="text-[11px] font-bold uppercase tracking-wider text-white">
-                      Recent Planetary Scans
-                    </h2>
+                    ))}
                   </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Primary iOS Liquid Action Button */}
+          <motion.button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!selectedLatLon || isRunning || submitting}
+            whileHover={!selectedLatLon || isRunning ? {} : { scale: 1.01 }}
+            whileTap={!selectedLatLon || isRunning ? {} : { scale: 0.98 }}
+            className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-semibold tracking-wide transition-all flex items-center justify-center gap-2 shadow-2xl cursor-pointer ${
+              !selectedLatLon || isRunning
+                ? "bg-white/5 text-white/40 border border-white/10 cursor-not-allowed"
+                : "ios-btn-primary"
+            }`}
+          >
+            {submitting || isRunning ? (
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  className="w-4 h-4 rounded-full border-2 border-white border-t-transparent"
+                />
+                <span>Reconstructing Sentinel-2 Tile…</span>
+              </>
+            ) : (
+              <>
+                <span>Enhance Satellite Resolution ({scaleFactor}×)</span>
+                <ArrowRight size={15} />
+              </>
+            )}
+          </motion.button>
+
+          {/* In-Flight Pipeline Execution Progress Bar */}
+          <AnimatePresence>
+            {jobStatus && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                <ExecutionProgressBar
+                  status={jobStatus}
+                  msg={statusMsg}
+                  pct={progressPct}
+                  stage={currentStage}
+                  elapsedSeconds={elapsedSeconds}
+                  queuePos={queuePos}
+                  samplingSteps={selectedSteps}
+                  scaleFactor={scaleFactor}
+                  modelChoice="able"
+                />
+              </motion.div>
+            )}
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="p-3.5 rounded-2xl text-xs leading-relaxed bg-red-500/10 border border-red-500/30 text-red-300"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Recent Missions Shelf (Automatically removed from screen when processing starts) */}
+        <AnimatePresence>
+          {!isProcessing && pastScans.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: 12, height: 0 }}
+              transition={{ type: "spring", stiffness: 350, damping: 28 }}
+              className="p-4 rounded-[26px] flex flex-col gap-2.5 ios-glass-card shadow-xl border border-white/12 overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock size={13} className="text-white/60" />
+                  <h3 className="text-xs font-semibold text-white/90">
+                    Recent Missions
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {pastScans.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllMissions}
+                      className={`text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 px-2 py-0.5 rounded-full ${
+                        confirmClearMissions
+                          ? "bg-white text-black font-semibold shadow-xs"
+                          : "text-white/50 hover:text-white hover:bg-white/10"
+                      }`}
+                      title="Clear all recent missions"
+                    >
+                      <Trash2 size={11} />
+                      <span>{confirmClearMissions ? "Confirm?" : "Clear"}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setArchiveOpen(true)}
-                    className="text-[10px] text-[#888] hover:text-white font-semibold transition-colors cursor-pointer"
+                    className="text-[11px] text-white/70 hover:text-white font-medium transition-colors cursor-pointer"
                   >
                     View All ({pastScans.length})
                   </button>
                 </div>
-
-                <div className="space-y-1.5">
-                  {pastScans.slice(0, 3).map((scan) => (
-                    <Link
-                      key={scan.job_id}
-                      href={`/results/${scan.job_id}`}
-                      className="p-2.5 rounded-2xl bg-[#121212] hover:bg-[#181818] border border-[#202020] hover:border-[#333] transition-all flex items-center justify-between gap-3 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-black border border-[#2a2a2a] shrink-0 relative">
-                          <Image
-                            src={staticUrl(scan.thumbnail_url || scan.sr_rgb_url || scan.lr_rgb_url || "/earth-satellite.jpg")}
-                            alt={scan.location_name || scan.job_id}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                            unoptimized
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-white group-hover:text-white truncate block">
-                            {scan.location_name || `Scan ${scan.job_id.slice(0, 8)}`}
-                          </span>
-                          <span className="text-[10px] text-[#777] block tabular-nums">
-                            {scan.scale_factor ? `${scan.scale_factor}× SR` : "8× SR"} · {scan.processing_time_s ? `${scan.processing_time_s.toFixed(1)}s` : "Done"}
-                          </span>
-                        </div>
-                      </div>
-                      <ExternalLink size={13} className="text-[#555] group-hover:text-white shrink-0 transition-colors" />
-                    </Link>
-                  ))}
-                </div>
               </div>
-            )}
-          </aside>
-        </main>
-      </div>
+
+              <div className="space-y-1.5">
+                {pastScans.slice(0, 3).map((scan) => (
+                  <div
+                    key={scan.job_id}
+                    className="p-2.5 rounded-2xl ios-glass-subtle hover:bg-white/10 transition-all flex items-center justify-between gap-2 group/item"
+                  >
+                    <Link
+                      href={`/results/${scan.job_id}`}
+                      className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                    >
+                      <div className="w-11 h-11 rounded-xl overflow-hidden bg-black/80 border border-white/20 shrink-0 relative flex items-center justify-center group-hover/item:border-white/40 transition-colors shadow-inner">
+                        <Image
+                          src={staticUrl(scan.thumbnail_url || scan.sr_rgb_url || scan.lr_rgb_url || `/static/${scan.job_id}_sr_rgb.png`)}
+                          alt={scan.location_name || "Mission AOI"}
+                          fill
+                          className="object-cover group-hover/item:scale-110 transition-transform duration-300"
+                          unoptimized
+                        />
+                        <span className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded text-[7.5px] font-mono font-bold bg-black/90 text-white/90 border border-white/25 leading-none">
+                          {scan.scale_factor ? `${scan.scale_factor}×` : "4×"}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-medium text-white group-hover/item:text-white truncate block">
+                          {scan.location_name || `Scan ${scan.job_id.slice(0, 8)}`}
+                        </span>
+                        <span className="text-[10px] text-white/50 block font-mono">
+                          {scan.scale_factor ? `${scan.scale_factor}× SR` : "8× SR"} · {scan.processing_time_s ? `${scan.processing_time_s.toFixed(1)}s` : "Done"}
+                        </span>
+                      </div>
+                    </Link>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteMission(e, scan.job_id)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white hover:bg-white/15 transition-all cursor-pointer"
+                        title="Remove this mission"
+                        aria-label="Remove mission"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                      <Link
+                        href={`/results/${scan.job_id}`}
+                        className="p-1 text-white/40 group-hover/item:text-white transition-colors cursor-pointer"
+                        aria-label="Inspect mission"
+                      >
+                        <ChevronRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.aside>
 
       {/* Scans Archive Modal Drawer */}
       <ScansArchiveDrawer
@@ -567,6 +552,18 @@ export default function HomePage() {
           handleLocationSelect(lat, lon);
           setArchiveOpen(false);
         }}
+        onDeleteScan={(deletedId) => {
+          setPastScans((prev) => prev.filter((s) => s.job_id !== deletedId));
+        }}
+        onClearAllScans={() => {
+          setPastScans([]);
+        }}
+      />
+
+      {/* System Specs & Spectral Fidelity Modal */}
+      <SpecsModal
+        isOpen={specsOpen}
+        onClose={() => setSpecsOpen(false)}
       />
     </div>
   );

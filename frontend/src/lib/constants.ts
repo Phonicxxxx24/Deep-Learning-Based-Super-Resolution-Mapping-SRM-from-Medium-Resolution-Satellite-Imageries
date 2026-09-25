@@ -16,21 +16,20 @@ export const BAND_NAMES = [
   "B07", "B08", "B8A", "B11", "B12",
 ] as const;
 
-export const POLL_INTERVAL_MS = 3000; // status polling cadence
+export const POLL_INTERVAL_MS = 1000; // status polling cadence (1s for real-time responsiveness)
 
 export const DEFAULT_MAP_CENTER: [number, number] = [20.5937, 78.9629]; // India
 export const DEFAULT_MAP_ZOOM = 5;
 
 /**
- * Quality tiers for the sampling_steps dropdown.
- * These map directly to the API's `sampling_steps` field.
- * Enabled for testing — will be hardcoded / removed before final submission.
+ * Quality tiers for the sampling_steps / MC uncertainty variations.
+ * On modern RTX GPU, Sen2SR-RRDB runs in seconds.
  */
 export const QUALITY_TIERS = [
-  { steps: 50,  label: "Fast (50 steps)",          approxTime: "~45 s" },
-  { steps: 100, label: "Full quality (100 steps)",  approxTime: "~90 s" },
-  { steps: 150, label: "Extra quality (150 steps)", approxTime: "~135 s" },
-  { steps: 200, label: "Ultra quality (200 steps)", approxTime: "~180 s" },
+  { steps: 50,  label: "Fast",         approxTime: "~4 s" },
+  { steps: 100, label: "Balanced",     approxTime: "~6 s" },
+  { steps: 150, label: "Deep Quality", approxTime: "~8 s" },
+  { steps: 200, label: "Maximum",      approxTime: "~10 s" },
 ] as const;
 
 export type QualityTierSteps = typeof QUALITY_TIERS[number]["steps"];

@@ -138,98 +138,115 @@ export default function BeforeAfterSlider({
   }, [isAutoSweeping]);
 
   return (
-    <section className="space-y-3">
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="space-y-3 font-mono"
+    >
       {/* ── Section Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#141414] text-white flex items-center justify-center border border-[#2a2a2a] shadow-xs">
+      <div className="ios-glass-card rounded-[28px] p-4 sm:p-5 border border-white/15 backdrop-blur-xl shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-white/10 text-white flex items-center justify-center border border-white/15 backdrop-blur-xl shadow-inner shrink-0">
             <SlidersHorizontal size={16} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm sm:text-base font-extrabold text-white uppercase tracking-wider drop-shadow-sm">
                 Interactive Before / After Resolution Slider
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1a1a1a] text-white border border-[#333333]">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md">
                 Live Sub-Pixel Comparison
               </span>
             </div>
-            <p className="text-xs text-[#888] mt-0.5">
+            <p className="text-xs text-white/60 mt-0.5">
               Slide horizontally to reveal raw Sentinel-2 input vs super-resolved output.
             </p>
           </div>
         </div>
 
         {/* Quick Toolbar Controls */}
-        <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
-          {/* Preset Buttons */}
-          <div className="flex items-center rounded-xl bg-[#111111] border border-[#222222] p-0.5">
-            <button
-              onClick={() => {
-                setIsAutoSweeping(false);
-                setSliderPosition(25);
-              }}
-              className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
-                Math.round(sliderPosition) === 25 && !isAutoSweeping
-                  ? "bg-white text-black"
-                  : "text-[#888] hover:text-white hover:bg-[#1a1a1a]"
-              }`}
-              title="Show 25% Input / 75% Cleared"
-            >
-              25%
-            </button>
-            <button
-              onClick={() => {
-                setIsAutoSweeping(false);
-                setSliderPosition(50);
-              }}
-              className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
-                Math.round(sliderPosition) === 50 && !isAutoSweeping
-                  ? "bg-white text-black"
-                  : "text-[#888] hover:text-white hover:bg-[#1a1a1a]"
-              }`}
-              title="Classic 50/50 Split View"
-            >
-              50% Split
-            </button>
-            <button
-              onClick={() => {
-                setIsAutoSweeping(false);
-                setSliderPosition(75);
-              }}
-              className={`px-2.5 py-1 rounded-lg font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer ${
-                Math.round(sliderPosition) === 75 && !isAutoSweeping
-                  ? "bg-white text-black"
-                  : "text-[#888] hover:text-white hover:bg-[#1a1a1a]"
-              }`}
-              title="Show 75% Input / 25% Cleared"
-            >
-              75%
-            </button>
+        <div className="flex items-center gap-2 flex-wrap text-xs self-start lg:self-auto">
+          {/* iOS Segmented Preset Buttons */}
+          <div className="flex items-center p-1 rounded-2xl bg-white/[0.05] border border-white/12 backdrop-blur-xl gap-0.5">
+            {[
+              { val: 25, label: "25%" },
+              { val: 50, label: "50% Split" },
+              { val: 75, label: "75%" },
+            ].map(({ val, label }) => {
+              const isSel = Math.round(sliderPosition) === val && !isAutoSweeping;
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => {
+                    setIsAutoSweeping(false);
+                    setSliderPosition(val);
+                  }}
+                  className={`relative px-3 py-1.5 rounded-xl font-mono tabular-nums text-[11px] font-semibold transition-all cursor-pointer active:scale-95 ${
+                    isSel
+                      ? "text-black font-bold shadow-md"
+                      : "text-white/70 hover:text-white hover:bg-white/[0.04]"
+                  }`}
+                  title={`Show ${val}% Left View`}
+                >
+                  {isSel && (
+                    <motion.div
+                      layoutId="activeSliderPreset"
+                      className="absolute inset-0 bg-white rounded-xl shadow-sm"
+                      transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative z-10">{label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Auto-Sweep Animation Button */}
           <button
+            type="button"
             onClick={() => setIsAutoSweeping((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl border text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
               isAutoSweeping
-                ? "bg-white text-black border-white"
-                : "bg-[#111111] hover:bg-[#1a1a1a] border-[#222222] text-white"
+                ? "bg-white text-black border-white shadow-lg shadow-white/20 font-bold"
+                : "bg-white/[0.06] hover:bg-white/[0.12] border-white/15 text-white backdrop-blur-xl"
             }`}
             title={isAutoSweeping ? "Pause automatic scan" : "Play continuous radar sweep animation"}
           >
-            {isAutoSweeping ? <Pause size={12} /> : <Play size={12} />}
-            <span>{isAutoSweeping ? "Sweeping..." : "Auto-Sweep"}</span>
+            {isAutoSweeping ? <Pause size={12} className="animate-pulse" /> : <Play size={12} />}
+            <span>{isAutoSweeping ? "Sweeping…" : "Auto-Sweep"}</span>
           </button>
 
           {/* Swap Sides */}
           <button
+            type="button"
             onClick={() => setIsSwapped((prev) => !prev)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs text-xs font-semibold transition-all cursor-pointer active:scale-98"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/15 shadow-sm text-xs font-semibold transition-all cursor-pointer backdrop-blur-xl active:scale-95"
             title="Swap which image is on left vs right"
           >
-            <ArrowLeftRight size={12} className="text-slate-500" />
+            <motion.div
+              animate={{ rotate: isSwapped ? 180 : 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            >
+              <ArrowLeftRight size={12} className="text-white/80" />
+            </motion.div>
             <span>Swap</span>
+          </button>
+
+          {/* Reset (50%) */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsAutoSweeping(false);
+              setSliderPosition(50);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/15 shadow-sm text-xs font-semibold transition-all cursor-pointer backdrop-blur-xl active:scale-95"
+            title="Reset slider to 50%"
+          >
+            <RotateCcw size={12} />
+            <span>Reset</span>
           </button>
         </div>
       </div>
@@ -242,9 +259,12 @@ export default function BeforeAfterSlider({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="relative w-full aspect-square max-w-3xl mx-auto rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 shadow-md select-none cursor-ew-resize focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40"
+        className="relative w-full aspect-square max-w-3xl mx-auto rounded-[32px] overflow-hidden bg-black/90 border border-white/15 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] select-none cursor-ew-resize focus:outline-none focus:ring-2 focus:ring-white/40 group"
         style={{ touchAction: "none" }}
       >
+        {/* Specular Ambient Glow at Top */}
+        <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none z-30" />
+
         {/* ── Bottom Layer (Right reveal) ── */}
         <div className="absolute inset-0 w-full h-full">
           <Image
@@ -282,24 +302,24 @@ export default function BeforeAfterSlider({
           className="absolute top-0 bottom-0 pointer-events-none z-20 flex items-center justify-center"
           style={{ left: `${sliderPosition}%` }}
         >
-          {/* Vertical Laser Divider Line */}
-          <div className="absolute inset-y-0 -left-[1px] w-[2px] bg-white shadow-[0_0_12px_rgba(0,0,0,0.85),0_0_4px_rgba(255,255,255,0.9)]" />
+          {/* Vertical Laser Divider Line with Specular Halo */}
+          <div className="absolute inset-y-0 -left-[1px] w-[2px] bg-white shadow-[0_0_16px_rgba(255,255,255,0.9),0_0_4px_rgba(255,255,255,1)]" />
 
           {/* Draggable Center Disc Handle */}
           <div
-            className={`w-11 h-11 rounded-full bg-white text-[#1a1f2e] shadow-2xl border-2 border-[#0066cc] flex items-center justify-center pointer-events-auto cursor-ew-resize transition-transform duration-150 ${
-              isDragging ? "scale-110 ring-4 ring-[#0066cc]/30" : "hover:scale-105"
+            className={`w-11 h-11 rounded-full bg-white text-black shadow-[0_4px_24px_rgba(0,0,0,0.6),0_0_0_2px_rgba(255,255,255,0.9)] flex items-center justify-center pointer-events-auto cursor-ew-resize transition-all duration-200 ${
+              isDragging ? "scale-115 ring-4 ring-white/50" : "hover:scale-108 active:scale-95"
             }`}
             title="Drag horizontally to compare images"
           >
-            <div className="flex items-center gap-0.5 text-[#0066cc]">
+            <div className="flex items-center gap-0.5 text-black">
               <span className="text-[9px] font-black">◀</span>
-              <div className="w-[1.5px] h-3.5 bg-[#0066cc]/40 mx-0.5" />
+              <div className="w-[1.5px] h-3.5 bg-black/40 mx-0.5 rounded-full" />
               <span className="text-[9px] font-black">▶</span>
             </div>
 
             {/* Floating Live Percentage Tag */}
-            <div className="absolute -top-7 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md text-white font-mono text-[10px] font-bold shadow-md border border-white/15 whitespace-nowrap pointer-events-none">
+            <div className="absolute -top-8 px-2.5 py-0.5 rounded-full bg-black/85 backdrop-blur-xl text-white font-mono text-[10.5px] font-bold shadow-lg border border-white/20 whitespace-nowrap pointer-events-none tabular-nums">
               {Math.round(sliderPosition)}%
             </div>
           </div>
@@ -308,17 +328,17 @@ export default function BeforeAfterSlider({
         {/* ── Left Floating Badge (Before / Input) ── */}
         {showBadges && (
           <div
-            className="absolute top-3.5 left-3.5 z-10 flex flex-col gap-1 pointer-events-none transition-opacity duration-300"
+            className="absolute top-4 left-4 z-10 flex flex-col gap-1.5 pointer-events-none transition-opacity duration-300"
             style={{
-              opacity: sliderPosition < 12 ? 0.15 : 1,
+              opacity: sliderPosition < 14 ? 0.15 : 1,
             }}
           >
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-white border border-white/20 shadow-lg text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/75 backdrop-blur-xl text-white border border-white/20 shadow-xl text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-white/60 animate-pulse" />
               <span>{leftLabel}</span>
-              <span className="text-[10px] opacity-75 font-mono">({leftBadge})</span>
+              <span className="text-[10px] text-white/70 font-mono">({leftBadge})</span>
             </div>
-            <div className="px-2.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] font-mono text-white/80 self-start border border-white/10">
+            <div className="px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-mono text-white/80 self-start border border-white/10 shadow-sm">
               {leftRes}
             </div>
           </div>
@@ -327,75 +347,48 @@ export default function BeforeAfterSlider({
         {/* ── Right Floating Badge (After / Cleared) ── */}
         {showBadges && (
           <div
-            className="absolute top-3.5 right-3.5 z-10 flex flex-col items-end gap-1 pointer-events-none transition-opacity duration-300"
+            className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1.5 pointer-events-none transition-opacity duration-300"
             style={{
-              opacity: sliderPosition > 88 ? 0.15 : 1,
+              opacity: sliderPosition > 86 ? 0.15 : 1,
             }}
           >
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-white border border-white/20 shadow-lg text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/75 backdrop-blur-xl text-white border border-white/20 shadow-xl text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-white" />
               <span>{rightLabel}</span>
-              <span className="text-[10px] opacity-75 font-mono">({rightBadge})</span>
+              <span className="text-[10px] text-white/70 font-mono">({rightBadge})</span>
             </div>
-            <div className="px-2.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] font-mono text-white/80 self-end border border-white/10">
+            <div className="px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-mono text-white/80 self-end border border-white/10 shadow-sm">
               {rightRes}
             </div>
           </div>
         )}
 
         {/* ── Bottom Corner Instructions & Footprint ── */}
-        <div className="absolute bottom-3 left-3 z-10 pointer-events-none flex items-center gap-2">
-          <div className="px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-md text-white/90 text-[10px] font-medium border border-white/15 shadow-md flex items-center gap-1.5">
-            <span className="opacity-70">Ground Footprint:</span>
+        <div className="absolute bottom-4 left-4 z-10 pointer-events-none flex items-center gap-2">
+          <div className="px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-xl text-white/90 text-[10.5px] font-medium border border-white/15 shadow-lg flex items-center gap-1.5">
+            <span className="text-white/60">Footprint:</span>
             <strong className="font-mono text-white">{footprint}</strong>
           </div>
         </div>
 
         {/* ── Bottom Right Lossless Maximize Shortcuts ── */}
-        <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2 pointer-events-auto">
+        <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 pointer-events-auto">
           {onMaximizeRight && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onMaximizeRight();
               }}
               title="Open full lossless resolution inspector"
-              className="px-2.5 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 text-white backdrop-blur-md border border-white/20 shadow-lg transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer group"
+              className="px-3 py-1.5 rounded-full bg-black/75 hover:bg-black text-white backdrop-blur-xl border border-white/20 shadow-xl transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer active:scale-95 group/btn"
             >
-              <Maximize2 size={12} className="group-hover:scale-110 transition-transform" />
+              <Maximize2 size={12} className="group-hover/btn:scale-110 transition-transform" />
               <span>Inspect Maximize</span>
             </button>
           )}
         </div>
       </div>
-
-      {/* ── Bottom Info Strip & Interaction Guide ── */}
-      <div className="flex items-center justify-between text-xs text-[#888] px-3 py-2 bg-[#0c0c0c] rounded-xl border border-[#1f1f1f] font-mono">
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />
-          <span>
-            <strong className="text-white">Guidance:</strong> Drag slider handle to evaluate building edges and field boundaries.
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowBadges((b) => !b)}
-            className="hover:text-white transition-colors cursor-pointer text-[11px]"
-          >
-            {showBadges ? "Hide Labels" : "Show Labels"}
-          </button>
-          <button
-            onClick={() => {
-              setIsAutoSweeping(false);
-              setSliderPosition(50);
-            }}
-            className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer text-[11px]"
-            title="Reset slider to 50%"
-          >
-            <RotateCcw size={11} /> Reset (50%)
-          </button>
-        </div>
-      </div>
-    </section>
+    </motion.section>
   );
 }

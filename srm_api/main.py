@@ -29,8 +29,8 @@ from srm_api.schemas import (
     SRRequest, JobStatus, SRResult, BandMetrics, BandPreservationStat,
 )
 from srm_api.db import (
-    init_db, upsert_scan, get_scans, get_scan, backfill_from_outputs,
-    resolve_location_name, fix_legacy_location_names,
+    init_db, upsert_scan, get_scans, get_scan, delete_scan, clear_all_scans,
+    backfill_from_outputs, resolve_location_name, fix_legacy_location_names,
 )
 
 logger = logging.getLogger(__name__)
@@ -480,6 +480,32 @@ async def get_scan_details(job_id: str) -> dict:
     if not scan:
         raise HTTPException(status_code=404, detail=f"Scan {job_id!r} not found in database")
     return scan
+
+
+@app.delete("/api/scans/{job_id}")
+async def remove_scan(job_id: str) -> dict:
+    """Delete a scan record and its generated output artifacts."""
+    if job_id in _jobs:
+        _jobs.pop(job_id, None)
+
+    # Clean up output artifacts for this job
+    for path in OUTPUT_DIR.glob(f"{job_id}*"):
+        try:
+            if path.is_file():
+                path.unlink()
+        except Exception as e:
+            logger.warning("Could not delete artifact %s: %s", path, e)
+
+    deleted = delete_scan(job_id)
+    return {"status": "ok", "job_id": job_id, "deleted": deleted}
+
+
+@app.delete("/api/scans")
+async def clear_scans() -> dict:
+    """Delete all historical scans and clean in-memory jobs cache."""
+    _jobs.clear()
+    count = clear_all_scans()
+    return {"status": "ok", "deleted_count": count}
 
 
 @app.get("/api/health")

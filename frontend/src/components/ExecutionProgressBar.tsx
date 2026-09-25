@@ -10,7 +10,6 @@ import {
   Cpu,
   Radio,
   FileCheck2,
-  Terminal,
 } from "lucide-react";
 import type { JobStatus } from "@/types";
 
@@ -23,6 +22,7 @@ interface ExecutionProgressBarProps {
   queuePos?: number | null;
   samplingSteps?: number;
   scaleFactor?: number;
+  modelChoice?: string;
   className?: string;
 }
 
@@ -54,7 +54,7 @@ const STAGES: StepInfo[] = [
   },
   {
     id: "diffusion",
-    name: "Sen2SR Multi-Spectral SR",
+    name: "Sen2SR-RRDB Neural Inference",
     shortLabel: "Inference",
     minPct: 44,
     maxPct: 82,
@@ -79,13 +79,14 @@ export default function ExecutionProgressBar({
   queuePos,
   samplingSteps = 50,
   scaleFactor = 4,
+  modelChoice = "able",
   className = "",
 }: ExecutionProgressBarProps) {
   const [displayPct, setDisplayPct] = useState<number>(() => {
     if (status === "done") return 100;
-    if (typeof pct === "number") return pct;
+    if (typeof pct === "number" && pct > 0) return pct;
     if (status === "queued") return 0;
-    return 10;
+    return 12;
   });
 
   const [localSeconds, setLocalSeconds] = useState<number>(() => elapsedSeconds ?? 0);
@@ -105,27 +106,44 @@ export default function ExecutionProgressBar({
     }
   }, [status]);
 
+  // Smooth continuous progress calculation
+  const targetPct = useMemo(() => {
+    if (status === "done") return 100;
+    if (status === "queued") return 0;
+    if (typeof pct === "number" && pct > 0) return pct;
+
+    if (stage === "export") return 92;
+    if (stage === "indices") return 86;
+    if (stage === "uncertainty") return 78;
+    if (stage === "diffusion") return 60;
+    if (stage === "preprocessing") return 38;
+    if (stage === "acquisition") return 22;
+    return 15;
+  }, [status, pct, stage]);
+
   useEffect(() => {
     if (status === "done") {
       setDisplayPct(100);
-      return;
-    }
-    if (typeof pct === "number") {
-      setDisplayPct((prev) => Math.max(prev, pct));
       return;
     }
     if (status !== "running") return;
 
     const interval = setInterval(() => {
       setDisplayPct((prev) => {
-        if (prev >= 95) return prev;
-        const remaining = 95 - prev;
-        const increment = Math.max(0.3, remaining * 0.05);
-        return Math.min(95, prev + increment);
+        if (prev < targetPct) {
+          const step = Math.max(0.4, (targetPct - prev) * 0.2);
+          return Math.min(targetPct, prev + step);
+        }
+        // Micro-increment during network/GPU waiting so progress never looks frozen
+        if (prev < 95) {
+          return prev + 0.1;
+        }
+        return prev;
       });
-    }, 700);
+    }, 150);
+
     return () => clearInterval(interval);
-  }, [status, pct]);
+  }, [status, targetPct]);
 
   const activeStageIndex = useMemo(() => {
     if (status === "done") return 4;
@@ -232,69 +250,95 @@ export default function ExecutionProgressBar({
 
   return (
     <div
-      className={`p-4 rounded-2xl flex flex-col gap-3.5 transition-all font-mono ${className}`}
-      style={{ background: "#0a0a0a", border: "1px solid #1f1f1f", color: "#f5f5f5" }}
+      className={`p-4 rounded-[26px] flex flex-col gap-3.5 transition-all font-sans ios-glass-card border border-white/15 text-white shadow-2xl ${className}`}
     >
-      {/* Telemetry Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="relative flex h-2 w-2 shrink-0">
-            {status === "running" ? (
-              <>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+      {/* Top Section: C-like Radial Progress Arc Gauge + Full Stage Visibility */}
+      <div className="flex items-center gap-3.5">
+        {/* C-like Radial Arc Gauge */}
+        <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+          <svg className="w-full h-full" viewBox="0 0 96 96">
+            {/* Background C-Arc Track */}
+            <circle
+              cx="48"
+              cy="48"
+              r="38"
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.12)"
+              strokeWidth="5.5"
+              strokeDasharray="172.44 238.76"
+              strokeLinecap="round"
+              transform="rotate(140 48 48)"
+            />
+            {/* Active C-Arc Fill */}
+            <motion.circle
+              cx="48"
+              cy="48"
+              r="38"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="5.5"
+              strokeDasharray="172.44 238.76"
+              strokeDashoffset={172.44 * (1 - displayPct / 100)}
+              strokeLinecap="round"
+              transform="rotate(140 48 48)"
+              style={{
+                filter: "drop-shadow(0 0 6px rgba(255, 255, 255, 0.35))",
+              }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            />
+          </svg>
+
+          {/* Center Telemetry inside the C Gauge */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pt-0.5">
+            <span className="text-base font-extrabold font-mono text-white tabular-nums tracking-tight leading-none">
+              {roundedPct}%
+            </span>
+            <span className="text-[9px] font-mono text-white/50 tabular-nums mt-0.5">
+              {formattedTime}
+            </span>
+          </div>
+        </div>
+
+        {/* Stage Identification & Detailed Telemetry (Fully Visible - No Truncation) */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="relative flex h-2 w-2 shrink-0">
+              {status === "running" ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                </>
+              ) : (
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-              </>
-            ) : (
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-            )}
-          </span>
-          <div className="flex items-baseline gap-2 min-w-0">
-            <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-[#888] shrink-0">
+              )}
+            </span>
+            <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-white/60">
               {status === "done" ? "COMPLETE" : `STAGE 0${Math.min(activeStageIndex + 1, 4)}/04`}
             </span>
-            <span className="text-xs font-bold text-white truncate">
-              {status === "done" ? "Inference Finalized" : currentStageInfo.name}
+            <span className="text-[9.5px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15">
+              {scaleFactor === 8 ? "8× Ultra-HD" : "4× Enhanced"} · {samplingSteps} DDIM
             </span>
           </div>
-        </div>
 
-        {/* Right Metric Cluster */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div
-            className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono tabular-nums"
-            style={{ background: "#141414", border: "1px solid #282828", color: "#aaa" }}
-          >
-            <Clock size={11} className="text-[#888]" />
-            <span>{formattedTime}</span>
-          </div>
-          <span className="text-sm font-mono font-bold text-white tabular-nums min-w-[36px] text-right">
-            {roundedPct}%
-          </span>
-        </div>
-      </div>
+          {/* Full Stage Name */}
+          <h4 className="text-sm font-bold text-white tracking-tight leading-snug">
+            {status === "done" ? "Inference Finalized" : currentStageInfo.name}
+          </h4>
 
-      {/* Segmented Gauge Track */}
-      <div className="relative w-full">
-        <div
-          className="relative w-full h-2 rounded-full overflow-hidden"
-          style={{ background: "#1a1a1a", border: "1px solid #282828" }}
-        >
-          <div
-            className="h-full rounded-full transition-all duration-300 ease-out relative"
-            style={{
-              width: `${roundedPct}%`,
-              background: "#ffffff",
-            }}
-          >
-            {status === "running" && roundedPct > 3 && (
-              <div className="absolute top-0 right-0 bottom-0 w-3 bg-white rounded-full blur-[1px]" />
-            )}
-          </div>
+          {/* Detailed Live Message — completely visible and readable */}
+          <p className="text-[11px] font-mono text-white/70 leading-relaxed break-words">
+            {msg ??
+              (status === "running"
+                ? (modelChoice === "diffusion"
+                    ? `Executing multi-spectral latent diffusion (${samplingSteps} DDIM steps)…`
+                    : "Executing Sen2SR-RRDB super-resolution neural inference…")
+                : "All multi-spectral deliverables generated successfully.")}
+          </p>
         </div>
       </div>
 
       {/* Connected 4-Stage Flow */}
-      <div className="grid grid-cols-4 gap-2 pt-1 font-mono">
+      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/10 font-mono">
         {STAGES.map((s, idx) => {
           const isDone = activeStageIndex > idx || status === "done";
           const isCurrent = activeStageIndex === idx && status === "running";
@@ -304,73 +348,43 @@ export default function ExecutionProgressBar({
               {/* Connector line and node */}
               <div className="flex items-center gap-1.5">
                 <div
-                  className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold font-mono transition-all"
-                  style={{
-                    background: isDone || isCurrent ? "#ffffff" : "#141414",
-                    color: isDone || isCurrent ? "#000000" : "#666666",
-                    border: isDone || isCurrent ? "1px solid #ffffff" : "1px solid #282828",
-                  }}
+                  className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold font-mono transition-all ${
+                    isDone || isCurrent
+                      ? "bg-white text-black border border-white shadow-[0_0_10px_rgba(255,255,255,0.4)]"
+                      : "bg-white/10 text-white/40 border border-white/15"
+                  }`}
                 >
                   {isDone ? <Check size={10} strokeWidth={3} /> : idx + 1}
                 </div>
                 <div
-                  className="flex-1 h-[2px] rounded-full"
-                  style={{
-                    background: isDone ? "#ffffff" : isCurrent ? "#888888" : "#1a1a1a",
-                  }}
+                  className={`flex-1 h-[2px] rounded-full transition-all ${
+                    isDone ? "bg-white" : isCurrent ? "bg-white/50" : "bg-white/10"
+                  }`}
                 />
               </div>
 
               {/* Stage label and subtitle */}
               <div className="min-w-0">
                 <span
-                  className="text-[10px] font-bold block truncate leading-tight"
-                  style={{
-                    color: isCurrent || isDone ? "#ffffff" : "#666666",
-                  }}
+                  className={`text-[11px] font-semibold block truncate leading-tight tracking-tight font-sans ${
+                    isCurrent || isDone ? "text-white font-bold" : "text-white/40"
+                  }`}
                 >
                   {s.shortLabel}
                 </span>
-                <span className="text-[9px] font-mono text-[#555] block truncate leading-tight mt-0.5">
+                <span className="text-[9.5px] font-mono text-white/45 block truncate leading-tight mt-0.5">
                   {idx === 0
                     ? "10-Band STAC"
                     : idx === 1
                     ? "BOA Mask"
                     : idx === 2
-                    ? `${samplingSteps} DDIM`
+                    ? (modelChoice === "diffusion" ? `${samplingSteps} DDIM` : "RRDB SR-Net")
                     : `${scaleFactor === 8 ? "0.625m" : "2.5m"} GeoTIFF`}
                 </span>
               </div>
             </div>
           );
         })}
-      </div>
-
-      {/* Live Telemetry Log Console */}
-      <div
-        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-mono shadow-xs overflow-hidden"
-        style={{ background: "#111111", border: "1px solid #222222", color: "#d4d4d4" }}
-      >
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Terminal size={12} className="text-white" />
-          <span
-            className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded"
-            style={{ background: "#222222", color: "#ffffff" }}
-          >
-            {status === "done" ? "FINAL" : "EXEC"}
-          </span>
-        </div>
-
-        <span className="truncate text-[#aaa] flex-1">
-          {msg ??
-            (status === "running"
-              ? `Processing multi-spectral latent diffusion (${samplingSteps} DDIM steps)…`
-              : "All multi-spectral deliverables generated successfully.")}
-        </span>
-
-        <span className="text-[10px] text-[#666] shrink-0 font-medium hidden sm:inline-block">
-          {scaleFactor === 8 ? "8× Ultra-Res" : "4× Standard"}
-        </span>
       </div>
     </div>
   );

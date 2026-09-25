@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 class InferenceOutput(TypedDict, total=False):
     sr_able: Optional[torch.Tensor]
     sr_final_able: Optional[torch.Tensor]
+    sr_diffusion: Optional[torch.Tensor]
+    sr_final_diffusion: Optional[torch.Tensor]
     sr_sen2sr: torch.Tensor
     sr_fused: torch.Tensor
     sr_final: torch.Tensor
@@ -42,11 +44,13 @@ class DualPathSRPipeline:
         able_weights: str = "model/Sen2SR_Able/final_weights.pth",
         sen2sr_model_dir: str = "model/SEN2SRLite",
         device: str = "cuda",
+        sampling_steps: int = 50,
         enable_hard_constraint: bool = True,
         filter_type: str = "ideal",
         filter_cutoff: int = 32,
         use_referencex4: bool = True,
         use_tta: bool = False,
+        **kwargs,
     ) -> None:
         """Initialize models and configurations on target device.
 
@@ -54,15 +58,18 @@ class DualPathSRPipeline:
             able_weights: Path to local Sen2SR-RRDB checkpoint file.
             sen2sr_model_dir: Directory containing SEN2SRLite mlm.json.
             device: Compute device ('cuda' or 'cpu').
+            sampling_steps: Number of sampling steps (retained for pipeline compatibility).
             enable_hard_constraint: Whether to apply Fourier HardConstraint.
             filter_type: Frequency filter profile ('ideal' or 'gaussian').
             filter_cutoff: Radius in pixels for the low-pass cutoff.
             use_referencex4: Whether to attempt loading referencex4 SWIR fusion pipeline.
             use_tta: Whether to run Test-Time Augmentation (4-fold dihedral ensembling).
+            **kwargs: Extra keyword arguments for backward compatibility.
         """
         self.device = torch.device(
             device if (device == "cuda" and torch.cuda.is_available()) else "cpu"
         )
+        self.sampling_steps = sampling_steps
         self.enable_hard_constraint = enable_hard_constraint
         self.filter_type = filter_type
         self.filter_cutoff = filter_cutoff
@@ -70,8 +77,9 @@ class DualPathSRPipeline:
         self.able_weights = able_weights
 
         logger.info(
-            "Initializing SRPipeline on device: %s (TTA=%s)",
+            "Initializing SRPipeline on device: %s (sampling_steps=%d, TTA=%s)",
             self.device,
+            self.sampling_steps,
             self.use_tta,
         )
 
@@ -228,6 +236,8 @@ class DualPathSRPipeline:
         use_tta: Optional[bool] = None,
         scale_factor: int = 4,
         model_mode: str = "able",  # kept for API compatibility; only 'able' is executed
+        sampling_steps: Optional[int] = None,
+        **kwargs,
     ) -> InferenceOutput:
         """Execute Sen2SR-RRDB SR, SEN2SRLite fusion, and frequency filtering.
 
@@ -237,6 +247,8 @@ class DualPathSRPipeline:
             use_tta: Optional override for Test-Time Augmentation ensembling.
             scale_factor: 4 (2.5m) or 8 (0.625m).
             model_mode: Ignored — pipeline always uses Sen2SR-RRDB (Able).
+            sampling_steps: Optional sampling steps override.
+            **kwargs: Extra keyword arguments for backward compatibility.
 
         Returns:
             InferenceOutput: Dictionary containing super-resolved rasters.
@@ -300,9 +312,11 @@ class DualPathSRPipeline:
         )
 
         return {
-            "sr_able":       sr_able,
-            "sr_final_able": sr_final_able,
-            "sr_sen2sr":     sr_sen2sr,
-            "sr_fused":      sr_fused,
-            "sr_final":      sr_final,
+            "sr_able":            sr_able,
+            "sr_final_able":      sr_final_able,
+            "sr_diffusion":       sr_able,
+            "sr_final_diffusion": sr_final_able,
+            "sr_sen2sr":          sr_sen2sr,
+            "sr_fused":           sr_fused,
+            "sr_final":           sr_final,
         }

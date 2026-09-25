@@ -154,6 +154,14 @@ def delete_scan(job_id: str) -> bool:
         return cur.rowcount > 0
 
 
+def clear_all_scans() -> int:
+    """Delete all scan records and return count."""
+    with get_connection() as conn:
+        cur = conn.execute("DELETE FROM scans")
+        conn.commit()
+        return cur.rowcount
+
+
 # Known benchmarks coordinates & categories for backfilling
 BENCHMARK_PRESETS = {
     "mumbai": {"name": "Mumbai Harbour, India", "cat": "Urban Growth", "lat": 18.96, "lon": 72.82},

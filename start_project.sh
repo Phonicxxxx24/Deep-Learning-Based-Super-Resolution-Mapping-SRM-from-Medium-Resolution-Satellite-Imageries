@@ -119,11 +119,14 @@ sleep 0.2
 progress_bar 85 "Launching Next.js Command Center on port 3000..."
 (
     cd "$ROOT_DIR/frontend"
-    if [ -d ".next" ] && [ -f ".next/BUILD_ID" ]; then
-        npm run start -- -p 3000 >/dev/null 2>&1
-    else
-        npm run dev -- -p 3000 >/dev/null 2>&1
-    fi
+    while true; do
+        if [ -d ".next" ] && [ -f ".next/BUILD_ID" ]; then
+            npm run start -- -p 3000 >/dev/null 2>&1
+        else
+            npm run dev -- -p 3000 >/dev/null 2>&1
+        fi
+        sleep 1
+    done
 ) &
 FRONTEND_PID=$!
 sleep 0.2

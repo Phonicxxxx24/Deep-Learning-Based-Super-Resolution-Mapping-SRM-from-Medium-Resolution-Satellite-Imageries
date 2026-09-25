@@ -89,7 +89,9 @@ outputs/*_lr_mndwi.png
 outputs/*_ndbi.png
 outputs/*_lr_ndbi.png
 outputs/*_spectral_chart.png
-outputs/*_band_stats.json
+outputs/*_band_stats*.json
+outputs/*_sr_able_rgb.png
+outputs/*_sr_diffusion_rgb.png
 
 # Scratch and temporary scripts
 scratch/

@@ -1,23 +1,25 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { X, Search, ExternalLink, MapPin } from "lucide-react";
+import { X, Search, ExternalLink, MapPin, Trash2 } from "lucide-react";
 import Card3D from "./Card3D";
 import { DatabaseArchiveIcon } from "./GlobalIcons";
 import type { ScanRecord } from "@/types";
-import { staticUrl } from "@/utils/api";
+import { staticUrl, deleteScanRecord, clearAllScans } from "@/utils/api";
 
 interface ScansArchiveDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   scans: ScanRecord[];
   onSelectScanCoordinates?: (lat: number, lon: number) => void;
+  onDeleteScan?: (jobId: string) => void;
+  onClearAllScans?: () => void;
 }
 
-const CATEGORIES = ["All", "Urban Growth", "Disaster & Floods", "Agriculture & Food Security", "Arid / Climate", "Custom Scan"];
+
 
 function resolveAreaDisplay(scan: ScanRecord): { title: string; subtitle: string } {
   const loc = scan.location_name || "";
@@ -64,26 +66,65 @@ export default function ScansArchiveDrawer({
   onClose,
   scans,
   onSelectScanCoordinates,
+  onDeleteScan,
+  onClearAllScans,
 }: ScansArchiveDrawerProps) {
-  const [selectedCategory, setSelectedCategory] = useState("All");
+
   const [searchQuery, setSearchQuery] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [deletingJobIds, setDeletingJobIds] = useState<Set<string>>(new Set());
+
+  // Auto-reset clear confirmation after 3s
+  useEffect(() => {
+    if (confirmClear) {
+      const t = setTimeout(() => setConfirmClear(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [confirmClear]);
+
+  const handleDelete = async (jobId: string) => {
+    setDeletingJobIds((prev) => new Set(prev).add(jobId));
+    try {
+      await deleteScanRecord(jobId);
+      onDeleteScan?.(jobId);
+    } catch (err) {
+      console.error("Failed to delete scan:", err);
+    } finally {
+      setDeletingJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(jobId);
+        return next;
+      });
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    setConfirmClear(false);
+    try {
+      await clearAllScans();
+      onClearAllScans?.();
+    } catch (err) {
+      console.error("Failed to clear scans:", err);
+    }
+  };
 
   const filteredScans = useMemo(() => {
     return scans.filter((s) => {
-      const matchCat =
-        selectedCategory === "All" ||
-        (s.event_category && s.event_category.toLowerCase() === selectedCategory.toLowerCase());
       const query = searchQuery.toLowerCase().trim();
       const area = resolveAreaDisplay(s);
-      const matchQuery =
+      return (
         !query ||
         s.job_id.toLowerCase().includes(query) ||
         area.title.toLowerCase().includes(query) ||
         area.subtitle.toLowerCase().includes(query) ||
-        (s.location_name && s.location_name.toLowerCase().includes(query));
-      return matchCat && matchQuery;
+        (s.location_name && s.location_name.toLowerCase().includes(query))
+      );
     });
-  }, [scans, selectedCategory, searchQuery]);
+  }, [scans, searchQuery]);
 
   return (
     <AnimatePresence>
@@ -104,52 +145,53 @@ export default function ScansArchiveDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 bottom-0 z-[9999] w-full sm:w-[480px] lg:w-[540px] flex flex-col overflow-hidden font-mono"
-            style={{
-              background: "#0a0a0a",
-              borderLeft: "1px solid #1f1f1f",
-              color: "#f5f5f5",
-            }}
+            className="fixed top-0 right-0 bottom-0 z-[9999] w-full sm:w-[480px] lg:w-[540px] flex flex-col overflow-hidden font-sans ios-glass-card border-l border-white/20 shadow-2xl"
           >
             {/* Drawer Header */}
-            <div
-              className="p-5 flex items-center justify-between gap-3"
-              style={{ background: "#0e0e0e", borderBottom: "1px solid #1f1f1f" }}
-            >
+            <div className="p-5 flex items-center justify-between gap-3 border-b border-white/10 bg-white/5">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white"
-                  style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
-                >
+                <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white shadow-sm">
                   <DatabaseArchiveIcon size={18} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-                    Processed Scans Archive
+                  <h2 className="text-sm font-semibold tracking-tight text-white">
+                    Processed Missions Archive
                   </h2>
-                  <p className="text-[11px] text-[#777] font-mono tabular-nums">
+                  <p className="text-[11px] text-white/50 font-mono tabular-nums">
                     Telemetry Database · {scans.length} verified AOI acquisitions
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-[#888] hover:text-white transition-colors cursor-pointer"
-                style={{ background: "#141414", border: "1px solid #252525" }}
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {scans.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                      confirmClear
+                        ? "bg-white text-black font-semibold shadow-xs"
+                        : "text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10"
+                    }`}
+                    title="Remove all missions from archive"
+                  >
+                    <Trash2 size={12} />
+                    <span className="whitespace-nowrap">{confirmClear ? "Confirm Clear All?" : "Clear All"}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
-            {/* Search and Filters */}
-            <div
-              className="p-4 space-y-3"
-              style={{ background: "#0a0a0a", borderBottom: "1px solid #1f1f1f" }}
-            >
-              {/* Search Bar */}
+            {/* Search */}
+            <div className="p-4 border-b border-white/10 bg-black/20">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666]" />
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
                 <input
                   id="scans-archive-search-input"
                   name="scansQuery"
@@ -159,45 +201,18 @@ export default function ScansArchiveDrawer({
                   placeholder="Search by area name, region, or job ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl text-xs font-mono outline-none transition-all"
-                  style={{
-                    background: "#121212",
-                    border: "1px solid #242424",
-                    color: "#ffffff",
-                  }}
+                  className="w-full pl-9 pr-4 py-2 rounded-full text-xs font-sans outline-none transition-all bg-white/5 border border-white/12 text-white placeholder:text-white/40 focus:border-white/50"
                 />
-              </div>
-
-              {/* Category Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none font-mono">
-                {CATEGORIES.map((cat) => {
-                  const isSel = selectedCategory === cat;
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat)}
-                      className="px-3 py-1 rounded-lg text-xs font-medium shrink-0 transition-all cursor-pointer"
-                      style={{
-                        background: isSel ? "#ffffff" : "#121212",
-                        color: isSel ? "#000000" : "#888888",
-                        border: `1px solid ${isSel ? "#ffffff" : "#242424"}`,
-                      }}
-                    >
-                      {cat}
-                    </button>
-                  );
-                })}
               </div>
             </div>
 
             {/* Scans List */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3" style={{ background: "#070707" }}>
+            <div className="flex-1 p-4 overflow-y-auto space-y-3 custom-scrollbar">
               {filteredScans.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-center p-6 text-[#666]">
+                <div className="h-64 flex flex-col items-center justify-center text-center p-6 text-white/50">
                   <DatabaseArchiveIcon size={36} className="mb-2 opacity-30 text-white" />
                   <p className="text-sm font-semibold text-white">No matching scans found</p>
-                  <p className="text-xs mt-1 text-[#666]">Try modifying your query or category filter.</p>
+                  <p className="text-xs mt-1 text-white/40">Try modifying your query or category filter.</p>
                 </div>
               ) : (
                 filteredScans.map((scan) => {
@@ -205,54 +220,39 @@ export default function ScansArchiveDrawer({
                   return (
                     <Card3D
                       key={scan.job_id}
-                      className="p-3.5 rounded-xl transition-all group font-mono"
-                      style={{
-                        background: "#0e0e0e",
-                        border: "1px solid #1f1f1f",
-                      }}
+                      className="p-3.5 rounded-2xl transition-all group font-sans ios-glass-subtle border border-white/12 hover:border-white/25"
                     >
                       <div className="flex gap-3.5">
-                        {/* Image Thumbnail */}
-                        <div
-                          className="relative w-24 h-24 rounded-xl overflow-hidden shrink-0"
-                          style={{ background: "#000", border: "1px solid #222" }}
-                        >
+                        {/* Cropped Satellite Map Scan Thumbnail */}
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-black/80 border border-white/20 shrink-0 relative flex items-center justify-center group-hover:border-white/40 transition-colors shadow-inner self-center">
                           <Image
-                            src={staticUrl(scan.thumbnail_url || scan.sr_rgb_url || `/static/${scan.job_id}_sr_rgb.png`)}
+                            src={staticUrl(scan.thumbnail_url || scan.sr_rgb_url || scan.lr_rgb_url || `/static/${scan.job_id}_sr_rgb.png`)}
                             alt={area.title}
                             fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="object-cover group-hover:scale-110 transition-transform duration-300"
                             unoptimized
                           />
-                          <span
-                            className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
-                            style={{ background: "rgba(0,0,0,0.85)", color: "#fff", border: "1px solid #333" }}
-                          >
-                            SRM
+                          <span className="absolute bottom-0.5 right-0.5 px-1 rounded text-[7.5px] font-mono font-bold bg-black/90 text-white/90 border border-white/25 leading-none">
+                            {scan.scale_factor ? `${scan.scale_factor}×` : "4×"}
                           </span>
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
                           <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span
-                                className="px-2 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wider truncate"
-                                style={{ background: "#1a1a1a", color: "#bbb", border: "1px solid #2c2c2c" }}
-                              >
-                                {scan.event_category || "Planetary AOI"}
-                              </span>
-                              <span className="text-[10px] text-[#666] font-mono tabular-nums">
+                            {/* Date only — no category tag */}
+                            <div className="flex items-end justify-end">
+                              <span className="text-[10px] text-white/40 font-mono tabular-nums">
                                 {scan.created_at ? new Date(scan.created_at).toLocaleDateString() : "Saved"}
                               </span>
                             </div>
 
-                            <h3 className="text-xs font-bold text-white mt-1.5 truncate" title={area.title}>
+                            <h3 className="text-sm font-bold text-white mt-0.5 truncate" title={area.title}>
                               {area.title}
                             </h3>
 
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#888]">
-                              <MapPin size={11} className="text-white/60 shrink-0" />
+                            <div className="flex items-center gap-1.5 mt-0.5 text-xs text-white/60">
+                              <MapPin size={11} className="text-white/50 shrink-0" />
                               <span className="truncate font-medium" title={area.subtitle}>
                                 {area.subtitle}
                               </span>
@@ -271,7 +271,7 @@ export default function ScansArchiveDrawer({
                               >
                                 {scan.preservation_pct ? `${scan.preservation_pct.toFixed(1)}% Fidelity` : "10-Band SR"}
                               </span>
-                              <span className="text-[#666]">
+                              <span className="text-white/50">
                                 {scan.sampling_steps} DDIM
                               </span>
                             </div>
@@ -307,6 +307,17 @@ export default function ScansArchiveDrawer({
                                 <span>Inspect</span>
                                 <ExternalLink size={10} />
                               </Link>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(scan.job_id)}
+                                disabled={deletingJobIds.has(scan.job_id)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer bg-white/5 hover:bg-white/15 text-white/50 hover:text-white border border-white/10 disabled:opacity-50"
+                                title="Remove mission"
+                              >
+                                <Trash2 size={10} />
+                                <span>{deletingJobIds.has(scan.job_id) ? "..." : "Remove"}</span>
+                              </button>
                             </div>
                           </div>
                         </div>
