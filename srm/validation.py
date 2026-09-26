@@ -212,9 +212,13 @@ def evaluate_benchmark(
 ) -> pd.DataFrame:
     """Run real quantitative benchmarking against an opensr-test dataset.
 
-    Loads real Sentinel-2 L2A inputs and ground-truth HR imagery from opensr-test,
-    evaluates baseline bicubic and SEN2SRLite models, and computes exact PSNR,
-    SSIM, and SAM metrics.
+    Tests THREE models on the same real Sentinel-2 → SPOT/NAIP HR pairs:
+      1. Bicubic baseline (no ML)
+      2. SEN2SRLite (ESA OpenSR pre-trained, 10-band CNN)
+      3. Sen2SR_RGBN / Able (our custom-trained 4-band RRDB)
+
+    All three are compared against the SAME ground-truth HR from opensr-test,
+    so the resulting PSNR/SSIM/SAM numbers are directly comparable.
 
     Args:
         dataset_name: Name of opensr-test dataset ('spot', 'naip', etc.).
@@ -223,13 +227,13 @@ def evaluate_benchmark(
         device: Device to use for model inference.
 
     Returns:
-        pd.DataFrame: Tabulated metrics for every evaluated sample.
+        pd.DataFrame: Tabulated metrics with columns [dataset, scene_idx, method,
+            psnr_db, ssim, sam_deg, lpips, ergas] — three rows per scene.
     """
     raw_ds: Any = opensr_test.load(dataset_name)
     ds: Dict[str, Any] = cast(Dict[str, Any], raw_ds)
 
-    # Extract real arrays
-    # SPOT dataset: L2A is shape (N, 12, 128, 128), HRharm is (N, 4, 512, 512)
+    # SPOT: L2A shape (N, 12, 128, 128), HRharm shape (N, 4, 512, 512)
     l2a = np.asarray(ds["L2A"])
     hr = np.asarray(ds["HRharm"] if "HRharm" in ds else ds["HR"])
 
@@ -239,76 +243,97 @@ def evaluate_benchmark(
 
     logger.info("Evaluating %d real scenes from '%s'...", n_samples, dataset_name)
 
-    # Load SEN2SRLite model for benchmarking
-    import mlstac
-    loader = mlstac.load("model/SEN2SRLite")
     dev = torch.device(device if (device == "cuda" and torch.cuda.is_available()) else "cpu")
-    model = loader.compiled_model(device=dev)
-    model.eval()
+
+    # ── Load SEN2SRLite (10-band ESA pre-trained model) ──────────────────────
+    import mlstac
+    sen2sr_loader = mlstac.load("model/SEN2SRLite")
+    sen2sr_model = sen2sr_loader.compiled_model(device=dev)
+    sen2sr_model.eval()
+    logger.info("SEN2SRLite loaded for benchmark.")
+
+    # ── Load our custom Sen2SR_RGBN (Able, 4-band RRDB) ─────────────────────
+    able_model = None
+    able_weights = "model/Sen2SR_Able/final_weights.pth"
+    # Also check training dir as fallback
+    if not Path(able_weights).exists():
+        able_weights = "training/stage1_rgbn/weights/final_weights.pth"
+    try:
+        from srm.able import Sen2SRModel
+        able_model = Sen2SRModel(weights_path=able_weights, device=dev)
+        logger.info("Sen2SR_RGBN (Able) loaded from '%s' for benchmark.", able_weights)
+    except Exception as exc:
+        logger.warning(
+            "Could not load Sen2SR_RGBN (Able) model — skipping Able row: %s", exc
+        )
 
     records: List[Dict[str, float | str]] = []
 
     for i in range(n_samples):
-        # SPOT L2A 12 bands: select 10 bands corresponding to SEN2SRLite input
-        # Convert uint16 DN to [0, 1] reflectance
+        # Normalise LR to [0, 1]
         l2a_sample = (l2a[i, :10].astype(np.float32) / 10000.0)
-        # Reference HR is 4 bands (RGBNIR)
+        # HR reference: 4 bands RGBNIR
         hr_sample = (hr[i, :4].astype(np.float32) / 10000.0)
 
-        # Baseline Bicubic Upsampling on RGBNIR channels [0, 1, 2, 6] (B02, B03, B04, B08)
-        lr_rgbn = l2a_sample[[0, 1, 2, 6]]  # B02, B03, B04, B08
+        # Extract RGBN channels: B02=0, B03=1, B04=2, B08=6 in 10-band order
+        lr_rgbn = l2a_sample[[0, 1, 2, 6]]
+
+        # ── Bicubic baseline ─────────────────────────────────────────────────
         lr_tensor = torch.from_numpy(lr_rgbn).unsqueeze(0)
         bicubic_sr = torch.nn.functional.interpolate(
             lr_tensor, size=(512, 512), mode="bicubic", align_corners=False
         ).squeeze(0).numpy()
         bicubic_sr = np.clip(bicubic_sr, 0.0, 1.0)
 
-        # SEN2SRLite Super-Resolution
+        # ── SEN2SRLite (10-band input → extract RGBN channels for comparison) ─
         lr_10b_tensor = torch.from_numpy(l2a_sample).unsqueeze(0).to(dev)
         with torch.no_grad():
-            sr_10b = model(lr_10b_tensor).squeeze(0).cpu().numpy()
-        sr_rgbn = np.clip(sr_10b[[0, 1, 2, 6]], 0.0, 1.0)
+            sr_10b = sen2sr_model(lr_10b_tensor).squeeze(0).cpu().numpy()
+        sr_sen2sr_rgbn = np.clip(sr_10b[[0, 1, 2, 6]], 0.0, 1.0)
 
-        # Compute real metrics against ground truth HR
-        psnr_bicubic = compute_psnr(hr_sample, bicubic_sr)
-        ssim_bicubic = compute_ssim(hr_sample, bicubic_sr)
-        sam_bicubic = compute_sam(hr_sample, bicubic_sr)
+        # ── Our Able model (4-band RGBN input → 4-band RGBN output) ──────────
+        sr_able_rgbn = None
+        if able_model is not None:
+            try:
+                lr_rgbn_tensor = torch.from_numpy(lr_rgbn).unsqueeze(0).to(dev)
+                with torch.no_grad():
+                    sr_able_tensor = able_model(lr_rgbn_tensor)
+                sr_able_rgbn = np.clip(sr_able_tensor.squeeze(0).cpu().numpy(), 0.0, 1.0)
+            except Exception as exc:
+                logger.warning("Able model inference failed on scene %d: %s", i, exc)
 
-        psnr_sr = compute_psnr(hr_sample, sr_rgbn)
-        ssim_sr = compute_ssim(hr_sample, sr_rgbn)
-        sam_sr = compute_sam(hr_sample, sr_rgbn)
+        # ── Compute metrics against the same HR ground truth ─────────────────
+        def _metrics(pred: np.ndarray) -> Dict[str, float]:
+            return {
+                "psnr_db": compute_psnr(hr_sample, pred),
+                "ssim": compute_ssim(hr_sample, pred),
+                "sam_deg": compute_sam(hr_sample, pred),
+                "lpips": compute_lpips(hr_sample, pred),
+                "ergas": compute_ergas(hr_sample, pred),
+            }
 
-        record_bicubic = {
-            "dataset": dataset_name,
-            "scene_idx": i,
-            "method": "Bicubic_Baseline",
-            "psnr_db": psnr_bicubic,
-            "ssim": ssim_bicubic,
-            "sam_deg": sam_bicubic,
-            "lpips": compute_lpips(hr_sample, bicubic_sr),
-            "ergas": compute_ergas(hr_sample, bicubic_sr),
-        }
-        record_sr = {
-            "dataset": dataset_name,
-            "scene_idx": i,
-            "method": "SEN2SRLite",
-            "psnr_db": psnr_sr,
-            "ssim": ssim_sr,
-            "sam_deg": sam_sr,
-            "lpips": compute_lpips(hr_sample, sr_rgbn),
-            "ergas": compute_ergas(hr_sample, sr_rgbn),
-        }
+        bic_m = _metrics(bicubic_sr)
+        sr_m = _metrics(sr_sen2sr_rgbn)
+
+        record_bicubic = {"dataset": dataset_name, "scene_idx": i, "method": "Bicubic_Baseline", **bic_m}
+        record_sr      = {"dataset": dataset_name, "scene_idx": i, "method": "SEN2SRLite",      **sr_m}
         records.extend([record_bicubic, record_sr])
 
+        if sr_able_rgbn is not None:
+            able_m = _metrics(sr_able_rgbn)
+            record_able = {"dataset": dataset_name, "scene_idx": i, "method": "Able_RRDB", **able_m}
+            records.append(record_able)
+
         logger.info(
-            "Scene %d: Bicubic PSNR=%.2fdB, SSIM=%.4f, SAM=%.2f° | SR PSNR=%.2fdB, SSIM=%.4f, SAM=%.2f°",
+            "Scene %d | Bicubic PSNR=%.2fdB SSIM=%.4f SAM=%.2f° | "
+            "SEN2SRLite PSNR=%.2fdB SSIM=%.4f SAM=%.2f° | "
+            "Able PSNR=%s SSIM=%s SAM=%s°",
             i,
-            psnr_bicubic,
-            ssim_bicubic,
-            sam_bicubic,
-            psnr_sr,
-            ssim_sr,
-            sam_sr,
+            bic_m["psnr_db"], bic_m["ssim"], bic_m["sam_deg"],
+            sr_m["psnr_db"],  sr_m["ssim"],  sr_m["sam_deg"],
+            f"{able_m['psnr_db']:.2f}" if sr_able_rgbn is not None else "N/A",
+            f"{able_m['ssim']:.4f}"    if sr_able_rgbn is not None else "N/A",
+            f"{able_m['sam_deg']:.2f}" if sr_able_rgbn is not None else "N/A",
         )
 
     df = pd.DataFrame(records)
@@ -317,6 +342,7 @@ def evaluate_benchmark(
         csv_path = Path(output_csv)
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(csv_path, index=False)
-        logger.info("Saved benchmark evaluation results to: %s", csv_path.resolve())
+        logger.info("Saved benchmark results to: %s", csv_path.resolve())
 
     return df
+

@@ -648,39 +648,49 @@ async def run_benchmark(
                 device=device,
             )
             records = df.to_dict(orient="records")
-            # Separate SR vs Bicubic
-            sr_rows = [r for r in records if r.get("method") == "SEN2SRLite"]
-            bic_rows = [r for r in records if r.get("method") == "Bicubic_Baseline"]
+            sr_rows   = [r for r in records if r.get("method") == "SEN2SRLite"]
+            bic_rows  = [r for r in records if r.get("method") == "Bicubic_Baseline"]
+            able_rows = [r for r in records if r.get("method") == "Able_RRDB"]
 
             def _mean(rows, key):
-                vals = [r[key] for r in rows if r.get(key) is not None]
+                vals = [r[key] for r in rows if r.get(key) is not None and not (isinstance(r[key], float) and r[key] != r[key])]
                 return round(sum(vals) / len(vals), 4) if vals else None
+
+            n_scenes = max(len(sr_rows), len(able_rows), len(bic_rows))
+
+            aggregate: dict = {
+                "sr": {
+                    "psnr_db": _mean(sr_rows, "psnr_db"),
+                    "ssim":    _mean(sr_rows, "ssim"),
+                    "sam_deg": _mean(sr_rows, "sam_deg"),
+                    "ergas":   _mean(sr_rows, "ergas"),
+                },
+                "bicubic_baseline": {
+                    "psnr_db": _mean(bic_rows, "psnr_db"),
+                    "ssim":    _mean(bic_rows, "ssim"),
+                    "sam_deg": _mean(bic_rows, "sam_deg"),
+                    "ergas":   _mean(bic_rows, "ergas"),
+                },
+            }
+            if able_rows:
+                aggregate["able"] = {
+                    "psnr_db": _mean(able_rows, "psnr_db"),
+                    "ssim":    _mean(able_rows, "ssim"),
+                    "sam_deg": _mean(able_rows, "sam_deg"),
+                    "ergas":   _mean(able_rows, "ergas"),
+                }
 
             return {
                 "status": "ok",
                 "dataset": dataset,
-                "n_scenes": len(sr_rows),
-                "model": "SEN2SRLite (ESA OpenSR)",
-                "aggregate": {
-                    "sr": {
-                        "psnr_db": _mean(sr_rows, "psnr_db"),
-                        "ssim": _mean(sr_rows, "ssim"),
-                        "sam_deg": _mean(sr_rows, "sam_deg"),
-                        "ergas": _mean(sr_rows, "ergas"),
-                    },
-                    "bicubic_baseline": {
-                        "psnr_db": _mean(bic_rows, "psnr_db"),
-                        "ssim": _mean(bic_rows, "ssim"),
-                        "sam_deg": _mean(bic_rows, "sam_deg"),
-                        "ergas": _mean(bic_rows, "ergas"),
-                    },
-                },
+                "n_scenes": n_scenes,
+                "model": "Sen2SR_RGBN + SEN2SRLite (ESA OpenSR)",
+                "aggregate": aggregate,
                 "per_scene": records,
                 "note": (
-                    "These metrics use real SPOT/NAIP HR ground-truth from opensr-test. "
-                    "The SEN2SRLite model processes all 10 Sentinel-2 bands. "
-                    "Our custom Sen2SR_RGBN (4-band RGBN) was trained on SEN2NAIP v2 "
-                    "achieving 35.90 dB PSNR (see /api/model-card for trained model metrics)."
+                    "All three models tested on the same real SPOT/NAIP scenes with the same HR ground truth. "
+                    "Our Sen2SR_RGBN uses only 4 RGBN bands; SEN2SRLite uses all 10 bands. "
+                    "Both are compared against the 4-band RGBN HR reference — results are directly comparable."
                 ),
             }
         except Exception as exc:
