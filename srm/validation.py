@@ -269,36 +269,60 @@ def evaluate_benchmark(
 
     records: List[Dict[str, float | str]] = []
 
+    def _pad_to_multiple(t: torch.Tensor, mult: int = 8) -> tuple:
+        """Pad (1, C, H, W) to nearest multiple of mult. Returns (padded, (h, w))."""
+        _, c, h, w = t.shape
+        ph = ((h + mult - 1) // mult) * mult
+        pw = ((w + mult - 1) // mult) * mult
+        padded = torch.nn.functional.pad(t, (0, pw - w, 0, ph - h), mode="reflect")
+        return padded, (h, w)
+
     for i in range(n_samples):
         # Normalise LR to [0, 1]
         l2a_sample = (l2a[i, :10].astype(np.float32) / 10000.0)
         # HR reference: 4 bands RGBNIR
         hr_sample = (hr[i, :4].astype(np.float32) / 10000.0)
 
+        # Derive exact target size from real HR dimensions (NAIP may not be 512×512)
+        _, hr_h, hr_w = hr_sample.shape
+
         # Extract RGBN channels: B02=0, B03=1, B04=2, B08=6 in 10-band order
         lr_rgbn = l2a_sample[[0, 1, 2, 6]]
 
-        # ── Bicubic baseline ─────────────────────────────────────────────────
+        # ── Bicubic baseline — resize to exact HR dimensions ─────────────────
         lr_tensor = torch.from_numpy(lr_rgbn).unsqueeze(0)
         bicubic_sr = torch.nn.functional.interpolate(
-            lr_tensor, size=(512, 512), mode="bicubic", align_corners=False
+            lr_tensor, size=(hr_h, hr_w), mode="bicubic", align_corners=False
         ).squeeze(0).numpy()
         bicubic_sr = np.clip(bicubic_sr, 0.0, 1.0)
 
-        # ── SEN2SRLite (10-band input → extract RGBN channels for comparison) ─
+        # ── SEN2SRLite — pad LR to mult-of-8, run, crop, resize to HR shape ─
         lr_10b_tensor = torch.from_numpy(l2a_sample).unsqueeze(0).to(dev)
+        lr_10b_padded, (orig_h, orig_w) = _pad_to_multiple(lr_10b_tensor, mult=8)
         with torch.no_grad():
-            sr_10b = sen2sr_model(lr_10b_tensor).squeeze(0).cpu().numpy()
-        sr_sen2sr_rgbn = np.clip(sr_10b[[0, 1, 2, 6]], 0.0, 1.0)
+            sr_10b_padded = sen2sr_model(lr_10b_padded)
+        # Crop back to 4× original LR size, then resize to exact HR size
+        sr_10b_crop = sr_10b_padded[:, :, :orig_h * 4, :orig_w * 4]
+        if sr_10b_crop.shape[-2] != hr_h or sr_10b_crop.shape[-1] != hr_w:
+            sr_10b_crop = torch.nn.functional.interpolate(
+                sr_10b_crop, size=(hr_h, hr_w), mode="bilinear", align_corners=False
+            )
+        sr_sen2sr_rgbn = np.clip(sr_10b_crop.squeeze(0).cpu().numpy()[[0, 1, 2, 6]], 0.0, 1.0)
 
-        # ── Our Able model (4-band RGBN input → 4-band RGBN output) ──────────
+        # ── Our Able model — pad 4-band LR, run, crop, resize to HR shape ────
         sr_able_rgbn = None
         if able_model is not None:
             try:
                 lr_rgbn_tensor = torch.from_numpy(lr_rgbn).unsqueeze(0).to(dev)
+                lr_rgbn_padded, (orig_h4, orig_w4) = _pad_to_multiple(lr_rgbn_tensor, mult=8)
                 with torch.no_grad():
-                    sr_able_tensor = able_model(lr_rgbn_tensor)
-                sr_able_rgbn = np.clip(sr_able_tensor.squeeze(0).cpu().numpy(), 0.0, 1.0)
+                    sr_able_padded = able_model(lr_rgbn_padded)
+                sr_able_crop = sr_able_padded[:, :, :orig_h4 * 4, :orig_w4 * 4]
+                if sr_able_crop.shape[-2] != hr_h or sr_able_crop.shape[-1] != hr_w:
+                    sr_able_crop = torch.nn.functional.interpolate(
+                        sr_able_crop, size=(hr_h, hr_w), mode="bilinear", align_corners=False
+                    )
+                sr_able_rgbn = np.clip(sr_able_crop.squeeze(0).cpu().numpy(), 0.0, 1.0)
             except Exception as exc:
                 logger.warning("Able model inference failed on scene %d: %s", i, exc)
 
@@ -313,10 +337,10 @@ def evaluate_benchmark(
             }
 
         bic_m = _metrics(bicubic_sr)
-        sr_m = _metrics(sr_sen2sr_rgbn)
+        sr_m  = _metrics(sr_sen2sr_rgbn)
 
         record_bicubic = {"dataset": dataset_name, "scene_idx": i, "method": "Bicubic_Baseline", **bic_m}
-        record_sr      = {"dataset": dataset_name, "scene_idx": i, "method": "SEN2SRLite",      **sr_m}
+        record_sr      = {"dataset": dataset_name, "scene_idx": i, "method": "SEN2SRLite",       **sr_m}
         records.extend([record_bicubic, record_sr])
 
         if sr_able_rgbn is not None:
@@ -325,16 +349,12 @@ def evaluate_benchmark(
             records.append(record_able)
 
         logger.info(
-            "Scene %d | Bicubic PSNR=%.2fdB SSIM=%.4f SAM=%.2f° | "
-            "SEN2SRLite PSNR=%.2fdB SSIM=%.4f SAM=%.2f° | "
-            "Able PSNR=%s SSIM=%s SAM=%s°",
-            i,
-            bic_m["psnr_db"], bic_m["ssim"], bic_m["sam_deg"],
-            sr_m["psnr_db"],  sr_m["ssim"],  sr_m["sam_deg"],
+            "Scene %d (%dx%d→%dx%d) | Bicubic PSNR=%.2fdB | SEN2SR PSNR=%.2fdB | Able PSNR=%s",
+            i, l2a_sample.shape[-2], l2a_sample.shape[-1], hr_h, hr_w,
+            bic_m["psnr_db"], sr_m["psnr_db"],
             f"{able_m['psnr_db']:.2f}" if sr_able_rgbn is not None else "N/A",
-            f"{able_m['ssim']:.4f}"    if sr_able_rgbn is not None else "N/A",
-            f"{able_m['sam_deg']:.2f}" if sr_able_rgbn is not None else "N/A",
         )
+
 
     df = pd.DataFrame(records)
 
