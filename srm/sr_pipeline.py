@@ -1,8 +1,12 @@
 """Super-Resolution pipeline for Sentinel-2 multispectral imagery.
 
-Uses the custom 4-band Sen2SR-RRDB CNN (from the Able project) for visible & NIR bands,
-combined with SEN2SRLite CNN (sen2sr) for full 10-band spectral coverage.
-Applies Fourier HardConstraints to prevent spectral hallucination.
+Uses the custom-trained Sen2SR-RRDB CNN (4.58M params, trained on SEN2NAIP v2) for visible
+& NIR bands (B02, B03, B04, B08), fused with SEN2SRLite CNN (sen2sr) for full 10-band
+spectral coverage. Applies Fourier HardConstraints to prevent spectral hallucination.
+
+NOTE: self.model_diffusion is a BACKWARD-COMPATIBILITY ALIAS for self.model_able.
+There is no LDSR-S2 / diffusion model in the active inference path.
+Both names refer to the same Sen2SR-RRDB instance.
 """
 
 import logging

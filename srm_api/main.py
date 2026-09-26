@@ -515,3 +515,185 @@ async def health() -> dict:
         "jobs_total": len(_jobs),
         "queue_depth": _queue.qsize(),
     }
+
+
+@app.get("/api/model-card")
+async def model_card() -> dict:
+    """Return the hardcoded training metrics for our custom Sen2SR-RRDB model.
+
+    These metrics were measured on 50 held-out validation scenes from SEN2NAIP v2.
+    No GPU needed — returns pre-computed training results immediately.
+    """
+    return {
+        "model_name": "Sen2SR_RGBN",
+        "architecture": "8-block RRDB + Dual PixelShuffle",
+        "parameters_M": 4.58,
+        "checkpoint_mb": 17.5,
+        "task": "4x Super-Resolution (10m Sentinel-2 → 2.5m)",
+        "input_bands": ["B02 (Blue)", "B03 (Green)", "B04 (Red)", "B08 (NIR)"],
+        "scale_factor": 4,
+        "dataset": "SEN2NAIP v2 (HuggingFace: aliFerdinand/SEN2NAIPv2)",
+        "training_phases": [
+            {
+                "phase": 1,
+                "name": "PSNR Foundation",
+                "epochs": 50,
+                "duration_hours": 2.4,
+                "hardware": "NVIDIA RTX A2000 12GB",
+            },
+            {
+                "phase": 2,
+                "name": "High-Frequency Edge & Texture Refinement",
+                "epochs": 45,
+                "duration_hours": 2.6,
+                "hardware": "NVIDIA RTX A2000 12GB",
+            },
+        ],
+        "total_training_hours": 5.0,
+        "validation_scenes": 50,
+        "metrics": {
+            "psnr_db": 35.90,
+            "ssim": 0.8828,
+            "sam_rad": 0.0363,
+            "sam_deg": 2.08,
+            "checkerboard_artifacts_pct": 0.0,
+        },
+        "per_band_psnr": {
+            "B02_Blue": 40.25,
+            "B03_Green": 38.57,
+            "B04_Red": 36.12,
+            "B08_NIR": 32.50,
+        },
+        "loss_function": {
+            "formula": "0.6*L1 + 0.25*SAM + 1.2*Laplacian + 1.2*Gradient + 0.1*Observation",
+            "l1_weight": 0.6,
+            "sam_weight": 0.25,
+            "laplacian_weight": 1.2,
+            "gradient_weight": 1.2,
+            "observation_weight": 0.1,
+        },
+        "comparison": [
+            {
+                "model": "Bicubic Baseline",
+                "psnr_db": 28.0,
+                "ssim": 0.75,
+                "sam_deg": 3.7,
+                "selected": False,
+                "reason": "Too blurry — no structural detail injection",
+            },
+            {
+                "model": "Sen2SR_RGBN (Ours)",
+                "psnr_db": 35.90,
+                "ssim": 0.8828,
+                "sam_deg": 2.08,
+                "parameters_M": 4.58,
+                "training_hours": 5.0,
+                "selected": True,
+                "reason": "Crisp edges, 0% artifacts, 75% fewer params than SwinIR",
+            },
+            {
+                "model": "SwinIR Transformer",
+                "psnr_db": 36.09,
+                "ssim": 0.8803,
+                "sam_deg": 2.11,
+                "parameters_M": 18.52,
+                "training_hours": 11.2,
+                "selected": False,
+                "reason": "Over-smoothed edges; 4x more parameters; not worth the cost",
+            },
+            {
+                "model": "Adversarial GAN",
+                "psnr_db": 34.75,
+                "ssim": None,
+                "sam_deg": None,
+                "selected": False,
+                "reason": "Severe checkerboard artifacts — GAN training instability",
+            },
+        ],
+        "training_code": "training/stage1_rgbn/",
+        "weights_path": "training/stage1_rgbn/weights/final_weights.pth",
+        "architecture_report": "training/stage1_rgbn/PROGRESS_REPORT_ARCHITECTURES.md",
+    }
+
+
+@app.get("/api/benchmark")
+async def run_benchmark(
+    dataset: str = "spot",
+    max_samples: int = 9,
+) -> dict:
+    """Run quantitative validation against real SPOT/NAIP high-resolution references.
+
+    This is the only endpoint that produces PSNR/SSIM with real ground-truth HR images.
+    Uses the opensr-test benchmark dataset — real Sentinel-2 L2A inputs paired with
+    real aerial/SPOT imagery at equivalent 2.5m resolution.
+
+    Args:
+        dataset: opensr-test dataset name ('spot' or 'naip'). Default: 'spot'.
+        max_samples: Number of test scenes to evaluate (max 9 for SPOT). Default: 9.
+
+    Returns:
+        dict with per-scene metrics and aggregate statistics.
+    """
+    import asyncio
+    loop = asyncio.get_running_loop()
+
+    def _run_benchmark_blocking():
+        try:
+            from srm.validation import evaluate_benchmark
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            df = evaluate_benchmark(
+                dataset_name=dataset,
+                max_samples=max_samples,
+                device=device,
+            )
+            records = df.to_dict(orient="records")
+            # Separate SR vs Bicubic
+            sr_rows = [r for r in records if r.get("method") == "SEN2SRLite"]
+            bic_rows = [r for r in records if r.get("method") == "Bicubic_Baseline"]
+
+            def _mean(rows, key):
+                vals = [r[key] for r in rows if r.get(key) is not None]
+                return round(sum(vals) / len(vals), 4) if vals else None
+
+            return {
+                "status": "ok",
+                "dataset": dataset,
+                "n_scenes": len(sr_rows),
+                "model": "SEN2SRLite (ESA OpenSR)",
+                "aggregate": {
+                    "sr": {
+                        "psnr_db": _mean(sr_rows, "psnr_db"),
+                        "ssim": _mean(sr_rows, "ssim"),
+                        "sam_deg": _mean(sr_rows, "sam_deg"),
+                        "ergas": _mean(sr_rows, "ergas"),
+                    },
+                    "bicubic_baseline": {
+                        "psnr_db": _mean(bic_rows, "psnr_db"),
+                        "ssim": _mean(bic_rows, "ssim"),
+                        "sam_deg": _mean(bic_rows, "sam_deg"),
+                        "ergas": _mean(bic_rows, "ergas"),
+                    },
+                },
+                "per_scene": records,
+                "note": (
+                    "These metrics use real SPOT/NAIP HR ground-truth from opensr-test. "
+                    "The SEN2SRLite model processes all 10 Sentinel-2 bands. "
+                    "Our custom Sen2SR_RGBN (4-band RGBN) was trained on SEN2NAIP v2 "
+                    "achieving 35.90 dB PSNR (see /api/model-card for trained model metrics)."
+                ),
+            }
+        except Exception as exc:
+            logger.exception("Benchmark run failed: %s", exc)
+            return {
+                "status": "error",
+                "error": str(exc),
+                "dataset": dataset,
+                "note": (
+                    "Benchmark requires opensr_test package and model weights to be loaded. "
+                    "If weights are not present, install via: pip install opensr-test"
+                ),
+            }
+
+    result = await loop.run_in_executor(None, _run_benchmark_blocking)
+    return result

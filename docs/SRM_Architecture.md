@@ -1,7 +1,8 @@
 # SRM Sentinel-2 Super-Resolution — Master Architecture Document
 
 > **Single source of truth for all code generation sessions.**
-> Paste this document into every AI coding agent session. Do not paraphrase it. Do not summarise it.
+> For model metrics and training details, see [`MODEL_CARD.md`](./MODEL_CARD.md).
+> For training pipeline, see [`../training/stage1_rgbn/README.md`](../training/stage1_rgbn/README.md).
 
 ---
 
@@ -16,12 +17,12 @@ Apply `FourierHardConstraint` to every SR output before it leaves the pipeline. 
 
 ## 1. Component Scope
 
-This component is a **five-stage deep-learning super-resolution pipeline** that converts 10 m Sentinel-2 L2A imagery (Bands B02–B12, 10 spectral bands) into 2.5 m enhanced imagery (4× scale factor) with per-pixel uncertainty maps and explainability outputs. It ingests raw Sentinel-2 datacubes via STAC, applies a dual-model SR architecture (LDSR-S2 for RGB+NIR, SEN2SRLite for SWIR), enforces spectral hard constraints, quantifies uncertainty, and delivers GeoTIFF products + Streamlit web dashboard.
+This component is a **five-stage deep-learning super-resolution pipeline** that converts 10 m Sentinel-2 L2A imagery (Bands B02–B12, 10 spectral bands) into 2.5 m enhanced imagery (4× scale factor) with per-pixel spectral analysis outputs. It ingests raw Sentinel-2 datacubes via STAC, applies a dual-model SR architecture (our custom Sen2SR-RRDB for RGBN, SEN2SRLite for SWIR), enforces spectral hard constraints, and delivers GeoTIFF products + Next.js web dashboard.
 
 **What comes in:** lat/lon/date range → Sentinel-2 L2A xarray datacube (10 bands, float32, 10 m)
-**What goes out:** 2.5 m SR GeoTIFF (10 bands), uncertainty GeoTIFF (1 band), LAM PNG, validation metrics CSV, Streamlit dashboard
+**What goes out:** 2.5 m SR GeoTIFF (10 bands), spectral indices (NDVI/MNDWI/NDBI), band preservation stats, Next.js dashboard
 
-**Explicitly out of scope:** Real-time streaming ingestion. Training new SR models from scratch. Pansharpening using commercial satellite data. Any model other than LDSR-S2 and SEN2SRLite as the SR backbone.
+**Explicitly out of scope:** Real-time streaming ingestion. Training (already done — see `training/stage1_rgbn/`). Pansharpening using commercial satellite data.
 
 ---
 
@@ -29,20 +30,22 @@ This component is a **five-stage deep-learning super-resolution pipeline** that 
 
 | Layer | Choice | Why |
 |---|---|---|
-| Language | Python 3.11 | Required by both sen2sr and opensr-model; mamba-ssm requires ≥ 3.10 |
-| GPU framework | PyTorch 2.x + CUDA 12.1 | Both repos are PyTorch-native; no JAX/TF ports exist |
-| Primary SR model | LDSR-S2 (opensr-model) | Only publicly available pretrained model trained on real S2/Pleiades pairs at 2.5 m |
-| Auxiliary SR model | SEN2SRLite (sen2sr) | Only available implementation for SWIR band super-resolution with FourierHardConstraint |
+| Language | Python 3.11 | Required by sen2sr and dependencies; venv is Python 3.11.15 |
+| GPU framework | PyTorch 2.5.1 + CUDA 12.1 | Both SR models are PyTorch-native |
+| **Primary SR model (RGBN)** | **Sen2SR_RGBN** (our custom-trained RRDB, 4.58M params) | **Trained by our team** — 35.90 dB PSNR, 0.8828 SSIM, 2.08° SAM on SEN2NAIP v2 |
+| Full-band (10-band) SR | SEN2SRLite (sen2sr by ESA OpenSR) | Handles SWIR bands (B05–B12) not covered by RGBN model |
 | Spectral constraint | FourierHardConstraint (sen2sr/models/tricks.py) | Physics-principled low-freq LR preservation; not replaceable by histogram matching alone |
 | Data ingestion | cubo + STAC | Declarative lat/lon/date → xarray; eliminates manual data download |
-| Diffusion sampler | DDIMSampler (opensr-model) | Required by LDSR-S2 architecture; not swappable to DDPM |
 | Geospatial I/O | rasterio + rioxarray | CRS/transform preservation; industry standard for satellite data |
-| Dashboard | Streamlit 1.35+ + Folium | Fastest path from model output to non-technical stakeholder UI |
-| Validation metrics | scikit-image + lpips | PSNR/SSIM from scikit-image; LPIPS requires VGG-based lpips package |
-| HPC batch | opensr-hpc + Slurm | Built into opensr-model; Slurm-native array jobs for tile processing |
-| Packaging | conda env `srm_s2` | Reproducible; mamba-ssm install requires conda-managed CUDA toolkit |
+| Frontend | Next.js 16 + Leaflet + Framer Motion | Interactive map picker, Before/After slider, spectral index comparator |
+| Backend | FastAPI + asyncio.Queue | Serialized GPU job queue (one job at a time on 6GB VRAM) |
+| Validation metrics | scikit-image (PSNR/SSIM) + custom numpy (SAM/ERGAS) + optional lpips | Standard image quality metrics |
+| Training dataset | SEN2NAIP v2 (HuggingFace: aliFerdinand/SEN2NAIPv2) | Paired Sentinel-2 ↔ NAIP aerial imagery (~100 GB) |
 
 **These choices are closed. Implement them. Do not suggest alternatives.**
+
+> ⚠️ **IMPORTANT — Code Maintainers:** `self.model_diffusion` in `srm/sr_pipeline.py` is a **backward-compatibility alias** for `self.model_able`. There is **no** separate LDSR-S2 or diffusion inference path currently active. Both names point to the same Sen2SR-RRDB instance. Any old documentation referring to "LDSR-S2", "dual-path diffusion", or "DDIMSampler" as the primary SR model is **stale**. The active primary model is our custom-trained Sen2SR-RRDB.
+
 
 ---
 

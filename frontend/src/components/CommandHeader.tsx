@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Search, Database, Cpu } from "lucide-react";
+import { Search, Database, Cpu, FlaskConical } from "lucide-react";
 
 interface CommandHeaderProps {
   totalScans: number;
@@ -107,6 +107,16 @@ export default function CommandHeader({
               <span>Specs</span>
             </motion.button>
           )}
+
+          {/* Model Validation Link */}
+          <Link
+            href="/validate"
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 hover:text-violet-200 border border-violet-500/30 transition-all text-xs font-medium"
+            title="View trained model metrics and run live benchmark"
+          >
+            <FlaskConical size={13} />
+            <span>Validate</span>
+          </Link>
 
           {/* Missions Archive Button */}
           <motion.button
