@@ -43,6 +43,22 @@ models/
 !model/Sen2SR_Able/**
 !model/Sen2SR_Able/*.pth
 
+# Allow Stage 1 RGBN production weights (17.5 MB — within GitHub limit)
+!training/stage1_rgbn/weights/final_weights.pth
+
+# Allow Stage 1 model architecture source files
+!training/stage1_rgbn/models/
+!training/stage1_rgbn/models/**
+
+# Ignore Stage 1 training intermediates and large datasets
+training/stage1_rgbn/data/
+training/stage1_rgbn/checkpoints_sen2sr/
+training/stage1_rgbn/checkpoints_sen2sr_phase2/
+training/stage1_rgbn/checkpoints_swinir/
+training/stage1_rgbn/results_*/
+training/stage1_rgbn/*.lmdb
+training/stage1_rgbn/*.mdb
+
 # Database & SQLite files
 *.db
 *.sqlite

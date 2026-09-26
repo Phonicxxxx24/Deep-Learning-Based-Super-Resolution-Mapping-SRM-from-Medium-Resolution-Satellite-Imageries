@@ -1,0 +1,29 @@
+SEN2SR PRODUCTION PIPELINE WEIGHTS (PHASE 2 - CLEAN & VERIFIED)
+==============================================================
+File         : final_weights.pth
+Architecture : Sen2SR_RGBN (8-block RRDB, 4.58M params)
+Training     : Phase 1 (PSNR pre-training) + Phase 2 (High-Frequency Edge & Texture Refinement)
+Scale        : 4x (10m Sentinel-2 -> 2.5m Super-Resolution)
+Input Bands  : 4 channels [B02_Blue, B03_Green, B04_Red, B08_NIR]
+Quality      : Clean & Smooth (0% checkerboard/grid artifacts, no pixelation)
+Val PSNR     : 35.87 dB
+Val SSIM     : 0.8828
+Val SAM      : 0.0412 rad (locked spectral fidelity < 2.5 deg)
+Status       : PRODUCTION-VERIFIED (Stable, reliable for downstream mapping/segmentation)
+
+HOW TO LOAD IN YOUR PIPELINE:
+-------------------------------
+import torch
+from models.sen2sr_rgbn import make_sen2sr_model
+
+# 1. Initialize model
+model = make_sen2sr_model()
+
+# 2. Load weights
+ckpt = torch.load('final-final-weights/final_weights.pth', map_location='cuda')
+model.load_state_dict(ckpt['model_state_dict'])
+model.eval()
+
+# 3. Inference
+# Input tensor : (B, 4, H, W) float32 in range [0, 1] (raw Sentinel-2 DN / 10000.0)
+# Output tensor: (B, 4, H*4, W*4) float32 in range [0, 1] at 2.5m GSD

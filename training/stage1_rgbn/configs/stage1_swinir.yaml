@@ -1,0 +1,84 @@
+data:
+  dataset: SEN2NAIPv2
+  lmdb_dir: data/lmdb_cache
+  norm_factor: 10000.0
+  patch_size_lr: 96
+  raw_dir: data/raw
+  scale: 4
+  splits_dir: data/splits
+evaluation:
+  metrics:
+  - psnr
+  - ssim
+  - sam
+  - rmse
+  - ergas
+  ndvi_bands:
+  - 3
+  - 2
+  num_visual_samples: 20
+  save_visuals: true
+loss:
+  charbonnier:
+    eps: 0.001
+    weight: 1.0
+  fourier_constraint:
+    enabled: false
+    low_freq_ratio: 0.5
+  frequency:
+    weight: 0.05
+  observation:
+    weight: 0.1
+  sam:
+    weight: 0.1
+model:
+  attn_drop_rate: 0.0
+  blocks_per_group: 6
+  drop_path_rate: 0.1
+  drop_rate: 0.0
+  embed_dim: 180
+  img_range: 1.0
+  in_channels: 4
+  mlp_ratio: 4
+  num_groups: 6
+  num_heads: 6
+  out_channels: 4
+  qkv_bias: true
+  scale: 4
+  window_size: 8
+seed: 42
+training:
+  amp_fp16: true
+  batch_size: 4
+  batches_per_epoch: 100
+  checkpointing:
+    auto_resume: true
+    save_dir: checkpoints
+    save_every: 5
+  early_stopping:
+    enabled: true
+    metric: val_psnr
+    patience: 10
+  epochs: 50
+  grad_accumulation: 4
+  grad_clip: 1.0
+  logging:
+    csv: true
+    log_every: 100
+    tensorboard: true
+  num_workers: 0
+  optimizer:
+    betas:
+    - 0.9
+    - 0.999
+    eps: 1.0e-08
+    lr: 0.0001
+    type: AdamW
+    weight_decay: 0.0001
+  persistent_workers: true
+  pin_memory: true
+  scheduler:
+    min_lr: 1.0e-06
+    type: cosine_with_warmup
+    warmup_epochs: 2
+  torch_compile: false
