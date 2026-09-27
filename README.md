@@ -37,8 +37,11 @@
 
 The framework operates as a two-service system: a **Next.js** frontend that provides an interactive map interface, and a **FastAPI** backend that manages a serialized GPU inference queue and exposes REST endpoints for SR jobs, benchmarking, and result retrieval.
 
-<!-- DIAGRAM: Beyond Pixels — System Architecture (Eraser SVG) -->
-<!-- INSERT SVG HERE -->
+<p align="center">
+  <img src="assets/diagrams/system-architecture-ppt.svg" alt="Beyond Pixels — System Architecture" width="100%" />
+</p>
+
+
 
 **Inference path (per user request):**
 1. User selects a geographic location on the map → lat/lon bounding box sent to `POST /api/sr`
@@ -72,13 +75,19 @@ All pre-processing is performed in `srm/sr_pipeline.py` and `srm/satellite_fetch
 
 Sen2SR\_RGBN is a **Residual-in-Residual Dense Block (RRDB)** convolutional neural network trained specifically for 4-band Sentinel-2 RGBN super-resolution at 4× scale (10 m → 2.5 m).
 
-<!-- DIAGRAM: Sen2SR-RRDB (Able) — Model Architecture (Eraser SVG) -->
-<!-- INSERT SVG HERE -->
+<p align="center">
+  <img src="assets/diagrams/model-architecture-detailed-ppt.svg" alt="Sen2SR-RRDB Model Architecture" width="100%" />
+</p>
+
+
 
 ### Architecture
 
-<!-- DIAGRAM: Sen2SR_RGBN — Trained Model Architecture (Eraser SVG) -->
-<!-- INSERT SVG HERE -->
+<p align="center">
+  <img src="assets/diagrams/sen2sr-rrdb-neural-architecture.svg" alt="Sen2SR-RRDB Neural Architecture" width="100%" />
+</p>
+
+
 
 | Stage | Layer | Output Shape |
 |---|---|---|
