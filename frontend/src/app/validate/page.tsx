@@ -105,17 +105,103 @@ function ModelBlock({
 export default function ValidationPage() {
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
   const [benchmarkRunning, setBenchmarkRunning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [benchmarkDataset, setBenchmarkDataset] = useState<"spot" | "naip">("spot");
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  // Restore stored benchmark from localStorage or backend cache on load/switch
+  // 1. Check if a background benchmark is already running or completed on load
   useEffect(() => {
     setMounted(true);
     let isCancelled = false;
+
+    fetch(`${API}/api/benchmark/status`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((statusData) => {
+        if (isCancelled || !statusData) return;
+        if (statusData.status === "running") {
+          setBenchmarkRunning(true);
+          if (statusData.dataset) setBenchmarkDataset(statusData.dataset);
+          if (typeof statusData.elapsed_s === "number") setElapsedSeconds(statusData.elapsed_s);
+        } else if (statusData.status === "completed" && statusData.result) {
+          const enriched: BenchmarkResult = {
+            ...statusData.result,
+            saved_at: statusData.result.saved_at || new Date().toISOString(),
+          };
+          if (statusData.dataset === benchmarkDataset) {
+            setBenchmarkResult(enriched);
+          }
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem(`${STORAGE_KEY_PREFIX}${statusData.dataset || benchmarkDataset}`, JSON.stringify(enriched));
+            } catch {}
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [benchmarkDataset]);
+
+  // 2. Poll benchmark status while running (even across page navigation/remounting)
+  useEffect(() => {
+    if (!benchmarkRunning) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/api/benchmark/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (typeof data.elapsed_s === "number") {
+          setElapsedSeconds(data.elapsed_s);
+        }
+
+        if (data.status === "completed" && data.result) {
+          setBenchmarkRunning(false);
+          const enriched: BenchmarkResult = {
+            ...data.result,
+            saved_at: data.result.saved_at || new Date().toISOString(),
+          };
+          setBenchmarkResult(enriched);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem(`${STORAGE_KEY_PREFIX}${data.dataset || benchmarkDataset}`, JSON.stringify(enriched));
+            } catch {}
+          }
+        } else if (data.status === "error") {
+          setBenchmarkRunning(false);
+          setBenchmarkResult({
+            status: "error",
+            dataset: data.dataset || benchmarkDataset,
+            n_scenes: 0,
+            model: "",
+            aggregate: {
+              sr: { psnr_db: null, ssim: null, sam_deg: null, ergas: null },
+              bicubic_baseline: { psnr_db: null, ssim: null, sam_deg: null, ergas: null },
+            },
+            per_scene: [],
+            note: "",
+            error: data.error || "Benchmark execution failed",
+          });
+        }
+      } catch (err) {
+        console.warn("Status polling error:", err);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [benchmarkRunning, benchmarkDataset]);
+
+  // 3. Restore stored benchmark from localStorage or backend cache on load/switch
+  useEffect(() => {
+    if (benchmarkRunning) return;
+    let isCancelled = false;
     const storageKey = `${STORAGE_KEY_PREFIX}${benchmarkDataset}`;
 
-    // 1. Try local storage first for instant retrieval
+    // Try local storage first for instant retrieval
     try {
       const localData = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
       if (localData) {
@@ -129,7 +215,7 @@ export default function ValidationPage() {
       console.warn("Could not read local benchmark cache:", e);
     }
 
-    // 2. Fall back to backend disk cache
+    // Fall back to backend disk cache
     fetch(`${API}/api/benchmark/latest?dataset=${benchmarkDataset}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: BenchmarkResult | null) => {
@@ -155,32 +241,32 @@ export default function ValidationPage() {
     return () => {
       isCancelled = true;
     };
-  }, [benchmarkDataset]);
+  }, [benchmarkDataset, benchmarkRunning]);
 
   const runBenchmark = useCallback(async () => {
     setBenchmarkRunning(true);
+    setElapsedSeconds(0);
     setBenchmarkResult(null);
     setExpandedScene(null);
     const storageKey = `${STORAGE_KEY_PREFIX}${benchmarkDataset}`;
 
     try {
-      const res = await fetch(`${API}/api/benchmark?dataset=${benchmarkDataset}&max_samples=9`);
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-      const data: BenchmarkResult = await res.json();
-      const enriched: BenchmarkResult = {
-        ...data,
-        saved_at: new Date().toISOString(),
-      };
-      setBenchmarkResult(enriched);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(storageKey);
+      }
+    } catch {}
 
-      if (enriched.status === "ok" && typeof window !== "undefined") {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(enriched));
-        } catch (storageErr) {
-          console.warn("Failed to persist benchmark to localStorage:", storageErr);
-        }
+    try {
+      const res = await fetch(`${API}/api/benchmark/start?dataset=${benchmarkDataset}&max_samples=9`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      if (typeof data.elapsed_s === "number") {
+        setElapsedSeconds(data.elapsed_s);
       }
     } catch (e) {
+      setBenchmarkRunning(false);
       setBenchmarkResult({
         status: "error",
         dataset: benchmarkDataset,
@@ -192,10 +278,8 @@ export default function ValidationPage() {
         },
         per_scene: [],
         note: "",
-        error: e instanceof Error ? e.message : "Unknown error",
+        error: e instanceof Error ? e.message : "Failed to launch background benchmark",
       });
-    } finally {
-      setBenchmarkRunning(false);
     }
   }, [benchmarkDataset]);
 
@@ -291,7 +375,7 @@ export default function ValidationPage() {
             {benchmarkRunning ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Running Benchmark…
+                Running in Background… ({elapsedSeconds}s)
               </>
             ) : (
               <>
@@ -302,9 +386,12 @@ export default function ValidationPage() {
           </button>
 
           {benchmarkRunning && (
-            <p className="text-xs text-white/40 animate-pulse">
-              Running 3 models on {benchmarkDataset.toUpperCase()} scenes — this takes 3–6 minutes…
-            </p>
+            <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-medium">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping shrink-0" />
+              <span>
+                Evaluating models on {benchmarkDataset.toUpperCase()} scenes in background ({elapsedSeconds}s elapsed) — you can safely leave this page anytime!
+              </span>
+            </div>
           )}
         </motion.div>
 

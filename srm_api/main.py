@@ -616,107 +616,174 @@ async def model_card() -> dict:
     }
 
 
+_benchmark_state: dict = {
+    "status": "idle",       # "idle" | "running" | "completed" | "error"
+    "dataset": "spot",
+    "progress_msg": "",
+    "started_at": None,
+    "result": None,
+    "error": None,
+}
+
+
+def _compute_benchmark_sync(dataset: str, max_samples: int) -> dict:
+    """Synchronous benchmark evaluation worker executed in a thread pool."""
+    from srm.validation import evaluate_benchmark
+    import torch
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    df = evaluate_benchmark(
+        dataset_name=dataset,
+        max_samples=max_samples,
+        device=device,
+    )
+    records = df.to_dict(orient="records")
+    sr_rows   = [r for r in records if r.get("method") == "SEN2SRLite"]
+    bic_rows  = [r for r in records if r.get("method") == "Bicubic_Baseline"]
+    able_rows = [r for r in records if r.get("method") == "Able_RRDB"]
+
+    def _mean(rows, key):
+        vals = [r[key] for r in rows if r.get(key) is not None and not (isinstance(r[key], float) and r[key] != r[key])]
+        return round(sum(vals) / len(vals), 4) if vals else None
+
+    n_scenes = max(len(sr_rows), len(able_rows), len(bic_rows))
+
+    aggregate: dict = {
+        "sr": {
+            "psnr_db": _mean(sr_rows, "psnr_db"),
+            "ssim":    _mean(sr_rows, "ssim"),
+            "sam_deg": _mean(sr_rows, "sam_deg"),
+            "ergas":   _mean(sr_rows, "ergas"),
+        },
+        "bicubic_baseline": {
+            "psnr_db": _mean(bic_rows, "psnr_db"),
+            "ssim":    _mean(bic_rows, "ssim"),
+            "sam_deg": _mean(bic_rows, "sam_deg"),
+            "ergas":   _mean(bic_rows, "ergas"),
+        },
+    }
+    if able_rows:
+        aggregate["able"] = {
+            "psnr_db": _mean(able_rows, "psnr_db"),
+            "ssim":    _mean(able_rows, "ssim"),
+            "sam_deg": _mean(able_rows, "sam_deg"),
+            "ergas":   _mean(able_rows, "ergas"),
+        }
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res_data = {
+        "status": "ok",
+        "dataset": dataset,
+        "n_scenes": n_scenes,
+        "model": "Sen2SR_RGBN + SEN2SRLite (ESA OpenSR)",
+        "aggregate": aggregate,
+        "per_scene": records,
+        "saved_at": now_iso,
+        "note": (
+            "All three models tested on the same real SPOT/NAIP scenes with the same HR ground truth. "
+            "Our Sen2SR_RGBN uses only 4 RGBN bands; SEN2SRLite uses all 10 bands. "
+            "Both are compared against the 4-band RGBN HR reference — results are directly comparable."
+        ),
+    }
+    try:
+        data_dir = Path("data")
+        data_dir.mkdir(exist_ok=True)
+        cache_file = data_dir / f"benchmark_cache_{dataset}.json"
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(res_data, f, indent=2)
+    except Exception as cache_err:
+        logger.warning("Could not cache benchmark result to disk: %s", cache_err)
+
+    return res_data
+
+
+async def _run_benchmark_background(dataset: str, max_samples: int):
+    """Background task wrapper that survives client disconnection or page navigation."""
+    loop = asyncio.get_running_loop()
+    try:
+        res = await loop.run_in_executor(None, _compute_benchmark_sync, dataset, max_samples)
+        _benchmark_state["status"] = "completed"
+        _benchmark_state["result"] = res
+        _benchmark_state["progress_msg"] = f"Benchmark on {dataset.upper()} completed successfully"
+        _benchmark_state["error"] = None
+    except Exception as exc:
+        logger.exception("Background benchmark execution failed: %s", exc)
+        _benchmark_state["status"] = "error"
+        _benchmark_state["error"] = str(exc)
+        _benchmark_state["progress_msg"] = f"Failed: {exc}"
+        _benchmark_state["result"] = None
+
+
+@app.post("/api/benchmark/start")
+@app.get("/api/benchmark/start")
+async def start_benchmark(
+    dataset: str = "spot",
+    max_samples: int = 9,
+) -> dict:
+    """Start benchmark evaluation as a detached background worker."""
+    if _benchmark_state["status"] == "running":
+        started = _benchmark_state["started_at"]
+        elapsed = int(time.time() - started) if started else 0
+        return {
+            "status": "running",
+            "dataset": _benchmark_state["dataset"],
+            "started_at": _benchmark_state["started_at"],
+            "elapsed_s": elapsed,
+            "progress_msg": _benchmark_state["progress_msg"],
+            "message": "Benchmark is already actively running in the background",
+        }
+
+    _benchmark_state["status"] = "running"
+    _benchmark_state["dataset"] = dataset
+    _benchmark_state["started_at"] = time.time()
+    _benchmark_state["progress_msg"] = f"Evaluating models on {dataset.upper()} scenes in background..."
+    _benchmark_state["result"] = None
+    _benchmark_state["error"] = None
+
+    asyncio.create_task(_run_benchmark_background(dataset, max_samples))
+
+    return {
+        "status": "running",
+        "dataset": dataset,
+        "started_at": _benchmark_state["started_at"],
+        "elapsed_s": 0,
+        "progress_msg": _benchmark_state["progress_msg"],
+        "message": "Background benchmark task initiated",
+    }
+
+
+@app.get("/api/benchmark/status")
+async def get_benchmark_status() -> dict:
+    """Check live status of the background benchmark."""
+    started = _benchmark_state["started_at"]
+    elapsed = int(time.time() - started) if started and _benchmark_state["status"] == "running" else 0
+    return {
+        "status": _benchmark_state["status"],
+        "dataset": _benchmark_state["dataset"],
+        "started_at": _benchmark_state["started_at"],
+        "elapsed_s": elapsed,
+        "progress_msg": _benchmark_state["progress_msg"],
+        "result": _benchmark_state["result"],
+        "error": _benchmark_state["error"],
+    }
+
+
 @app.get("/api/benchmark")
 async def run_benchmark(
     dataset: str = "spot",
     max_samples: int = 9,
 ) -> dict:
-    """Run quantitative validation against real SPOT/NAIP high-resolution references.
-
-    This is the only endpoint that produces PSNR/SSIM with real ground-truth HR images.
-    Uses the opensr-test benchmark dataset — real Sentinel-2 L2A inputs paired with
-    real aerial/SPOT imagery at equivalent 2.5m resolution.
-
-    Args:
-        dataset: opensr-test dataset name ('spot' or 'naip'). Default: 'spot'.
-        max_samples: Number of test scenes to evaluate (max 9 for SPOT). Default: 9.
-
-    Returns:
-        dict with per-scene metrics and aggregate statistics.
-    """
-    import asyncio
+    """Synchronous benchmark execution endpoint for direct callers (e.g. curl)."""
     loop = asyncio.get_running_loop()
-
-    def _run_benchmark_blocking():
-        try:
-            from srm.validation import evaluate_benchmark
-            import torch
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            df = evaluate_benchmark(
-                dataset_name=dataset,
-                max_samples=max_samples,
-                device=device,
-            )
-            records = df.to_dict(orient="records")
-            sr_rows   = [r for r in records if r.get("method") == "SEN2SRLite"]
-            bic_rows  = [r for r in records if r.get("method") == "Bicubic_Baseline"]
-            able_rows = [r for r in records if r.get("method") == "Able_RRDB"]
-
-            def _mean(rows, key):
-                vals = [r[key] for r in rows if r.get(key) is not None and not (isinstance(r[key], float) and r[key] != r[key])]
-                return round(sum(vals) / len(vals), 4) if vals else None
-
-            n_scenes = max(len(sr_rows), len(able_rows), len(bic_rows))
-
-            aggregate: dict = {
-                "sr": {
-                    "psnr_db": _mean(sr_rows, "psnr_db"),
-                    "ssim":    _mean(sr_rows, "ssim"),
-                    "sam_deg": _mean(sr_rows, "sam_deg"),
-                    "ergas":   _mean(sr_rows, "ergas"),
-                },
-                "bicubic_baseline": {
-                    "psnr_db": _mean(bic_rows, "psnr_db"),
-                    "ssim":    _mean(bic_rows, "ssim"),
-                    "sam_deg": _mean(bic_rows, "sam_deg"),
-                    "ergas":   _mean(bic_rows, "ergas"),
-                },
-            }
-            if able_rows:
-                aggregate["able"] = {
-                    "psnr_db": _mean(able_rows, "psnr_db"),
-                    "ssim":    _mean(able_rows, "ssim"),
-                    "sam_deg": _mean(able_rows, "sam_deg"),
-                    "ergas":   _mean(able_rows, "ergas"),
-                }
-
-            res_data = {
-                "status": "ok",
-                "dataset": dataset,
-                "n_scenes": n_scenes,
-                "model": "Sen2SR_RGBN + SEN2SRLite (ESA OpenSR)",
-                "aggregate": aggregate,
-                "per_scene": records,
-                "note": (
-                    "All three models tested on the same real SPOT/NAIP scenes with the same HR ground truth. "
-                    "Our Sen2SR_RGBN uses only 4 RGBN bands; SEN2SRLite uses all 10 bands. "
-                    "Both are compared against the 4-band RGBN HR reference — results are directly comparable."
-                ),
-            }
-            try:
-                data_dir = Path("data")
-                data_dir.mkdir(exist_ok=True)
-                cache_file = data_dir / f"benchmark_cache_{dataset}.json"
-                with open(cache_file, "w", encoding="utf-8") as f:
-                    json.dump(res_data, f, indent=2)
-            except Exception as cache_err:
-                logger.warning("Could not cache benchmark result to disk: %s", cache_err)
-
-            return res_data
-        except Exception as exc:
-            logger.exception("Benchmark run failed: %s", exc)
-            return {
-                "status": "error",
-                "error": str(exc),
-                "dataset": dataset,
-                "note": (
-                    "Benchmark requires opensr_test package and model weights to be loaded. "
-                    "If weights are not present, install via: pip install opensr-test"
-                ),
-            }
-
-    result = await loop.run_in_executor(None, _run_benchmark_blocking)
-    return result
+    try:
+        return await loop.run_in_executor(None, _compute_benchmark_sync, dataset, max_samples)
+    except Exception as exc:
+        logger.exception("Benchmark run failed: %s", exc)
+        return {
+            "status": "error",
+            "error": str(exc),
+            "dataset": dataset,
+            "note": "Benchmark requires opensr_test package and model weights.",
+        }
 
 
 @app.get("/api/benchmark/latest")
