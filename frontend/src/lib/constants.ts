@@ -18,7 +18,7 @@ export const BAND_NAMES = [
 
 export const POLL_INTERVAL_MS = 1000; // status polling cadence (1s for real-time responsiveness)
 
-export const DEFAULT_MAP_CENTER: [number, number] = [20.5937, 78.9629]; // India
+export const DEFAULT_MAP_CENTER: [number, number] = [22.0, 78.9629]; // Central India
 export const DEFAULT_MAP_ZOOM = 5;
 
 /**

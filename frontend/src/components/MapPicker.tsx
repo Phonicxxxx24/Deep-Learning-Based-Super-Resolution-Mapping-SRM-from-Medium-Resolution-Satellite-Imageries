@@ -92,6 +92,15 @@ function MapInteractionsController({
           duration: 1.2,
         });
       } catch {}
+    } else {
+      if (circleRef.current) {
+        circleRef.current.remove();
+        circleRef.current = null;
+      }
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
     }
   }, [selectedPoint, map]);
 
@@ -120,8 +129,12 @@ export default function MapPicker({
   };
 
   const handleRecenter = () => {
-    if (mapInstance && selectedPoint) {
-      mapInstance.flyTo([selectedPoint.lat, selectedPoint.lon], 13, { duration: 1 });
+    if (mapInstance) {
+      if (selectedPoint) {
+        mapInstance.flyTo([selectedPoint.lat, selectedPoint.lon], 13, { duration: 1 });
+      } else {
+        mapInstance.flyTo(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, { duration: 1 });
+      }
     }
   };
 
@@ -208,17 +221,15 @@ export default function MapPicker({
           </button>
         </div>
 
-        {selectedPoint && (
-          <button
-            type="button"
-            onClick={handleRecenter}
-            className="w-10 h-10 rounded-2xl ios-glass-pill flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition-all shadow-xl cursor-pointer"
-            title="Recenter to locked target"
-            aria-label="Recenter to target"
-          >
-            <Crosshair size={16} className="text-white" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleRecenter}
+          className="w-10 h-10 rounded-2xl ios-glass-pill flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition-all shadow-xl cursor-pointer"
+          title={selectedPoint ? "Recenter to locked target" : "Recenter to India map overview"}
+          aria-label={selectedPoint ? "Recenter to target" : "Recenter to India map overview"}
+        >
+          <Crosshair size={16} className="text-white" />
+        </button>
 
         <button
           type="button"

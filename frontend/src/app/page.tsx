@@ -51,11 +51,8 @@ const MapPicker = dynamic(
 export default function HomePage() {
   const router = useRouter();
 
-  const [selectedLatLon, setSelectedLatLon] = useState<{ lat: number; lon: number } | null>({
-    lat: 18.9600,
-    lon: 72.8200,
-  });
-  const [selectedLocName, setSelectedLocName] = useState<string | null>("Mumbai Harbour, India");
+  const [selectedLatLon, setSelectedLatLon] = useState<{ lat: number; lon: number } | null>(null);
+  const [selectedLocName, setSelectedLocName] = useState<string | null>(null);
 
   const [jobId,          setJobId]          = useState<string | null>(null);
   const [jobStatus,      setJobStatus]      = useState<JobStatus | null>(null);
@@ -250,6 +247,19 @@ export default function HomePage() {
               </h2>
             </div>
             <div className="flex items-center gap-1.5">
+              {selectedLatLon && !isRunning && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLatLon(null);
+                    setSelectedLocName(null);
+                  }}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-medium text-white/60 hover:text-white bg-white/10 hover:bg-white/15 transition-all cursor-pointer"
+                  title="Clear AOI and view full map"
+                >
+                  Clear AOI
+                </button>
+              )}
               <motion.button
                 whileTap={{ scale: 0.92 }}
                 type="button"
@@ -399,6 +409,8 @@ export default function HomePage() {
                 />
                 <span>Reconstructing Sentinel-2 Tile…</span>
               </>
+            ) : !selectedLatLon ? (
+              <span>Select Target on Map to Enhance</span>
             ) : (
               <>
                 <span>Enhance Satellite Resolution ({scaleFactor}×)</span>
