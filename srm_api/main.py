@@ -680,7 +680,7 @@ async def run_benchmark(
                     "ergas":   _mean(able_rows, "ergas"),
                 }
 
-            return {
+            res_data = {
                 "status": "ok",
                 "dataset": dataset,
                 "n_scenes": n_scenes,
@@ -693,6 +693,16 @@ async def run_benchmark(
                     "Both are compared against the 4-band RGBN HR reference — results are directly comparable."
                 ),
             }
+            try:
+                data_dir = Path("data")
+                data_dir.mkdir(exist_ok=True)
+                cache_file = data_dir / f"benchmark_cache_{dataset}.json"
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(res_data, f, indent=2)
+            except Exception as cache_err:
+                logger.warning("Could not cache benchmark result to disk: %s", cache_err)
+
+            return res_data
         except Exception as exc:
             logger.exception("Benchmark run failed: %s", exc)
             return {
@@ -707,3 +717,84 @@ async def run_benchmark(
 
     result = await loop.run_in_executor(None, _run_benchmark_blocking)
     return result
+
+
+@app.get("/api/benchmark/latest")
+async def get_latest_benchmark(dataset: str = "spot") -> dict:
+    """Return the most recently computed benchmark results from disk cache if available."""
+    cache_file = Path("data") / f"benchmark_cache_{dataset}.json"
+    if cache_file.exists():
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning("Failed to load benchmark cache: %s", e)
+
+    # Fallback for SPOT if verification/benchmark_results.csv exists
+    if dataset == "spot":
+        csv_file = Path("verification") / "benchmark_results.csv"
+        if csv_file.exists():
+            try:
+                import pandas as pd
+                df = pd.read_csv(csv_file)
+                records = df.to_dict(orient="records")
+                sr_rows   = [r for r in records if r.get("method") == "SEN2SRLite"]
+                bic_rows  = [r for r in records if r.get("method") == "Bicubic_Baseline"]
+                able_rows = [r for r in records if r.get("method") == "Able_RRDB"]
+
+                def _mean(rows, key):
+                    vals = [r[key] for r in rows if r.get(key) is not None and not (isinstance(r[key], float) and r[key] != r[key])]
+                    return round(sum(vals) / len(vals), 4) if vals else None
+
+                n_scenes = max(len(sr_rows), len(able_rows), len(bic_rows))
+                res = {
+                    "status": "ok",
+                    "dataset": "spot",
+                    "n_scenes": n_scenes,
+                    "model": "Sen2SR_RGBN + SEN2SRLite (ESA OpenSR)",
+                    "aggregate": {
+                        "sr": {
+                            "psnr_db": _mean(sr_rows, "psnr_db"),
+                            "ssim":    _mean(sr_rows, "ssim"),
+                            "sam_deg": _mean(sr_rows, "sam_deg"),
+                            "ergas":   _mean(sr_rows, "ergas"),
+                        },
+                        "bicubic_baseline": {
+                            "psnr_db": _mean(bic_rows, "psnr_db"),
+                            "ssim":    _mean(bic_rows, "ssim"),
+                            "sam_deg": _mean(bic_rows, "sam_deg"),
+                            "ergas":   _mean(bic_rows, "ergas"),
+                        },
+                    },
+                    "per_scene": records,
+                    "note": (
+                        "All three models tested on the same real SPOT scenes with the same HR ground truth. "
+                        "Our Sen2SR_RGBN uses only 4 RGBN bands; SEN2SRLite uses all 10 bands. "
+                        "Both are compared against the 4-band RGBN HR reference — results are directly comparable."
+                    ),
+                }
+                if able_rows:
+                    res["aggregate"]["able"] = {
+                        "psnr_db": _mean(able_rows, "psnr_db"),
+                        "ssim":    _mean(able_rows, "ssim"),
+                        "sam_deg": _mean(able_rows, "sam_deg"),
+                        "ergas":   _mean(able_rows, "ergas"),
+                    }
+                return res
+            except Exception as e:
+                logger.warning("Failed to parse verification CSV: %s", e)
+
+    raise HTTPException(status_code=404, detail=f"No stored benchmark results found for dataset '{dataset}'")
+
+
+@app.delete("/api/benchmark/latest")
+async def delete_latest_benchmark(dataset: str = "spot") -> dict:
+    """Clear cached benchmark results on disk."""
+    cache_file = Path("data") / f"benchmark_cache_{dataset}.json"
+    if cache_file.exists():
+        try:
+            cache_file.unlink()
+            return {"status": "ok", "message": f"Cleared benchmark cache for {dataset}"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "ok", "message": "No cache file to delete"}

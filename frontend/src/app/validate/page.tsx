@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,9 +13,12 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Trash2,
+  Database,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const STORAGE_KEY_PREFIX = "srm_validation_benchmark_";
 
 interface BenchmarkResult {
   status: string;
@@ -30,6 +33,7 @@ interface BenchmarkResult {
   per_scene: Array<Record<string, unknown>>;
   note: string;
   error?: string;
+  saved_at?: string;
 }
 
 function MetricCard({
@@ -103,16 +107,79 @@ export default function ValidationPage() {
   const [benchmarkRunning, setBenchmarkRunning] = useState(false);
   const [benchmarkDataset, setBenchmarkDataset] = useState<"spot" | "naip">("spot");
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Restore stored benchmark from localStorage or backend cache on load/switch
+  useEffect(() => {
+    setMounted(true);
+    let isCancelled = false;
+    const storageKey = `${STORAGE_KEY_PREFIX}${benchmarkDataset}`;
+
+    // 1. Try local storage first for instant retrieval
+    try {
+      const localData = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+      if (localData) {
+        const parsed: BenchmarkResult = JSON.parse(localData);
+        if (parsed && parsed.status === "ok") {
+          setBenchmarkResult(parsed);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not read local benchmark cache:", e);
+    }
+
+    // 2. Fall back to backend disk cache
+    fetch(`${API}/api/benchmark/latest?dataset=${benchmarkDataset}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: BenchmarkResult | null) => {
+        if (!isCancelled && data && data.status === "ok") {
+          const enriched: BenchmarkResult = {
+            ...data,
+            saved_at: data.saved_at || new Date().toISOString(),
+          };
+          setBenchmarkResult(enriched);
+          try {
+            if (typeof window !== "undefined") {
+              localStorage.setItem(storageKey, JSON.stringify(enriched));
+            }
+          } catch {}
+        } else if (!isCancelled) {
+          setBenchmarkResult(null);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) setBenchmarkResult(null);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [benchmarkDataset]);
 
   const runBenchmark = useCallback(async () => {
     setBenchmarkRunning(true);
     setBenchmarkResult(null);
     setExpandedScene(null);
+    const storageKey = `${STORAGE_KEY_PREFIX}${benchmarkDataset}`;
+
     try {
       const res = await fetch(`${API}/api/benchmark?dataset=${benchmarkDataset}&max_samples=9`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data: BenchmarkResult = await res.json();
-      setBenchmarkResult(data);
+      const enriched: BenchmarkResult = {
+        ...data,
+        saved_at: new Date().toISOString(),
+      };
+      setBenchmarkResult(enriched);
+
+      if (enriched.status === "ok" && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(enriched));
+        } catch (storageErr) {
+          console.warn("Failed to persist benchmark to localStorage:", storageErr);
+        }
+      }
     } catch (e) {
       setBenchmarkResult({
         status: "error",
@@ -130,6 +197,20 @@ export default function ValidationPage() {
     } finally {
       setBenchmarkRunning(false);
     }
+  }, [benchmarkDataset]);
+
+  const clearStoredBenchmark = useCallback(async () => {
+    const storageKey = `${STORAGE_KEY_PREFIX}${benchmarkDataset}`;
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(storageKey);
+      }
+    } catch {}
+    setBenchmarkResult(null);
+    setExpandedScene(null);
+    try {
+      await fetch(`${API}/api/benchmark/latest?dataset=${benchmarkDataset}`, { method: "DELETE" });
+    } catch {}
   }, [benchmarkDataset]);
 
   // Group per-scene rows by scene_idx
@@ -250,6 +331,32 @@ export default function ValidationPage() {
                 </div>
               ) : (
                 <>
+                  {/* Stored Cache Status Banner */}
+                  <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-white/70 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                      <span>
+                        <strong className="text-emerald-400 font-medium">Stored Test Data Active:</strong>{" "}
+                        {benchmarkResult.dataset.toUpperCase()} Evaluation ({benchmarkResult.n_scenes} Scenes)
+                        {benchmarkResult.saved_at && mounted && (
+                          <span className="text-white/40 ml-1 font-mono text-[11px]">
+                            • Saved {new Date(benchmarkResult.saved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })},{" "}
+                            {new Date(benchmarkResult.saved_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearStoredBenchmark}
+                      className="text-xs text-white/40 hover:text-red-400 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto"
+                      title="Clear stored benchmark data"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear Stored Data
+                    </button>
+                  </div>
+
                   {/* Aggregate */}
                   <div>
                     <p className="text-xs text-white/40 uppercase tracking-widest mb-3">
