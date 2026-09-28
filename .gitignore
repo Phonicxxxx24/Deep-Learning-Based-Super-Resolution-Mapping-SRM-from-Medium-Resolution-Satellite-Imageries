@@ -132,3 +132,26 @@ vendor/
 .env
 .env.*
 !.env.example
+
+# Internal dev context docs — not for public repo
+docs/FEATURE_3D_GLOBE_PROPOSAL.md
+docs/FUTURE_ROADMAP_AND_PLANS.md
+docs/GRAPH_REPORT.md
+docs/PROBLEM_VS_SOLUTION.md
+docs/REVISED_IMPLEMENTATION_PLAN.md
+docs/SRM_Frontend_Task_Prompts.md
+docs/SRM_Solution_Architecture.md
+docs/SRM_Task_Prompts.md
+docs/progress.md
+
+# Dev tool — codebase knowledge graph generator
+graphify.py
+graph.html
+graph.json
+
+# Duplicate training intermediate notes
+training/stage1_rgbn/model_progress_report.md
+
+# Dev comparison outputs (not part of final demo)
+outputs/caabfd756e56_*
+outputs/urban_berlin_ndbi_comparison.png
