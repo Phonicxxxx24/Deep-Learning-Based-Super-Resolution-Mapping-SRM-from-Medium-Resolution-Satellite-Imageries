@@ -41,8 +41,6 @@ The framework operates as a two-service system: a **Next.js** frontend that prov
   <img src="assets/diagrams/system-architecture-ppt.svg" alt="Beyond Pixels — System Architecture" width="100%" />
 </p>
 
-
-
 **Inference path (per user request):**
 1. User selects a geographic location on the map → lat/lon bounding box sent to `POST /api/sr`
 2. Backend queues the job (`asyncio.Queue`, one job at a time) → `_gpu_worker` picks it up
@@ -79,15 +77,7 @@ Sen2SR\_RGBN is a **Residual-in-Residual Dense Block (RRDB)** convolutional neur
   <img src="assets/diagrams/model-architecture-detailed-ppt.svg" alt="Sen2SR-RRDB Model Architecture" width="100%" />
 </p>
 
-
-
-### Architecture
-
-<p align="center">
-  <img src="assets/diagrams/sen2sr-rrdb-neural-architecture.svg" alt="Sen2SR-RRDB Neural Architecture" width="100%" />
-</p>
-
-
+### Architecture Breakdown
 
 | Stage | Layer | Output Shape |
 |---|---|---|
