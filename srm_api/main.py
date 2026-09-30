@@ -12,6 +12,7 @@ Run with:
 from __future__ import annotations
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 import json
 import logging
@@ -36,8 +37,8 @@ from srm_api.db import (
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-OUTPUT_DIR = Path("outputs")
-OUTPUT_DIR.mkdir(exist_ok=True)
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "outputs"))
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @asynccontextmanager
@@ -65,16 +66,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── CORS Middleware Configuration ──────────────────────────────────────────
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+]
+if cors_origins_env:
+    for origin in cors_origins_env.split(","):
+        origin_clean = origin.strip()
+        if origin_clean and origin_clean not in allowed_origins:
+            allowed_origins.append(origin_clean)
+
+# If wildcard is explicitly allowed or default open in deployment
+allow_all = "*" in allowed_origins or cors_origins_env == "*"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
-    allow_credentials=True,
+    allow_origins=["*"] if allow_all else allowed_origins,
+    # Automatically permits:
+    # 1. Local development (localhost, 127.0.0.1) on any port
+    # 2. Netlify preview and production URLs (*.netlify.app)
+    # 3. Railway deployments (*.railway.app and *.up.railway.app)
+    allow_origin_regex=None if allow_all else r"^https?://((localhost|127\.0\.0\.1)(:[0-9]+)?|([a-zA-Z0-9-]+\.)*(netlify\.app|railway\.app))$",
+    allow_credentials=not allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -82,6 +99,28 @@ app.add_middleware(
 
 # Serve output PNGs at /static/<filename>
 app.mount("/static", StaticFiles(directory=str(OUTPUT_DIR)), name="static")
+
+
+@app.get("/")
+async def root() -> dict:
+    """Root healthcheck and API discovery endpoint."""
+    return {
+        "service": "Beyond Pixels SRM API",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health",
+        "version": "1.0.0",
+    }
+
+
+@app.get("/health")
+async def health_alias() -> dict:
+    """Standard health check alias for container orchestrators (Railway, Docker, K8s)."""
+    return {
+        "status": "ok",
+        "jobs_total": len(_jobs),
+        "queue_depth": _queue.qsize(),
+    }
 
 # ── In-memory job store ────────────────────────────────────────────────────
 # For production: replace with Redis + Celery. For SIH demo: dict is fine.

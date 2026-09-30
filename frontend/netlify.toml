@@ -1,0 +1,22 @@
+# ==============================================================================
+# Netlify Configuration for SRM Frontend (Subdirectory Configuration)
+# Active when Netlify site base directory is set directly to "frontend"
+# ==============================================================================
+
+[build]
+  publish = ".next"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

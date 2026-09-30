@@ -1,0 +1,44 @@
+# Git & Version Control
+.git
+.gitignore
+
+# Python virtual environment & cache
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+
+# Node & Frontend (deployed separately on Netlify)
+frontend
+node_modules
+
+# Documentation & Diagrams
+docs
+diagrams_and_flows
+assets
+
+# Tests & Training scripts
+tests
+training
+verification
+scratch
+
+# Host launcher scripts
+*.bat
+linux
+
+# Graph dev tools
+graph.html
+graph.json
+graphify.py
+
+# Large legacy 1.1GB checkpoint (native Sen2SR-RRDB uses model/Sen2SR_Able)
+opensr-ldsrs2_v1_0_0.ckpt
+
+# Local runtime outputs & database files
+outputs/*.png
+outputs/*.json
+outputs/*.tif
+data/*.db

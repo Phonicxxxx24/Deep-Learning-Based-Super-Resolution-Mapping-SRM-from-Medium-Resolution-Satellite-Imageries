@@ -7,14 +7,15 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-DB_DIR = Path("data")
-DB_DIR.mkdir(exist_ok=True)
+DB_DIR = Path(os.getenv("DATA_DIR", "data"))
+DB_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DB_DIR / "srm_scans.db"
 
 

@@ -10,32 +10,32 @@ echo =======================================================================
 echo.
 
 :: Get root project directory (parent of windows\ folder)
-for %%i in ("%~dp0..") do set "ROOT_DIR=%%~fi\"
+for %%i in ("%~dp0..") do set "ROOT_DIR=%%~fi"
 cd /d "%ROOT_DIR%"
 
 :: Check Python Virtual Environment
-if not exist "%ROOT_DIR%.venv\Scripts\python.exe" (
-    echo [ERROR] Python virtual environment not found at: %ROOT_DIR%.venv
+if not exist "%ROOT_DIR%\.venv\Scripts\python.exe" (
+    echo [ERROR] Python virtual environment not found at: %ROOT_DIR%\.venv
     echo Please run windows\setup.bat first to set up the environment.
     pause
     exit /b 1
 )
 
 :: Check Node.js / frontend
-if not exist "%ROOT_DIR%frontend\package.json" (
-    echo [ERROR] Frontend directory not found at: %ROOT_DIR%frontend
+if not exist "%ROOT_DIR%\frontend\package.json" (
+    echo [ERROR] Frontend directory not found at: %ROOT_DIR%\frontend
     pause
     exit /b 1
 )
 
 echo [1/3] Launching FastAPI Backend on http://127.0.0.1:8000...
-start "SRM Backend (:8000)" cmd /k "cd /d "%ROOT_DIR%" && title SRM Backend (:8000) && color 0A && .venv\Scripts\python.exe -m uvicorn srm_api.main:app --host 127.0.0.1 --port 8000 --reload"
+start "SRM Backend (:8000)" /D "%ROOT_DIR%" cmd /k "title SRM Backend (:8000) && color 0A && .venv\Scripts\python.exe -m uvicorn srm_api.main:app --host 127.0.0.1 --port 8000 --reload"
 
 echo [2/3] Launching Next.js Frontend on http://localhost:3000...
-start "SRM Frontend (:3000)" cmd /k "cd /d "%ROOT_DIR%frontend" && title SRM Frontend (:3000) && color 09 && npm run dev"
+start "SRM Frontend (:3000)" /D "%ROOT_DIR%\frontend" cmd /k "title SRM Frontend (:3000) && color 09 && npm run dev"
 
 echo [3/3] Waiting for services to initialize...
-timeout /t 4 /nobreak >nul
+ping 127.0.0.1 -n 5 >nul
 
 echo.
 echo =======================================================================
@@ -43,7 +43,7 @@ echo   Services are running!
 echo   - Frontend Interface : http://localhost:3000
 echo   - Backend API        : http://127.0.0.1:8000
 echo   - Interactive Docs   : http://127.0.0.1:8000/docs
-echo   - Past Scans SQLite  : %ROOT_DIR%data\srm_scans.db
+echo   - Past Scans SQLite  : %ROOT_DIR%\data\srm_scans.db
 echo =======================================================================
 echo.
 echo Opening browser to http://localhost:3000 ...

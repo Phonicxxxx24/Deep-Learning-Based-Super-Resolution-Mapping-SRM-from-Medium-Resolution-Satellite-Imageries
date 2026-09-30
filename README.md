@@ -4,12 +4,31 @@
   <p><strong>Deep Learning-Based Super Resolution Mapping (SRM)<br/>from Medium-Resolution Satellite Imageries</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white" />
-    <img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" />
-    <img src="https://img.shields.io/badge/Next.js-15+-black?style=flat-square&logo=next.js&logoColor=white" />
-    <img src="https://img.shields.io/badge/FastAPI-0.11x-009688?style=flat-square&logo=fastapi&logoColor=white" />
-    <img src="https://img.shields.io/badge/Data-Sentinel--2%20L2A-006699?style=flat-square&logo=satellite&logoColor=white" />
-    <img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" />
+    <!-- AI / Super-Resolution -->
+    <img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch 2.x" />
+    <img src="https://img.shields.io/badge/Sen2SR--RRDB-4.58M%20Params-792ee5?style=flat-square" alt="Sen2SR-RRDB" />
+    <img src="https://img.shields.io/badge/SEN2SRLite-ESA%20OpenSR-1e3a8a?style=flat-square" alt="SEN2SRLite" />
+    <img src="https://img.shields.io/badge/HardConstraints-2D%20FFT%20Spectral-d97706?style=flat-square" alt="Fourier HardConstraints" />
+    <br/>
+    <!-- Geospatial Processing -->
+    <img src="https://img.shields.io/badge/Data-Sentinel--2%20L2A%20(10m%E2%86%922.5m)-006699?style=flat-square" alt="Sentinel-2 L2A" />
+    <img src="https://img.shields.io/badge/STAC-Planetary%20Computer-0078D4?style=flat-square&logo=microsoft&logoColor=white" alt="Planetary Computer STAC" />
+    <img src="https://img.shields.io/badge/Rasterio-GDAL%20%2F%20Rioxarray-238636?style=flat-square" alt="Rasterio GDAL" />
+    <img src="https://img.shields.io/badge/Format-Cloud--Optimized%20GeoTIFF-059669?style=flat-square" alt="COG" />
+    <br/>
+    <!-- Backend & Cloud Infrastructure -->
+    <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11" />
+    <img src="https://img.shields.io/badge/FastAPI-0.11x-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Docker-Containerized-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
+    <img src="https://img.shields.io/badge/Cloud-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white" alt="Railway" />
+    <img src="https://img.shields.io/badge/Telemetry%20DB-SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite" />
+    <br/>
+    <!-- Frontend & Visualization -->
+    <img src="https://img.shields.io/badge/Next.js-16%20(Turbopack)-000000?style=flat-square&logo=next.js&logoColor=white" alt="Next.js 16" />
+    <img src="https://img.shields.io/badge/Styling-TailwindCSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="TailwindCSS" />
+    <img src="https://img.shields.io/badge/Animation-Framer%20Motion-0055FF?style=flat-square&logo=framer&logoColor=white" alt="Framer Motion" />
+    <img src="https://img.shields.io/badge/Maps-Leaflet%20AOI-199900?style=flat-square&logo=leaflet&logoColor=white" alt="Leaflet" />
+    <img src="https://img.shields.io/badge/Hosting-Netlify-00C7B7?style=flat-square&logo=netlify&logoColor=white" alt="Netlify" />
   </p>
 </div>
 

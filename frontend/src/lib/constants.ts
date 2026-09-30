@@ -1,5 +1,8 @@
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+export const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:8000"
+).replace(/\/+$/, "");
 
 export const PATCH_SIZE_PX = 128;   // LR input patch size
 export const SR_SCALE_4X   = 4;     // → 512px output (16× pixel density)

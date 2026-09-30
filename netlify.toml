@@ -1,0 +1,24 @@
+# ==============================================================================
+# Netlify Configuration for SRM Frontend (Root Configuration)
+# Links the root repository to the Next.js frontend in the frontend/ directory
+# ==============================================================================
+
+[build]
+  base = "frontend"
+  publish = ".next"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Security & CORS Headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
