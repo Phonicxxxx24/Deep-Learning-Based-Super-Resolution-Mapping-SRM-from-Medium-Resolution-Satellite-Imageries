@@ -360,6 +360,7 @@ Full interactive documentation: `http://localhost:8000/docs`
 │   ├── EVALUATION.md                 # Full benchmark results and analysis
 │   ├── MODEL_CARD.md                 # Model training details and known limitations
 │   ├── PROBLEM_VS_SOLUTION.md        # SIH requirement compliance mapping
+│   ├── REFERENCES.md                 # Literature, datasets, and citation links
 │   └── SRM_Architecture.md           # Architecture specification
 ├── frontend/                         # Next.js web interface (App Router)
 ├── linux/
