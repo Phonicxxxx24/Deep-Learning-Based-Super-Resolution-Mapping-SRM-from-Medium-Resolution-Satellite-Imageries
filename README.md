@@ -10,7 +10,7 @@
 ### 🛠️ Tech Stack Architecture
 
 **AI & Super-Resolution**  
-<img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch 2.x" /> <img src="https://img.shields.io/badge/Sen2SR--RRDB-4.58M%20Params-792ee5?style=flat-square" alt="Sen2SR-RRDB" /> <img src="https://img.shields.io/badge/SEN2SRLite-ESA%20OpenSR-1e3a8a?style=flat-square" alt="SEN2SRLite" /> <img src="https://img.shields.io/badge/HardConstraints-2D%20FFT%20Spectral-d97706?style=flat-square" alt="Fourier HardConstraints" />
+<img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch 2.x" /> <img src="https://img.shields.io/badge/Sen2SR--RRDB-%E2%98%85%20Custom%20Trained%20(4.58M)-792ee5?style=flat-square&labelColor=3b0764" alt="Sen2SR-RRDB (Custom Trained)" /> <img src="https://img.shields.io/badge/SEN2SRLite-ESA%20OpenSR-1e3a8a?style=flat-square" alt="SEN2SRLite" /> <img src="https://img.shields.io/badge/HardConstraints-2D%20FFT%20Spectral-d97706?style=flat-square" alt="Fourier HardConstraints" />
 
 **Geospatial & Satellite Processing**  
 <img src="https://img.shields.io/badge/Data-Sentinel--2%20L2A%20(10m%E2%86%922.5m)-006699?style=flat-square" alt="Sentinel-2 L2A" /> <img src="https://img.shields.io/badge/STAC-Planetary%20Computer-0078D4?style=flat-square&logo=microsoft&logoColor=white" alt="Planetary Computer STAC" /> <img src="https://img.shields.io/badge/Rasterio-GDAL%20%2F%20Rioxarray-238636?style=flat-square" alt="Rasterio GDAL" /> <img src="https://img.shields.io/badge/Format-Cloud--Optimized%20GeoTIFF-059669?style=flat-square" alt="COG" />
