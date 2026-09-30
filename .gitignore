@@ -132,6 +132,7 @@ vendor/
 .env
 .env.*
 !.env.example
+!frontend/.env.example
 
 # Internal dev context docs — not for public repo
 docs/FEATURE_3D_GLOBE_PROPOSAL.md
