@@ -30,12 +30,34 @@ export const submitSRJob = (payload: SubmitPayload): Promise<SubmitResponse> =>
 export const getJobStatus = (jobId: string): Promise<StatusResponse> =>
   apiFetch<StatusResponse>(`/api/sr/status/${jobId}`);
 
+/** Resolve a static PNG URL from the API base. */
+export const staticUrl = (relPath: string | null | undefined): string => {
+  if (!relPath) return "";
+  if (relPath.startsWith("http://") || relPath.startsWith("https://")) {
+    return relPath;
+  }
+  const cleanPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
+  return `${API_BASE}${cleanPath}`;
+};
+
 /** Fetch full result after status === 'done'. */
-export const getJobResult = (jobId: string): Promise<SRResult> =>
-  apiFetch<SRResult>(`/api/sr/result/${jobId}`);
+export const getJobResult = async (jobId: string): Promise<SRResult> => {
+  const result = await apiFetch<SRResult>(`/api/sr/result/${jobId}`);
+  const keys: (keyof SRResult)[] = [
+    "sr_rgb_url", "lr_rgb_url", "uncertainty_url", "spectral_chart_url",
+    "lam_url", "ndvi_url", "lr_ndvi_url", "mndwi_url", "lr_mndwi_url",
+    "ndbi_url", "lr_ndbi_url", "sr_able_url", "sr_diffusion_url",
+  ];
+  for (const k of keys) {
+    if (typeof result[k] === "string" && (result[k] as string).startsWith("/")) {
+      (result[k] as any) = staticUrl(result[k] as string);
+    }
+  }
+  return result;
+};
 
 /** Query past scans history from SQLite database. */
-export const getPastScans = (params?: {
+export const getPastScans = async (params?: {
   category?: string;
   search?: string;
   limit?: number;
@@ -47,12 +69,25 @@ export const getPastScans = (params?: {
   if (params?.limit) q.set("limit", String(params.limit));
   if (params?.offset) q.set("offset", String(params.offset));
   const queryString = q.toString() ? `?${q.toString()}` : "";
-  return apiFetch<ScansResponse>(`/api/scans${queryString}`);
+  const resp = await apiFetch<ScansResponse>(`/api/scans${queryString}`);
+  if (resp.scans) {
+    for (const scan of resp.scans) {
+      if (scan.thumbnail_url?.startsWith("/")) scan.thumbnail_url = staticUrl(scan.thumbnail_url);
+      if (scan.lr_rgb_url?.startsWith("/")) scan.lr_rgb_url = staticUrl(scan.lr_rgb_url);
+      if (scan.sr_rgb_url?.startsWith("/")) scan.sr_rgb_url = staticUrl(scan.sr_rgb_url);
+    }
+  }
+  return resp;
 };
 
 /** Fetch individual scan details from SQLite. */
-export const getScanRecord = (jobId: string): Promise<ScanRecord> =>
-  apiFetch<ScanRecord>(`/api/scans/${jobId}`);
+export const getScanRecord = async (jobId: string): Promise<ScanRecord> => {
+  const scan = await apiFetch<ScanRecord>(`/api/scans/${jobId}`);
+  if (scan.thumbnail_url?.startsWith("/")) scan.thumbnail_url = staticUrl(scan.thumbnail_url);
+  if (scan.lr_rgb_url?.startsWith("/")) scan.lr_rgb_url = staticUrl(scan.lr_rgb_url);
+  if (scan.sr_rgb_url?.startsWith("/")) scan.sr_rgb_url = staticUrl(scan.sr_rgb_url);
+  return scan;
+};
 
 /** Delete an individual scan record and its artifacts from backend. */
 export const deleteScanRecord = (jobId: string): Promise<{ status: string; job_id: string; deleted: boolean }> =>
@@ -69,8 +104,4 @@ export const clearAllScans = (): Promise<{ status: string; deleted_count: number
 /** Health check. */
 export const healthCheck = (): Promise<{ status: string; queue_depth: number }> =>
   apiFetch("/api/health");
-
-/** Resolve a static PNG URL from the API base. */
-export const staticUrl = (relPath: string): string =>
-  `${API_BASE}${relPath}`;
 

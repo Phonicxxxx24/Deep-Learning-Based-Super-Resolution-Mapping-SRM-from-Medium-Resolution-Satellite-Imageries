@@ -102,15 +102,44 @@ class DualPathSRPipeline:
             ) from exc
 
         # 2. Load SEN2SRLite (Path B)
-        try:
-            loader = mlstac.load(sen2sr_model_dir)
-            self.model_sen2sr = loader.compiled_model(device=self.device)
-            self.model_sen2sr.eval()
-            logger.info("Loaded SEN2SRLite via mlstac from '%s'.", sen2sr_model_dir)
-        except Exception as exc:
-            raise ModelLoadingError(
-                f"Failed to load SEN2SRLite from '{sen2sr_model_dir}': {exc}"
-            ) from exc
+        # Check local path first; if not found or load fails, fallback to remote HuggingFace STAC URL
+        hf_fallback_url = (
+            "https://huggingface.co/tacofoundation/sen2sr/resolve/main/SEN2SRLite/main/mlm.json"
+        )
+        loader = None
+        load_err = None
+
+        if os.path.isdir(sen2sr_model_dir):
+            try:
+                loader = mlstac.load(sen2sr_model_dir)
+                logger.info("Loaded SEN2SRLite via mlstac from local path '%s'.", sen2sr_model_dir)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to load SEN2SRLite from local path '%s': %s. Trying remote fallback...",
+                    sen2sr_model_dir,
+                    exc,
+                )
+                load_err = exc
+
+        if loader is None:
+            try:
+                logger.info(
+                    "Loading SEN2SRLite via remote Hugging Face fallback '%s'...",
+                    hf_fallback_url,
+                )
+                loader = mlstac.load(hf_fallback_url)
+                logger.info("Loaded SEN2SRLite from remote Hugging Face fallback.")
+            except Exception as exc:
+                err_msg = (
+                    f"Failed to load SEN2SRLite from both local ('{sen2sr_model_dir}') "
+                    f"and remote ('{hf_fallback_url}'): {exc}"
+                )
+                if load_err:
+                    err_msg += f" (local error: {load_err})"
+                raise ModelLoadingError(err_msg) from exc
+
+        self.model_sen2sr = loader.compiled_model(device=self.device)
+        self.model_sen2sr.eval()
 
         # 3. Load referencex4 SWIR fusion pipeline (optional — graceful fallback)
         self.referencex4_pipeline = None

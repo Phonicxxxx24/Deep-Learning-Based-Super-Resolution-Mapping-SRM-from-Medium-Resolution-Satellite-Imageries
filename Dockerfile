@@ -40,10 +40,9 @@ COPY srm/ ./srm/
 COPY srm_api/ ./srm_api/
 COPY model/ ./model/
 COPY configs/ ./configs/
-COPY vendor/ ./vendor/
 
 # Install local package
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --no-deps -e .
 
 # Create persistent storage directories for SQLite DB and generated outputs
 RUN mkdir -p /app/data /app/outputs
