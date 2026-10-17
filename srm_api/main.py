@@ -67,31 +67,12 @@ app = FastAPI(
 )
 
 # ── CORS Middleware Configuration ──────────────────────────────────────────
-cors_origins_env = os.getenv("CORS_ORIGINS", "")
-allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-]
-if cors_origins_env:
-    for origin in cors_origins_env.split(","):
-        origin_clean = origin.strip()
-        if origin_clean and origin_clean not in allowed_origins:
-            allowed_origins.append(origin_clean)
-
-# If wildcard is explicitly allowed or default open in deployment
-allow_all = "*" in allowed_origins or cors_origins_env == "*"
-
+# ── CORS Middleware Configuration ──────────────────────────────────────────
+# Permissive CORS so Netlify frontend (and any deployment preview) can freely communicate
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if allow_all else allowed_origins,
-    # Automatically permits:
-    # 1. Local development (localhost, 127.0.0.1) on any port
-    # 2. Netlify preview and production URLs (*.netlify.app)
-    # 3. Railway deployments (*.railway.app and *.up.railway.app)
-    allow_origin_regex=None if allow_all else r"^https?://((localhost|127\.0\.0\.1)(:[0-9]+)?|([a-zA-Z0-9-]+\.)*(netlify\.app|railway\.app))$",
-    allow_credentials=not allow_all,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
