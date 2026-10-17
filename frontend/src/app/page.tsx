@@ -185,8 +185,9 @@ export default function HomePage() {
           setError(s.progress_msg ?? "Pipeline failed during execution");
         }
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Polling connection error");
         clearInterval(interval);
+        setJobStatus("error");
+        setError(e instanceof Error ? e.message : "Polling connection error");
       }
     }, POLL_INTERVAL_MS);
 
