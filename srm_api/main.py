@@ -454,6 +454,16 @@ async def get_job_status(job_id: str) -> JobStatus:
     if job_id not in _jobs:
         recovered = _recover_job_from_disk(job_id)
         if not recovered:
+            scan = get_scan(job_id)
+            if scan:
+                scan_status = scan.get("status", "done")
+                return JobStatus(
+                    job_id=job_id,
+                    status=scan_status,
+                    progress_msg="Completed scan" if scan_status == "done" else "Historical scan",
+                    progress_pct=100 if scan_status == "done" else 50,
+                    stage=scan_status,
+                )
             raise HTTPException(status_code=404, detail=f"Job {job_id!r} not found")
 
     job = _jobs[job_id]
