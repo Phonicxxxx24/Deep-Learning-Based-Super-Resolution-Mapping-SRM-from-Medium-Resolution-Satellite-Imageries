@@ -7,8 +7,18 @@ import type {
   SubmitPayload, SubmitResponse, StatusResponse, SRResult, ScansResponse, ScanRecord,
 } from "@/types";
 
+function getFullUrl(path: string): string {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  let base = (API_BASE || "").trim().replace(/\/+$/, "");
+  if (!base.startsWith("http://") && !base.startsWith("https://")) {
+    base = `https://${base.replace(/^\/+/, "")}`;
+  }
+  return `${base}${cleanPath}`;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const url = getFullUrl(path);
+  const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
@@ -36,8 +46,7 @@ export const staticUrl = (relPath: string | null | undefined): string => {
   if (relPath.startsWith("http://") || relPath.startsWith("https://")) {
     return relPath;
   }
-  const cleanPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
-  return `${API_BASE}${cleanPath}`;
+  return getFullUrl(relPath);
 };
 
 /** Fetch full result after status === 'done'. */

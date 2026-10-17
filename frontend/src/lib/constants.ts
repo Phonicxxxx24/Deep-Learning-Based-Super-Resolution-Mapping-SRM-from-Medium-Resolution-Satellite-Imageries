@@ -1,8 +1,18 @@
-export const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://srm-production-e5fc.up.railway.app"
-).replace(/\/+$/, "");
+const getBaseUrl = (): string => {
+  const envVal = (
+    process.env.NEXT_PUBLIC_API_BASE ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://srm-production-e5fc.up.railway.app"
+  ).trim();
+
+  let cleaned = envVal.replace(/\/+$/, "");
+  if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
+    cleaned = `https://${cleaned.replace(/^\/+/, "")}`;
+  }
+  return cleaned;
+};
+
+export const API_BASE = getBaseUrl();
 
 export const PATCH_SIZE_PX = 128;   // LR input patch size
 export const SR_SCALE_4X   = 4;     // → 512px output (16× pixel density)
