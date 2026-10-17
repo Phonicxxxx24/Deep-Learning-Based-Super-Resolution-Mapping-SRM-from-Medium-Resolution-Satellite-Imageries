@@ -1,7 +1,7 @@
 export const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8000"
+  "https://srm-production-e5fc.up.railway.app"
 ).replace(/\/+$/, "");
 
 export const PATCH_SIZE_PX = 128;   // LR input patch size

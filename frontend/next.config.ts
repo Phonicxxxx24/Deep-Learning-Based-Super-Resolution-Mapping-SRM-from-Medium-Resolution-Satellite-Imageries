@@ -11,6 +11,18 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "**" },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: "https://srm-production-e5fc.up.railway.app/api/:path*",
+      },
+      {
+        source: "/static/:path*",
+        destination: "https://srm-production-e5fc.up.railway.app/static/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
